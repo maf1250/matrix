@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>النظام الذكي لجدولة المتدربين</title>
-    <!-- تضمين مكتبة قراءة وكتابة ملفات الإكسل -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -36,16 +35,9 @@
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين تلقائياً</h1>
+    <h1>النظام الذكي لجدولة المتدربين</h1>
 
-    <div class="warning-box">
-        <div class="warning-title">💡 تحديثات ذكية:</div>
-        <ul>
-            <li>تم تفعيل <b>البحث الذكي عن العناوين</b>: النظام سيبحث تلقائياً عن عمود <code>الرقم</code> حتى لو كان في الصف الثالث أو أي مكان آخر.</li>
-        </ul>
-    </div>
-
-    <div class="settings-group">
+        <div class="settings-group">
         <h3>إعدادات ملف مصفوفة التسجيل</h3>
         <div class="settings-row">
             <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
@@ -140,23 +132,95 @@
         return results;
     }
 
-    // دالة قراءة متقدمة: تبحث عن صف العناوين ديناميكياً مهما كان موقعه (مثلاً الصف الثالث D3)
-    function readExcelRobust(file, expectedHeader) {
+    // --- دالة خاصة لقراءة ملف مصفوفة المتدربين (تعالج المشكلة التي ذكرتها) ---
+    function readMatrixFile(file, idHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[firstSheetName];
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                     
-                    // تحويل الشيت إلى مصفوفة ثنائية الأبعاد للبحث
+                    let idRowIndex = -1;
+                    let idColIndex = -1;
+                    
+                    // 1. البحث عن موقع خلية "الرقم" (مثلاً في D3)
+                    for (let r = 0; r < jsonArray.length; r++) {
+                        for (let c = 0; c < jsonArray[r].length; c++) {
+                            if (String(jsonArray[r][c]).trim() === idHeader) {
+                                idRowIndex = r;
+                                idColIndex = c;
+                                break;
+                            }
+                        }
+                        if (idRowIndex !== -1) break;
+                    }
+
+                    if (idRowIndex === -1) {
+                        reject(new Error(`لم يتم العثور على كلمة '${idHeader}' في ملف المتدربين.`));
+                        return;
+                    }
+
+                    // 2. استخراج رموز المقررات حصراً من (الصف الأول) Index 0
+                    let courseHeaders = [];
+                    for (let c = 0; c < jsonArray[0].length; c++) {
+                        if (c === idColIndex) {
+                            courseHeaders[c] = idHeader; // تسمية عمود الرقم
+                        } else {
+                            // سحب رمز المقرر من الصف الأول وتجاهل الفراغات
+                            courseHeaders[c] = String(jsonArray[0][c]).trim(); 
+                        }
+                    }
+
+                    const dataRows = [];
+                    
+                    // 3. بناء البيانات ابتداءً من الصف الذي يلي كلمة "الرقم"
+                    for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {};
+                        let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
+                        
+                        // إذا كان هناك رقم متدرب في هذا الصف
+                        if (traineeIdVal !== "") {
+                            rowObj[idHeader] = traineeIdVal;
+                            let hasRequests = false;
+                            
+                            for (let c = 0; c < courseHeaders.length; c++) {
+                                // أخذ القيمة التي تساوي 1 فقط إذا كان هناك رمز مقرر حقيقي فوقها
+                                if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
+                                    rowObj[courseHeaders[c]] = "1";
+                                    hasRequests = true;
+                                }
+                            }
+                            if (hasRequests) {
+                                dataRows.push(rowObj);
+                            }
+                        }
+                    }
+
+                    resolve(dataRows);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة ملف المتدربين."));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // --- دالة قراءة ملف SS01 العادية ---
+    function readSS01File(file, expectedHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                     
                     let headerRowIndex = -1;
-                    
-                    // البحث عن الصف الذي يحتوي على الكلمة المطلوبة (مثل: الرقم)
                     for (let i = 0; i < jsonArray.length; i++) {
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
                         if (rowStrings.includes(expectedHeader)) {
@@ -166,27 +230,24 @@
                     }
 
                     if (headerRowIndex === -1) {
-                        reject(new Error(`لم يتم العثور على عمود باسم '${expectedHeader}' في أي صف داخل الملف ${file.name}.`));
+                        reject(new Error(`لم يتم العثور على عمود '${expectedHeader}' في ملف الشعب SS01.`));
                         return;
                     }
 
                     const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
                     const dataRows = [];
                     
-                    // بناء البيانات ابتداءً من الصف الذي يلي العناوين
                     for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
                         let rowObj = {};
                         let hasData = false;
                         for (let j = 0; j < headers.length; j++) {
-                            if (headers[j]) { // تجاهل الأعمدة الفارغة (مثل A, B, C لو كان الجدول يبدأ من D)
+                            if (headers[j]) {
                                 let cellValue = jsonArray[i][j];
                                 rowObj[headers[j]] = cellValue;
                                 if (cellValue !== "") hasData = true;
                             }
                         }
-                        if (hasData) { // لا تضف الصفوف الفارغة بالكامل
-                            dataRows.push(rowObj);
-                        }
+                        if (hasData) dataRows.push(rowObj);
                     }
 
                     resolve(dataRows);
@@ -194,7 +255,7 @@
                     reject(err);
                 }
             };
-            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة الملف."));
+            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة ملف SS01."));
             reader.readAsArrayBuffer(file);
         });
     }
@@ -222,18 +283,18 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جارٍ المعالجة...';
+        btnText.innerText = 'جاري المعالجة...';
         statusDiv.innerHTML = '';
 
         try {
-            // استخدام دالة القراءة الذكية التي تتجاهل الصفوف العليا وتصل لصف العناوين مباشرة
+            // استخدام الدوال المخصصة لكل ملف
             let [traineesRaw, ss01Raw] = await Promise.all([
-                readExcelRobust(traineesFile, C_TRAINEE_ID), 
-                readExcelRobust(ss01File, C_COURSE)
+                readMatrixFile(traineesFile, C_TRAINEE_ID), 
+                readSS01File(ss01File, C_COURSE)
             ]);
             
-            if (traineesRaw.length === 0) throw new Error("ملف مصفوفة التسجيل لا يحتوي على بيانات صحيحة تحت صف العناوين.");
-            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 لا يحتوي على بيانات صحيحة تحت صف العناوين.");
+            if (traineesRaw.length === 0) throw new Error("لم يتم العثور على رغبات تسجيل للمتدربين.");
+            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 لا يحتوي على بيانات صحيحة.");
 
             let courseMap = {};
             let allSectionsRef = {};
@@ -269,14 +330,11 @@
 
             traineesRaw.forEach(tRow => {
                 let traineeId = tRow[C_TRAINEE_ID];
-                
-                if (!traineeId) return;
-
                 stats.total++;
-                let requiredCourses = [];
                 
+                let requiredCourses = [];
                 for (let key in tRow) {
-                    if (key !== C_TRAINEE_ID && (tRow[key] == 1 || String(tRow[key]).trim() === '1')) {
+                    if (key !== C_TRAINEE_ID && tRow[key] === "1") {
                         requiredCourses.push(key);
                     }
                 }
