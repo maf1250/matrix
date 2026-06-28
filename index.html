@@ -298,7 +298,7 @@
                 readSS01File(ss01File, C_COURSE)
             ]);
             
-            if (traineesRaw.length === 0) throw new Error("لم يتم العثور على رغبات تسجيل للمتدربين.");
+            if (traineesRaw.length === 0) throw new Error("لم يتم العثور مقررات متوقعة للمتدربين.");
             if (ss01Raw.length === 0) throw new Error("تقرير جداول الوحدة التدريبية طولي SS01 لا يحتوي على بيانات صحيحة.");
 
             let courseMap = {};
