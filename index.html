@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        /* ستايل المستخدم المخصص مع بعض التعديلات ليتوافق مع التصميم المطلوب */
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
         body { background-color: #f4f9f8; color: #333; margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
         .container { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 750px; width: 100%; position: relative; }
@@ -42,50 +41,31 @@
     <div class="warning-box">
         <div class="warning-title">💡 تعليمات هامة لضمان الدقة:</div>
         <ul>
-            <li>في <b>ملف المتدربين</b>: يجب أن يكون هناك عمود برأس <code>رقم المتدرب</code>، وبقية الأعمدة تمثل رموز المقررات، ويحتوي المربع على رقم <code>1</code> في حال رغبة التسجيل.</li>
-            <li>في <b>ملف SS01</b>: يرجى التأكد من مطابقة أسماء الأعمدة للإعدادات بالأسفل.</li>
+            <li>في <b>ملف المتدربين</b>: تأكد من وجود عمود باسم <code>رقم المتدرب</code>.</li>
+            <li>في <b>ملف SS01</b>: يفضل حفظ ملف الـ CSV بصيغة <b>Excel (.xlsx)</b> لتجنب مشاكل اللغة العربية.</li>
         </ul>
     </div>
 
-    <!-- إعدادات أسماء الأعمدة لتجنب أي أخطاء في المسميات -->
     <div class="settings-group">
-        <h3>إعدادات أسماء الأعمدة في تقرير SS01 (نأمل التأكد من مطابقتها)</h3>
+        <h3>إعدادات أسماء الأعمدة في تقرير SS01</h3>
         <div class="settings-row">
-            <div>
-                <label>عمود رمز المقرر</label>
-                <input type="text" id="col_course" value="المقرر">
-            </div>
-            <div>
-                <label>عمود الرقم المرجعي</label>
-                <input type="text" id="col_crn" value="الرقم المرجعي">
-            </div>
-            <div>
-                <label>عمود نوع الجدولة</label>
-                <input type="text" id="col_type" value="نوع الجدولة">
-            </div>
-            <div>
-                <label>عمود الوقت</label>
-                <input type="text" id="col_time" value="الوقت">
-            </div>
-            <div>
-                <label>عمود اليوم</label>
-                <input type="text" id="col_day" value="اليوم">
-            </div>
-            <div>
-                <label>عمود المتبقي (السعة)</label>
-                <input type="text" id="col_rem" value="متبقي">
-            </div>
+            <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
+            <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
+            <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
+            <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
+            <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
+            <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
         </div>
     </div>
 
     <div class="upload-group">
-        <label>1. ملف مصفوفة التسجيل والمتوقع </label>
-        <input type="file" id="traineesFile" accept=".xlsx, .xls">
+        <label>1. ملف المتدربين والمقررات المطلوبة</label>
+        <input type="file" id="traineesFile" accept=".xlsx, .xls, .csv">
     </div>
 
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
-        <input type="file" id="ss01File" accept=".csv">
+        <input type="file" id="ss01File" accept=".xlsx, .xls, .csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
@@ -97,30 +77,18 @@
 </div>
 
 <script>
-    // الدوال المساعدة للتعامل مع الأيام والأوقات
-    const daysMap = {
-        'الأحد': 0, 'الاحد': 0,
-        'الإثنين': 1, 'الاثنين': 1,
-        'الثلاثاء': 2,
-        'الأربعاء': 3, 'الاربعاء': 3,
-        'الخميس': 4,
-        'الجمعة': 5,
-        'السبت': 6
-    };
+    const daysMap = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
 
     function parseDays(dayStr) {
         if (!dayStr) return [];
         let str = String(dayStr).replace(/\s/g, '');
         let days = [];
-        for (let key in daysMap) {
-            if (str.includes(key)) days.push(daysMap[key]);
-        }
+        for (let key in daysMap) { if (str.includes(key)) days.push(daysMap[key]); }
         return days;
     }
 
     function parseTimeRange(timeStr) {
         if (!timeStr) return null;
-        // صيغة متوقعة: 08:00 - 09:50 أو 08:00 ص - 09:50 ص
         let parts = String(timeStr).split('-');
         if (parts.length < 2) return null;
 
@@ -133,25 +101,19 @@
             if (t.includes('ص') && hrs === 12) hrs = 0;
             return hrs * 60 + mins;
         }
-
         return { start: toMinutes(parts[0]), end: toMinutes(parts[1]) };
     }
 
     function checkConflict(sec1, sec2) {
-        // إذا كان أحدهما بدون وقت/أيام (مثل التعليم عن بعد)، فلا يوجد تعارض
         if (!sec1.timeData || !sec2.timeData || sec1.days.length === 0 || sec2.days.length === 0) return false;
-        
         let dayOverlap = sec1.days.some(d => sec2.days.includes(d));
         if (!dayOverlap) return false;
-
         return (sec1.timeData.start < sec2.timeData.end && sec2.timeData.start < sec1.timeData.end);
     }
 
     function getCombinations(optionsPerType) {
-        // توليد الاحتمالات لاختيار شعبة واحدة من كل نوع جدولة للمقرر
         let keys = Object.keys(optionsPerType);
         if (keys.length === 0) return [];
-        
         let results = [];
         function helper(idx, currentCombo) {
             if (idx === keys.length) {
@@ -160,7 +122,6 @@
             }
             let type = keys[idx];
             for (let sec of optionsPerType[type]) {
-                // التأكد من عدم تعارض الشعبة مع الشعب الأخرى لنفس المقرر
                 let hasConflictInside = currentCombo.some(c => checkConflict(c, sec));
                 if (!hasConflictInside) {
                     currentCombo.push(sec);
@@ -171,6 +132,15 @@
         }
         helper(0, []);
         return results;
+    }
+
+    // دالة لتنظيف أسماء الأعمدة من المسافات المخفية
+    function normalizeRowKeys(row) {
+        let normalized = {};
+        for (let key in row) {
+            normalized[key.trim()] = row[key];
+        }
+        return normalized;
     }
 
     async function startProcessing() {
@@ -186,7 +156,6 @@
             return;
         }
 
-        // قراءة أسماء الأعمدة من الإعدادات
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
         const C_TYPE = document.getElementById('col_type').value.trim();
@@ -196,23 +165,25 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جاري المعالجة والذكاء الاصطناعي يعمل...';
+        btnText.innerText = 'جاري المعالجة...';
         statusDiv.innerHTML = '';
 
         try {
-            // 1. قراءة الملفات
             let [traineesRaw, ss01Raw] = await Promise.all([readExcel(traineesFile), readExcel(ss01File)]);
             
-            // 2. معالجة ملف SS01
-            // هيكلة: courseMap[courseCode][type] = [section1, section2, ...]
+            if (traineesRaw.length === 0) throw new Error("ملف المتدربين فارغ أو لم يتم قراءته بشكل صحيح.");
+            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 فارغ أو لم يتم قراءته بشكل صحيح.");
+
             let courseMap = {};
-            let allSectionsRef = {}; // للوصول السريع وتحديث المتبقي
+            let allSectionsRef = {};
 
             ss01Raw.forEach(row => {
-                let code = row[C_COURSE];
-                let crn = row[C_CRN];
-                let type = row[C_TYPE] || 'نظري'; // افتراضي إذا كان فارغاً
-                let rem = parseInt(row[C_REM]) || 0;
+                let nRow = normalizeRowKeys(row); // تنظيف المسافات من أسماء الأعمدة
+
+                let code = nRow[C_COURSE];
+                let crn = nRow[C_CRN];
+                let type = nRow[C_TYPE] || 'نظري';
+                let rem = parseInt(nRow[C_REM]) || 0;
                 
                 if (!code || !crn) return;
 
@@ -221,33 +192,38 @@
                     crn: crn,
                     type: type,
                     remaining: rem,
-                    days: parseDays(row[C_DAY]),
-                    timeData: parseTimeRange(row[C_TIME]),
-                    raw: row
+                    days: parseDays(nRow[C_DAY]),
+                    timeData: parseTimeRange(nRow[C_TIME]),
+                    raw: nRow
                 };
 
                 allSectionsRef[crn] = section;
-
                 if (!courseMap[code]) courseMap[code] = {};
                 if (!courseMap[code][type]) courseMap[code][type] = [];
                 courseMap[code][type].push(section);
             });
 
-            // 3. معالجة بيانات المتدربين وبناء الجدول
+            if(Object.keys(courseMap).length === 0) {
+                 throw new Error("لم يتم العثور على أي بيانات في ملف الشعب. تأكد من مطابقة أسماء الأعمدة في الإعدادات، أو قم بحفظ ملف الـ CSV بصيغة Excel.");
+            }
+
             let mainSheetData = [];
             let unregisteredData = [];
             let conflictsData = [];
-            
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             traineesRaw.forEach(tRow => {
-                let traineeId = tRow['رقم المتدرب'];
-                if (!traineeId) return;
+                let nRow = normalizeRowKeys(tRow); // تنظيف المسافات من أسماء الأعمدة
+                let traineeId = nRow['رقم المتدرب'];
+                
+                if (!traineeId) return; // إذا كان الصف فارغاً
 
                 stats.total++;
                 let requiredCourses = [];
-                for (let key in tRow) {
-                    if (key !== 'رقم المتدرب' && tRow[key] == 1) {
+                
+                for (let key in nRow) {
+                    // يقبل الرقم 1 كنص أو كرقم
+                    if (key !== 'رقم المتدرب' && (nRow[key] == 1 || String(nRow[key]).trim() === '1')) {
                         requiredCourses.push(key);
                     }
                 }
@@ -263,7 +239,6 @@
                         return;
                     }
 
-                    // تصفية الشعب بناءً على المقاعد المتبقية > 0
                     let validOptionsPerType = {};
                     let hasMissingCapacity = false;
 
@@ -277,14 +252,9 @@
                         return;
                     }
 
-                    // توليد كل الاحتمالات الممكنة لاختيار شقوق المقرر
                     let combinations = getCombinations(validOptionsPerType);
-
-                    // تصفية الاحتمالات التي لا تتعارض مع جدول الطالب الحالي
                     let validForStudent = combinations.filter(combo => {
-                        return !combo.some(sec => 
-                            studentSchedule.some(schedSec => checkConflict(sec, schedSec))
-                        );
+                        return !combo.some(sec => studentSchedule.some(schedSec => checkConflict(sec, schedSec)));
                     });
 
                     if (validForStudent.length === 0) {
@@ -292,30 +262,25 @@
                         return;
                     }
 
-                    // الاختيار الذكي: نفضل الاحتمال الذي يعطينا أكبر سعة متبقية (لحفظ توازن الشعب)
                     validForStudent.sort((a, b) => {
                         let sumA = a.reduce((sum, s) => sum + s.remaining, 0);
                         let sumB = b.reduce((sum, s) => sum + s.remaining, 0);
-                        return sumB - sumA; // الأكبر أولاً
+                        return sumB - sumA; 
                     });
 
                     let bestCombo = validForStudent[0];
-
-                    // تسجيل الطالب في هذه الشعب
                     bestCombo.forEach(sec => {
-                        sec.remaining -= 1; // خصم المقعد
+                        sec.remaining -= 1;
                         studentSchedule.push(sec);
                         studentCrns.push(sec.crn);
                     });
                     registeredCount++;
                 });
 
-                // تصنيف الطالب للإحصائيات
                 if (registeredCount === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
                 else if (registeredCount > 0) stats.partialSuccess++;
                 else stats.failed++;
 
-                // تجهيز صف الطالب للشيت الرئيسي
                 let mainRow = { 'رقم المتدرب': traineeId };
                 studentCrns.forEach((crn, idx) => {
                     mainRow[`الرقم المرجعي ${idx + 1}`] = crn;
@@ -323,7 +288,10 @@
                 mainSheetData.push(mainRow);
             });
 
-            // 4. تقرير الشعب الممتلئة
+            if (stats.total === 0) {
+                 throw new Error("لم يتم العثور على عمود باسم 'رقم المتدرب' في ملف المتدربين، يرجى التأكد من اسم العمود.");
+            }
+
             let fullSectionsData = [];
             for (let crn in allSectionsRef) {
                 if (allSectionsRef[crn].remaining === 0) {
@@ -336,7 +304,6 @@
                 }
             }
 
-            // 5. تقرير الإحصائيات
             let statsData = [
                 { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
                 { 'البيان': 'مسجلين بالكامل بنجاح', 'العدد': stats.fullSuccess },
@@ -344,17 +311,13 @@
                 { 'البيان': 'لم يتم تسجيلهم في أي مقرر', 'العدد': stats.failed }
             ];
 
-            // 6. إنشاء ملف الإكسل النهائي باستخدام SheetJS
             const wb = XLSX.utils.book_new();
-
-            const wsMain = XLSX.utils.json_to_sheet(mainSheetData);
-            const wsFull = XLSX.utils.json_to_sheet(fullSectionsData);
-            const wsUnreg = XLSX.utils.json_to_sheet(unregisteredData);
-            const wsConflicts = XLSX.utils.json_to_sheet(conflictsData);
+            const wsMain = XLSX.utils.json_to_sheet(mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
+            const wsFull = XLSX.utils.json_to_sheet(fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا يوجد شعب ممتلئة' }]);
+            const wsUnreg = XLSX.utils.json_to_sheet(unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا يوجد متدربين غير مسجلين' }]);
+            const wsConflicts = XLSX.utils.json_to_sheet(conflictsData.length ? conflictsData : [{ 'ملاحظة': 'لا توجد تعارضات' }]);
             const wsStats = XLSX.utils.json_to_sheet(statsData);
 
-            // تعيين اتجاه الشيتات ليكون من اليمين لليسار (RTL)
-            const rtlProps = { "!dir": "rtl" };
             wsMain["!dir"] = "rtl"; wsFull["!dir"] = "rtl"; wsUnreg["!dir"] = "rtl"; wsConflicts["!dir"] = "rtl"; wsStats["!dir"] = "rtl";
 
             XLSX.utils.book_append_sheet(wb, wsMain, "الجدول الأساسي");
@@ -364,12 +327,11 @@
             XLSX.utils.book_append_sheet(wb, wsStats, "إحصائيات النجاح");
 
             XLSX.writeFile(wb, "تقرير_الجداول_الذكي.xlsx");
-
-            statusDiv.innerHTML = ' تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
+            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
 
         } catch (error) {
             console.error(error);
-            statusDiv.innerHTML = `<span class="error">حدث خطأ أثناء المعالجة: ${error.message}</span>`;
+            statusDiv.innerHTML = `<span class="error">حدث خطأ: ${error.message}</span>`;
         } finally {
             btn.disabled = false;
             loader.style.display = 'none';
@@ -377,7 +339,6 @@
         }
     }
 
-    // دالة مساعدة لقراءة ملف الإكسل باستخدام FileReader و SheetJS
     function readExcel(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -386,7 +347,7 @@
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const firstSheetName = workbook.SheetNames[0];
-                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: "" });
                     resolve(jsonData);
                 } catch (err) {
                     reject(err);
