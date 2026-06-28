@@ -14,20 +14,27 @@
         .upload-group { margin-bottom: 20px; background: #fafdfa; border: 2px dashed #8dc63f; padding: 15px; border-radius: 8px; text-align: right; }
         .upload-group label { display: flex; align-items: center; font-weight: 600; margin-bottom: 10px; color: #008e7e; gap: 8px; }
         input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }
-        .settings-group { background: #eef7f6; border: 1px solid #cbe6e3; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .settings-group h3 { margin-top: 0; color: #006d60; font-size: 16px; text-align: center; margin-bottom: 15px; }
+        
+        /* تنسيق قسم الإعدادات الذكي (القابل للطي) */
+        .advanced-settings { background: #eef7f6; border: 1px solid #cbe6e3; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s ease; }
+        .advanced-settings summary { font-weight: 800; color: #006d60; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none; }
+        .advanced-settings summary::-webkit-details-marker { display: none; }
+        .advanced-settings summary::after { content: '▼'; font-size: 12px; transition: transform 0.3s ease; color: #008e7e; }
+        .advanced-settings[open] summary::after { transform: rotate(180deg); }
+        .settings-content { margin-top: 20px; border-top: 1px dashed #b2d8d3; padding-top: 20px; display: flex; flex-direction: column; gap: 25px; }
+        .inner-group h3 { margin-top: 0; color: #006d60; font-size: 15px; text-align: center; margin-bottom: 15px; }
+        
         .settings-row { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
         .settings-row div { flex: 1; min-width: 150px; display: flex; flex-direction: column; align-items: center; }
         .settings-row label { font-weight: 600; margin-bottom: 8px; font-size: 12px; color: #006d60; }
-        .settings-row input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+        .settings-row input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-family: inherit; }
         .settings-row input:focus { outline: none; border-color: #008e7e; }
+        
         .btn-process { background-color: #008e7e; color: #fff; border: none; padding: 15px 20px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-process:hover { background-color: #006d60; }
         .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
         .status-msg { text-align: center; margin-top: 15px; font-weight: 600; color: #006d60; }
         .error { color: #dc3545; }
-        .warning-box { background-color: #fff8c4; border-right: 5px solid #ffc107; padding: 15px; text-align: right; border-radius: 4px; margin-bottom: 20px; border: 1px solid #ffeeba; font-size: 14px; }
-        .warning-title { color: #d39e00; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -35,35 +42,42 @@
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين تلقائياً</h1>
+    <h1>النظام الذكي لجدولة المتدربين</h1>
 
-    <div class="settings-group">
-        <h3>إعدادات ملف مصفوفة التسجيل</h3>
-        <div class="settings-row">
-            <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
-        </div>
-    </div>
+    <!-- قسم الإعدادات القابل للطي (مخفي افتراضياً) -->
+    <details class="advanced-settings">
+        <summary>⚙️ إعدادات متقدمة (تخصيص أسماء الأعمدة)</summary>
+        
+        <div class="settings-content">
+            <div class="inner-group">
+                <h3>إعدادات ملف مصفوفة التسجيل</h3>
+                <div class="settings-row">
+                    <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                </div>
+            </div>
 
-    <div class="settings-group">
-        <h3>إعدادات تقرير الشعب (SS01)</h3>
-        <div class="settings-row">
-            <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
-            <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
-            <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
-            <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
-            <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
-            <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
+            <div class="inner-group">
+                <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
+                <div class="settings-row">
+                    <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
+                    <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
+                    <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
+                    <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
+                    <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
+                    <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
+                </div>
+            </div>
         </div>
-    </div>
+    </details>
 
     <div class="upload-group">
         <label>1. ملف مصفوفة التسجيل والمتوقع</label>
-        <input type="file" id="traineesFile" accept=".xlsx, .xls, .csv">
+        <input type="file" id="traineesFile" accept=".xlsx, .xls">
     </div>
 
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
-        <input type="file" id="ss01File" accept=".xlsx, .xls, .csv">
+        <input type="file" id="ss01File" accept=".csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
@@ -132,7 +146,6 @@
         return results;
     }
 
-    // --- دالة خاصة لقراءة ملف مصفوفة المتدربين (تعالج المشكلة التي ذكرتها) ---
     function readMatrixFile(file, idHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -146,7 +159,6 @@
                     let idRowIndex = -1;
                     let idColIndex = -1;
                     
-                    // 1. البحث عن موقع خلية "الرقم" (مثلاً في D3)
                     for (let r = 0; r < jsonArray.length; r++) {
                         for (let c = 0; c < jsonArray[r].length; c++) {
                             if (String(jsonArray[r][c]).trim() === idHeader) {
@@ -159,35 +171,30 @@
                     }
 
                     if (idRowIndex === -1) {
-                        reject(new Error(`لم يتم العثور على كلمة '${idHeader}' في ملف المتدربين.`));
+                        reject(new Error(`لم يتم العثور على كلمة '${idHeader}' في ملف مصفوفة التسجيل.`));
                         return;
                     }
 
-                    // 2. استخراج رموز المقررات حصراً من (الصف الأول) Index 0
                     let courseHeaders = [];
                     for (let c = 0; c < jsonArray[0].length; c++) {
                         if (c === idColIndex) {
-                            courseHeaders[c] = idHeader; // تسمية عمود الرقم
+                            courseHeaders[c] = idHeader; 
                         } else {
-                            // سحب رمز المقرر من الصف الأول وتجاهل الفراغات
                             courseHeaders[c] = String(jsonArray[0][c]).trim(); 
                         }
                     }
 
                     const dataRows = [];
                     
-                    // 3. بناء البيانات ابتداءً من الصف الذي يلي كلمة "الرقم"
                     for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
                         let rowObj = {};
                         let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
                         
-                        // إذا كان هناك رقم متدرب في هذا الصف
                         if (traineeIdVal !== "") {
                             rowObj[idHeader] = traineeIdVal;
                             let hasRequests = false;
                             
                             for (let c = 0; c < courseHeaders.length; c++) {
-                                // أخذ القيمة التي تساوي 1 فقط إذا كان هناك رمز مقرر حقيقي فوقها
                                 if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
                                     rowObj[courseHeaders[c]] = "1";
                                     hasRequests = true;
@@ -204,12 +211,11 @@
                     reject(err);
                 }
             };
-            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة ملف المتدربين."));
+            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة ملف مصفوفة التسجيل."));
             reader.readAsArrayBuffer(file);
         });
     }
 
-    // --- دالة قراءة ملف SS01 العادية ---
     function readSS01File(file, expectedHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -230,7 +236,7 @@
                     }
 
                     if (headerRowIndex === -1) {
-                        reject(new Error(`لم يتم العثور على عمود '${expectedHeader}' في ملف الشعب SS01.`));
+                        reject(new Error(`لم يتم العثور على عمود '${expectedHeader}' في تقرير جداول الوحدة التدريبية طولي SS01.`));
                         return;
                     }
 
@@ -255,7 +261,7 @@
                     reject(err);
                 }
             };
-            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة ملف SS01."));
+            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة تقريرSS01."));
             reader.readAsArrayBuffer(file);
         });
     }
@@ -283,18 +289,17 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جاري المعالجة...';
+        btnText.innerText = 'جار المعالجة...';
         statusDiv.innerHTML = '';
 
         try {
-            // استخدام الدوال المخصصة لكل ملف
             let [traineesRaw, ss01Raw] = await Promise.all([
                 readMatrixFile(traineesFile, C_TRAINEE_ID), 
                 readSS01File(ss01File, C_COURSE)
             ]);
             
             if (traineesRaw.length === 0) throw new Error("لم يتم العثور على رغبات تسجيل للمتدربين.");
-            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 لا يحتوي على بيانات صحيحة.");
+            if (ss01Raw.length === 0) throw new Error("تقرير جداول الوحدة التدريبية طولي SS01 لا يحتوي على بيانات صحيحة.");
 
             let courseMap = {};
             let allSectionsRef = {};
@@ -346,7 +351,7 @@
                 requiredCourses.forEach(courseCode => {
                     let availableTypes = courseMap[courseCode];
                     if (!availableTypes) {
-                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في ملف الشعب' });
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في تقرير جداول الوحدة التدريبية طولي' });
                         return;
                     }
 
