@@ -27,7 +27,7 @@
         .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
         .status-msg { text-align: center; margin-top: 15px; font-weight: 600; color: #006d60; }
         .error { color: #dc3545; }
-        .warning-box { background-color: #fff8c4; border-right: 5px solid #ffc107; padding: 15px; text-align: right; border-radius: 4px; margin-top: 20px; border: 1px solid #ffeeba; font-size: 14px; }
+        .warning-box { background-color: #fff8c4; border-right: 5px solid #ffc107; padding: 15px; text-align: right; border-radius: 4px; margin-bottom: 20px; border: 1px solid #ffeeba; font-size: 14px; }
         .warning-title { color: #d39e00; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -39,15 +39,21 @@
     <h1>النظام الذكي لجدولة المتدربين تلقائياً</h1>
 
     <div class="warning-box">
-        <div class="warning-title">💡 تعليمات هامة لضمان الدقة:</div>
+        <div class="warning-title">💡 تحديثات ذكية:</div>
         <ul>
-            <li>في <b>ملف المتدربين</b>: تأكد من وجود عمود باسم <code>رقم المتدرب</code>.</li>
-            <li>في <b>ملف SS01</b>: يفضل حفظ ملف الـ CSV بصيغة <b>Excel (.xlsx)</b> لتجنب مشاكل اللغة العربية.</li>
+            <li>تم تفعيل <b>البحث الذكي عن العناوين</b>: النظام سيبحث تلقائياً عن عمود <code>الرقم</code> حتى لو كان في الصف الثالث أو أي مكان آخر.</li>
         </ul>
     </div>
 
     <div class="settings-group">
-        <h3>إعدادات أسماء الأعمدة في تقرير SS01</h3>
+        <h3>إعدادات ملف مصفوفة التسجيل</h3>
+        <div class="settings-row">
+            <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+        </div>
+    </div>
+
+    <div class="settings-group">
+        <h3>إعدادات تقرير الشعب (SS01)</h3>
         <div class="settings-row">
             <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
             <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
@@ -59,7 +65,7 @@
     </div>
 
     <div class="upload-group">
-        <label>1. ملف المتدربين والمقررات المطلوبة</label>
+        <label>1. ملف مصفوفة التسجيل والمتوقع</label>
         <input type="file" id="traineesFile" accept=".xlsx, .xls, .csv">
     </div>
 
@@ -134,13 +140,63 @@
         return results;
     }
 
-    // دالة لتنظيف أسماء الأعمدة من المسافات المخفية
-    function normalizeRowKeys(row) {
-        let normalized = {};
-        for (let key in row) {
-            normalized[key.trim()] = row[key];
-        }
-        return normalized;
+    // دالة قراءة متقدمة: تبحث عن صف العناوين ديناميكياً مهما كان موقعه (مثلاً الصف الثالث D3)
+    function readExcelRobust(file, expectedHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[firstSheetName];
+                    
+                    // تحويل الشيت إلى مصفوفة ثنائية الأبعاد للبحث
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    
+                    let headerRowIndex = -1;
+                    
+                    // البحث عن الصف الذي يحتوي على الكلمة المطلوبة (مثل: الرقم)
+                    for (let i = 0; i < jsonArray.length; i++) {
+                        let rowStrings = jsonArray[i].map(c => String(c).trim());
+                        if (rowStrings.includes(expectedHeader)) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIndex === -1) {
+                        reject(new Error(`لم يتم العثور على عمود باسم '${expectedHeader}' في أي صف داخل الملف ${file.name}.`));
+                        return;
+                    }
+
+                    const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
+                    const dataRows = [];
+                    
+                    // بناء البيانات ابتداءً من الصف الذي يلي العناوين
+                    for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {};
+                        let hasData = false;
+                        for (let j = 0; j < headers.length; j++) {
+                            if (headers[j]) { // تجاهل الأعمدة الفارغة (مثل A, B, C لو كان الجدول يبدأ من D)
+                                let cellValue = jsonArray[i][j];
+                                rowObj[headers[j]] = cellValue;
+                                if (cellValue !== "") hasData = true;
+                            }
+                        }
+                        if (hasData) { // لا تضف الصفوف الفارغة بالكامل
+                            dataRows.push(rowObj);
+                        }
+                    }
+
+                    resolve(dataRows);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(new Error("حدث خطأ أثناء قراءة الملف."));
+            reader.readAsArrayBuffer(file);
+        });
     }
 
     async function startProcessing() {
@@ -156,6 +212,7 @@
             return;
         }
 
+        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
         const C_TYPE = document.getElementById('col_type').value.trim();
@@ -165,25 +222,27 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جاري المعالجة...';
+        btnText.innerText = 'جارٍ المعالجة...';
         statusDiv.innerHTML = '';
 
         try {
-            let [traineesRaw, ss01Raw] = await Promise.all([readExcel(traineesFile), readExcel(ss01File)]);
+            // استخدام دالة القراءة الذكية التي تتجاهل الصفوف العليا وتصل لصف العناوين مباشرة
+            let [traineesRaw, ss01Raw] = await Promise.all([
+                readExcelRobust(traineesFile, C_TRAINEE_ID), 
+                readExcelRobust(ss01File, C_COURSE)
+            ]);
             
-            if (traineesRaw.length === 0) throw new Error("ملف المتدربين فارغ أو لم يتم قراءته بشكل صحيح.");
-            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 فارغ أو لم يتم قراءته بشكل صحيح.");
+            if (traineesRaw.length === 0) throw new Error("ملف مصفوفة التسجيل لا يحتوي على بيانات صحيحة تحت صف العناوين.");
+            if (ss01Raw.length === 0) throw new Error("ملف شعب SS01 لا يحتوي على بيانات صحيحة تحت صف العناوين.");
 
             let courseMap = {};
             let allSectionsRef = {};
 
             ss01Raw.forEach(row => {
-                let nRow = normalizeRowKeys(row); // تنظيف المسافات من أسماء الأعمدة
-
-                let code = nRow[C_COURSE];
-                let crn = nRow[C_CRN];
-                let type = nRow[C_TYPE] || 'نظري';
-                let rem = parseInt(nRow[C_REM]) || 0;
+                let code = row[C_COURSE];
+                let crn = row[C_CRN];
+                let type = row[C_TYPE] || 'نظري';
+                let rem = parseInt(row[C_REM]) || 0;
                 
                 if (!code || !crn) return;
 
@@ -192,9 +251,9 @@
                     crn: crn,
                     type: type,
                     remaining: rem,
-                    days: parseDays(nRow[C_DAY]),
-                    timeData: parseTimeRange(nRow[C_TIME]),
-                    raw: nRow
+                    days: parseDays(row[C_DAY]),
+                    timeData: parseTimeRange(row[C_TIME]),
+                    raw: row
                 };
 
                 allSectionsRef[crn] = section;
@@ -203,27 +262,21 @@
                 courseMap[code][type].push(section);
             });
 
-            if(Object.keys(courseMap).length === 0) {
-                 throw new Error("لم يتم العثور على أي بيانات في ملف الشعب. تأكد من مطابقة أسماء الأعمدة في الإعدادات، أو قم بحفظ ملف الـ CSV بصيغة Excel.");
-            }
-
             let mainSheetData = [];
             let unregisteredData = [];
             let conflictsData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             traineesRaw.forEach(tRow => {
-                let nRow = normalizeRowKeys(tRow); // تنظيف المسافات من أسماء الأعمدة
-                let traineeId = nRow['رقم المتدرب'];
+                let traineeId = tRow[C_TRAINEE_ID];
                 
-                if (!traineeId) return; // إذا كان الصف فارغاً
+                if (!traineeId) return;
 
                 stats.total++;
                 let requiredCourses = [];
                 
-                for (let key in nRow) {
-                    // يقبل الرقم 1 كنص أو كرقم
-                    if (key !== 'رقم المتدرب' && (nRow[key] == 1 || String(nRow[key]).trim() === '1')) {
+                for (let key in tRow) {
+                    if (key !== C_TRAINEE_ID && (tRow[key] == 1 || String(tRow[key]).trim() === '1')) {
                         requiredCourses.push(key);
                     }
                 }
@@ -235,7 +288,7 @@
                 requiredCourses.forEach(courseCode => {
                     let availableTypes = courseMap[courseCode];
                     if (!availableTypes) {
-                        unregisteredData.push({ 'رقم المتدرب': traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في ملف الشعب' });
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في ملف الشعب' });
                         return;
                     }
 
@@ -248,7 +301,7 @@
                     }
 
                     if (hasMissingCapacity) {
-                        unregisteredData.push({ 'رقم المتدرب': traineeId, 'رمز المقرر': courseCode, 'السبب': 'لا توجد مقاعد شاغرة (ممتلئ)' });
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'لا توجد مقاعد شاغرة (ممتلئ)' });
                         return;
                     }
 
@@ -258,7 +311,7 @@
                     });
 
                     if (validForStudent.length === 0) {
-                        conflictsData.push({ 'رقم المتدرب': traineeId, 'رمز المقرر': courseCode, 'السبب': 'تعارض مع الجدول أو تعارض داخلي' });
+                        conflictsData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'تعارض مع الجدول أو تعارض داخلي' });
                         return;
                     }
 
@@ -281,16 +334,12 @@
                 else if (registeredCount > 0) stats.partialSuccess++;
                 else stats.failed++;
 
-                let mainRow = { 'رقم المتدرب': traineeId };
+                let mainRow = { [C_TRAINEE_ID]: traineeId };
                 studentCrns.forEach((crn, idx) => {
                     mainRow[`الرقم المرجعي ${idx + 1}`] = crn;
                 });
                 mainSheetData.push(mainRow);
             });
-
-            if (stats.total === 0) {
-                 throw new Error("لم يتم العثور على عمود باسم 'رقم المتدرب' في ملف المتدربين، يرجى التأكد من اسم العمود.");
-            }
 
             let fullSectionsData = [];
             for (let crn in allSectionsRef) {
@@ -337,25 +386,6 @@
             loader.style.display = 'none';
             btnText.innerText = 'معالجة وبناء الجداول';
         }
-    }
-
-    function readExcel(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: "" });
-                    resolve(jsonData);
-                } catch (err) {
-                    reject(err);
-                }
-            };
-            reader.onerror = (err) => reject(err);
-            reader.readAsArrayBuffer(file);
-        });
     }
 </script>
 
