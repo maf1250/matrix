@@ -51,7 +51,7 @@
     <h1>النظام الذكي لجدولة المتدربين</h1>
 
     <details class="advanced-settings">
-        <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
+        <summary>⚙️  تخصيص أسماء الأعمدة (تُحفظ تلقائياً عند التعديل)</summary>
         <div class="settings-content">
             <div class="inner-group">
                 <h3>إعدادات ملف مصفوفة التسجيل</h3>
@@ -92,6 +92,27 @@
 </div>
 
 <script>
+    // --- إعدادات الحفظ التلقائي في LocalStorage ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const inputIds = ['col_trainee_id', 'col_course', 'col_crn', 'col_type', 'col_time', 'col_day', 'col_rem'];
+        
+        inputIds.forEach(id => {
+            const inputEl = document.getElementById(id);
+            // استرجاع القيمة المحفوظة إن وجدت
+            const savedValue = localStorage.getItem(id);
+            if (savedValue !== null) {
+                inputEl.value = savedValue;
+            }
+            
+            // حفظ القيمة تلقائياً عند تغييرها
+            inputEl.addEventListener('input', (e) => {
+                localStorage.setItem(id, e.target.value);
+            });
+        });
+    });
+
+    // --- ثوابت وإعدادات النظام ---
+    const MAX_ITERATIONS = 15000; // تم رفع الحد الأقصى مع تقنية Pruning لضمان أداء عالي جداً
     const daysMap = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
     const reverseDaysMap = { 0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت' };
 
@@ -213,7 +234,7 @@
                         }
                         if (idRowIndex !== -1) break;
                     }
-                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على '${idHeader}'`)); return; }
+                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${idHeader}' في مصفوفة التسجيل`)); return; }
 
                     let courseHeaders = [];
                     for (let c = 0; c < jsonArray[0].length; c++) {
@@ -258,7 +279,7 @@
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
                         if (rowStrings.includes(expectedHeader)) { headerRowIndex = i; break; }
                     }
-                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على '${expectedHeader}'`)); return; }
+                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${expectedHeader}' في تقرير SS01`)); return; }
 
                     const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
                     const dataRows = [];
@@ -282,36 +303,29 @@
         const workbook = new ExcelJS.Workbook();
         
         for (let sheetInfo of sheetsData) {
-            // إضافة الورقة وتعيين الاتجاه للغة العربية
             const worksheet = workbook.addWorksheet(sheetInfo.name, { 
-            views: [
-            { rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }
-            ] 
-});            
+                views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] 
+            });            
             if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
 
-            // بناء الأعمدة والترويسة
             const headers = Object.keys(sheetInfo.data[0]);
             worksheet.columns = headers.map(header => ({
                 header: header,
                 key: header,
-                width: 25 // عرض مناسب للبيانات
+                width: 25
             }));
             
-            // إضافة الصفوف
             worksheet.addRows(sheetInfo.data);
             
-            // تنسيق ترويسة الجدول (اللون والخلفية)
             const headerRow = worksheet.getRow(1);
-            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // خط أبيض
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
             headerRow.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FF008E7E' } // خلفية خضراء مثل التصميم
+                fgColor: { argb: 'FF008E7E' }
             };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-            // توسيط وتسطير جميع الخلايا
             worksheet.eachRow((row, rowNumber) => {
                 row.eachCell({ includeEmpty: true }, (cell) => {
                     if (rowNumber > 1) {
@@ -325,20 +339,19 @@
                     };
                 });
             });
-            // التعديل التلقائي لعرض الأعمدة بناءً على المحتوى
-worksheet.columns.forEach(column => {
-    let maxLength = 0;
-    column.eachCell({ includeEmpty: true }, cell => {
-        let columnLength = cell.value ? cell.value.toString().length : 0;
-        if (columnLength > maxLength) {
-            maxLength = columnLength;
-        }
-    });
-    column.width = maxLength < 15 ? 15 : maxLength + 2; // عرض أدنى 15 وأقصى حسب النص
-});
+
+            worksheet.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    let columnLength = cell.value ? cell.value.toString().length : 0;
+                    if (columnLength > maxLength) {
+                        maxLength = columnLength;
+                    }
+                });
+                column.width = maxLength < 15 ? 15 : maxLength + 2;
+            });
         }
 
-        // حفظ الملف
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(blob, filename);
@@ -459,8 +472,17 @@ worksheet.columns.forEach(column => {
                 let iterations = 0;
 
                 function findBestSchedule(cIndex, currentSched, currentCodes) {
-                    if (iterations > 3000) return; 
+                    if (iterations > MAX_ITERATIONS) return; 
                     iterations++;
+
+                    // === إضافة الـ Pruning (التشذيب) لزيادة السرعة ===
+                    // إذا كان أقصى عدد يمكن الوصول إليه من المقررات (التي تم إضافتها + المتبقية) 
+                    // أقل من أو يساوي أفضل نتيجة وجدناها (maxCourses)، فلا داعي لإكمال هذا المسار.
+                    let remainingCoursesToTry = courseOptions.length - cIndex;
+                    if (currentCodes.length + remainingCoursesToTry < maxCourses) {
+                        return; // Pruning!
+                    }
+                    // ===============================================
 
                     if (cIndex === courseOptions.length) {
                         if (currentCodes.length > maxCourses) {
@@ -488,6 +510,7 @@ worksheet.columns.forEach(column => {
                             findBestSchedule(cIndex + 1, currentSched.concat(combo), currentCodes.concat([cOpt.code]));
                         }
                     }
+                    // مسار الاحتمال في حال تخطي المقرر الحالي
                     findBestSchedule(cIndex + 1, currentSched, currentCodes);
                 }
 
@@ -613,10 +636,9 @@ worksheet.columns.forEach(column => {
                 { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
                 { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
                 { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
-                { 'البيان': 'لم يتم تسجيلهم مطلقاً', 'العدد': stats.failed }
+                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
             ];
 
-            // تجهيز البيانات للتصدير عبر ExcelJS
             const sheetsToExport = [
                 { name: "جدول المتدربين", data: mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
                 { name: "المقررات المعينة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
