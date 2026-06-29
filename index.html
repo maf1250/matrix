@@ -191,7 +191,7 @@
             let lastEnd = times[times.length - 1].end;
             if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
         }
-        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 5);
+        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 20);
         return score;
     }
 
@@ -283,8 +283,11 @@
         
         for (let sheetInfo of sheetsData) {
             // إضافة الورقة وتعيين الاتجاه للغة العربية
-            const worksheet = workbook.addWorksheet(sheetInfo.name, { views: [{ rightToLeft: true }] });
-            
+            const worksheet = workbook.addWorksheet(sheetInfo.name, { 
+            views: [
+            { rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }
+            ] 
+});            
             if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
 
             // بناء الأعمدة والترويسة
@@ -322,6 +325,17 @@
                     };
                 });
             });
+            // التعديل التلقائي لعرض الأعمدة بناءً على المحتوى
+worksheet.columns.forEach(column => {
+    let maxLength = 0;
+    column.eachCell({ includeEmpty: true }, cell => {
+        let columnLength = cell.value ? cell.value.toString().length : 0;
+        if (columnLength > maxLength) {
+            maxLength = columnLength;
+        }
+    });
+    column.width = maxLength < 15 ? 15 : maxLength + 2; // عرض أدنى 15 وأقصى حسب النص
+});
         }
 
         // حفظ الملف
