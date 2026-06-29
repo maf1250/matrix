@@ -451,6 +451,7 @@ return {
             let mainSheetData = [];
             let assignedCodesData = [];
             let unregisteredData = [];
+            let notAssignedData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             // تحسين 1: تحويل الحلقة لمنع تجمد المتصفح وإظهار شريط التقدم
@@ -630,9 +631,20 @@ return {
                     }
                 });
 
-                if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
-                else if (finalCodes.length > 0) stats.partialSuccess++;
-                else stats.failed++;
+                if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) {
+    stats.fullSuccess++;
+}
+else if (finalCodes.length > 0) {
+    stats.partialSuccess++;
+}
+else {
+    stats.failed++;
+
+    notAssignedData.push({
+        [C_TRAINEE_NAME]: trainee.name,
+        [C_TRAINEE_ID]: traineeId
+    });
+}
 
                 let mainRow = {
                     [C_TRAINEE_NAME]: trainee.name,
@@ -677,6 +689,7 @@ return {
             const sheetsToExport = [
                 { name: "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
                 { name: "تقرير السعات", data: capacityData },
                 { name: "إحصائيات لكل مقرر", data: courseStatsData },
