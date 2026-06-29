@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>النظام الذكي لجدولة المتدربين</title>
+    
+    <!-- SheetJS لقراءة الملفات بسرعة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق احترافي (RTL) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
@@ -41,7 +48,7 @@
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين </h1>
+    <h1>النظام الذكي لجدولة المتدربين</h1>
 
     <details class="advanced-settings">
         <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
@@ -157,7 +164,7 @@
         return results;
     }
 
-    // تقييم الجدول لاختيار الأفضل (أيام أقل، فجوات أقل، خروج مبكر)
+    // تقييم الجدول: تم رفع وزن الفجوات لتكون الأولوية القصوى للمتدرب بعد عدد الأيام
     function scoreSchedule(schedule) {
         let daysUsed = new Set();
         let dailyClasses = {};
@@ -180,19 +187,18 @@
             times.sort((a, b) => a.start - b.start);
             for (let i = 0; i < times.length - 1; i++) {
                 let gap = times[i+1].start - times[i].end;
-                if (gap > 0) totalGaps += gap; // حساب الفجوات
+                if (gap > 0) totalGaps += gap; 
             }
             let lastEnd = times[times.length - 1].end;
-            if (lastEnd > maxEndTime) maxEndTime = lastEnd; // وقت الخروج
+            if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
         }
 
-        // المعادلة: الأولوية لأيام أقل (وزن كبير)، ثم فجوات أقل، ثم خروج مبكر
-        // السعة المتبقية تستخدم كعامل ثانوي لترك المقاعد
-        let score = (daysUsed.size * 5000) + (totalGaps * 10) + maxEndTime - (minRemaining * 5);
+        // تم رفع وزن الفجوات (totalGaps * 50) لتجنب الفراغات قدر الإمكان
+        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 5);
         return score;
     }
 
-    // قراءة الملفات (نفس الدوال السابقة)
+    // قراءة الملفات باستخدام SheetJS
     function readMatrixFile(file, idHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -274,6 +280,59 @@
         });
     }
 
+    // دالة التصدير باستخدام ExcelJS لتنسيق احترافي (RTL)
+    async function exportToExcel(sheetsData, filename) {
+        const workbook = new ExcelJS.Workbook();
+        
+        for (let sheetInfo of sheetsData) {
+            // إضافة الورقة وتعيين الاتجاه للغة العربية
+            const worksheet = workbook.addWorksheet(sheetInfo.name, { views: [{ rightToLeft: true }] });
+            
+            if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
+
+            // بناء الأعمدة والترويسة
+            const headers = Object.keys(sheetInfo.data[0]);
+            worksheet.columns = headers.map(header => ({
+                header: header,
+                key: header,
+                width: 25 // عرض مناسب للبيانات
+            }));
+            
+            // إضافة الصفوف
+            worksheet.addRows(sheetInfo.data);
+            
+            // تنسيق ترويسة الجدول (اللون والخلفية)
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // خط أبيض
+            headerRow.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF008E7E' } // خلفية خضراء مثل التصميم
+            };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            // توسيط وتسطير جميع الخلايا
+            worksheet.eachRow((row, rowNumber) => {
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                    if (rowNumber > 1) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                    }
+                    cell.border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                });
+            });
+        }
+
+        // حفظ الملف
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, filename);
+    }
+
     async function startProcessing() {
         const traineesFile = document.getElementById('traineesFile').files[0];
         const ss01File = document.getElementById('ss01File').files[0];
@@ -308,8 +367,8 @@
             let courseMap = {};
             let allSectionsRef = {};
             let courseTotalCapacity = {};
-            let courseOriginalCapacity = {}; // للإحصائيات والسعات
-            let courseStats = {}; // تتبع إحصائيات كل مقرر
+            let courseOriginalCapacity = {}; 
+            let courseStats = {}; 
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
@@ -334,7 +393,6 @@
                 }
             });
 
-            // حساب السعة التقريبية والأصلية
             for (let code in courseMap) {
                 let minCap = -1;
                 for (let type in courseMap[code]) {
@@ -385,13 +443,12 @@
                     }
                 });
 
-                // خوارزمية Backtracking (البحث الشجري للبحث عن أفضل توليفة للمتدرب)
                 let bestSchedules = [];
                 let maxCourses = 0;
                 let iterations = 0;
 
                 function findBestSchedule(cIndex, currentSched, currentCodes) {
-                    if (iterations > 3000) return; // حماية من تجميد المتصفح
+                    if (iterations > 3000) return; 
                     iterations++;
 
                     if (cIndex === courseOptions.length) {
@@ -420,14 +477,11 @@
                             findBestSchedule(cIndex + 1, currentSched.concat(combo), currentCodes.concat([cOpt.code]));
                         }
                     }
-
-                    // الاستمرار في التجربة حتى لو تخطينا هذا المقرر
                     findBestSchedule(cIndex + 1, currentSched, currentCodes);
                 }
 
                 findBestSchedule(0, [], []);
 
-                // اختيار الجدول صاحب أفضل تقييم للمتدرب
                 let finalSchedule = [];
                 let finalCodes = [];
                 if (bestSchedules.length > 0) {
@@ -436,7 +490,6 @@
                     finalCodes = [...new Set(finalSchedule.map(s => s.code))];
                 }
 
-                // تسجيل المقررات وتحديث السعة
                 let studentCrns = [];
                 finalSchedule.forEach(sec => {
                     sec.remaining -= 1;
@@ -448,7 +501,6 @@
                     courseStats[code].registered++;
                 });
 
-                // رصد التعارضات التفصيلية للمقررات التي لم يتم تسجيلها
                 requiredCourses.forEach(code => {
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
@@ -464,7 +516,6 @@
                             if (isFull) {
                                 reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
                             } else {
-                                // محاولة إضافته للجدول المعتمد لمعرفة سبب التعارض الدقيق
                                 let availableTypes = courseMap[code];
                                 let validOptions = {};
                                 for (let type in availableTypes) validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
@@ -481,11 +532,10 @@
                                     }
                                     if (specificConflict) break;
                                 }
-                                reason = specificConflict ? specificConflict : "لم نتمكن من إيجاد تركيبة مناسبة للجدول";
+                                reason = specificConflict ? specificConflict : "تعارض مركّب لا يمكن تجنبه";
                             }
                         }
 
-                        // إضافة السبب للإحصائيات
                         courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
                         unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
@@ -505,7 +555,6 @@
                 });
             });
 
-            // تجهيز تقرير السعات (Feature 4)
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
                 let orig = courseOriginalCapacity[code];
@@ -519,7 +568,6 @@
                 });
             }
 
-            // تجهيز الإحصائيات لكل مقرر (Feature 5)
             let courseStatsData = [];
             for (let code in courseStats) {
                 let d = courseStats[code];
@@ -538,7 +586,6 @@
                 }
             }
 
-            // الشعب الممتلئة
             let fullSectionsData = [];
             for (let crn in allSectionsRef) {
                 if (allSectionsRef[crn].remaining === 0) {
@@ -558,27 +605,20 @@
                 { 'البيان': 'لم يتم تسجيلهم مطلقاً', 'العدد': stats.failed }
             ];
 
-            const wb = XLSX.utils.book_new();
-            const wsMain = XLSX.utils.json_to_sheet(mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsAssigned = XLSX.utils.json_to_sheet(assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsCap = XLSX.utils.json_to_sheet(capacityData.length ? capacityData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsCStats = XLSX.utils.json_to_sheet(courseStatsData.length ? courseStatsData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsUnreg = XLSX.utils.json_to_sheet(unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsFull = XLSX.utils.json_to_sheet(fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            const wsGlobalStats = XLSX.utils.json_to_sheet(globalStatsData);
+            // تجهيز البيانات للتصدير عبر ExcelJS
+            const sheetsToExport = [
+                { name: "جدول المتدربين", data: mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "المقررات المسجلة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "أسباب الرفض والتعارض", data: unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "تقرير السعات", data: capacityData.length ? capacityData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "إحصائيات لكل مقرر", data: courseStatsData.length ? courseStatsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "الشعب الممتلئة", data: fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "الإحصاء العام", data: globalStatsData }
+            ];
 
-            [wsMain, wsAssigned, wsCap, wsCStats, wsUnreg, wsFull, wsGlobalStats].forEach(ws => ws["!dir"] = "rtl");
-
-            XLSX.utils.book_append_sheet(wb, wsMain, "جدول المتدربين");
-            XLSX.utils.book_append_sheet(wb, wsAssigned, "المقررات المسجلة");
-            XLSX.utils.book_append_sheet(wb, wsUnreg, "تفاصيل أسباب الرفض والتعارض");
-            XLSX.utils.book_append_sheet(wb, wsCap, "تقرير السعات");
-            XLSX.utils.book_append_sheet(wb, wsCStats, "إحصائيات لكل مقرر");
-            XLSX.utils.book_append_sheet(wb, wsFull, "الشعب الممتلئة");
-            XLSX.utils.book_append_sheet(wb, wsGlobalStats, "الإحصاء العام");
-
-            XLSX.writeFile(wb, "تقرير_الجداول_الذكي.xlsx");
-            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً! ';
+            await exportToExcel(sheetsToExport, "تقرير_الجداول_الذكي.xlsx");
+            
+            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
 
         } catch (error) {
             console.error(error);
@@ -586,7 +626,7 @@
         } finally {
             btn.disabled = false;
             loader.style.display = 'none';
-            btnText.innerText = 'معالجة وبناء الجداول';
+            btnText.innerText = 'معالجة وبناء الجداول بذكاء';
         }
     }
 </script>
