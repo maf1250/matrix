@@ -212,14 +212,27 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-                    
-                    let idRowIndex = -1, idColIndex = -1;
+                    let idRowIndex = -1;
+                    let idColIndex = -1;
+                    let nameColIndex = -1;
                     for (let r = 0; r < jsonArray.length; r++) {
-                        for (let c = 0; c < jsonArray[r].length; c++) {
-                            if (String(jsonArray[r][c]).trim() === idHeader) { idRowIndex = r; idColIndex = c; break; }
-                        }
-                        if (idRowIndex !== -1) break;
+                    for (let c = 0; c < jsonArray[r].length; c++) {
+                    let value = String(jsonArray[r][c]).trim();
+
+                    if (value === idHeader) {
+                    idRowIndex = r;
+                    idColIndex = c;
                     }
+
+                    if (value === nameHeader) {
+                    nameColIndex = c;
+                    }
+                    }
+
+                    if (idColIndex !== -1 && nameColIndex !== -1) {
+                    break;
+                }
+                }
                     if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${idHeader}' في ملف المتدربين`)); return; }
 
                    let courseHeaders = [];
