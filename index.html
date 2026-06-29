@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محرك الجدولة الخبير V6 - Global Optimizer</title>
+    <title>Titan Engine V7 - محرك الجدولة العالمي</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
@@ -11,61 +11,86 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #008e7e; --secondary: #8dc63f; --bg: #f4f9f8; --danger: #dc3545; }
+        :root { --primary: #005f56; --secondary: #7bb32e; --accent: #ff9800; --bg: #f0f4f4; }
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-        body { background-color: var(--bg); color: #333; margin: 0; padding: 20px; }
-        .container { background-color: #fff; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
-        h1 { text-align: center; color: var(--primary); font-weight: 800; }
-        .version { text-align: center; color: var(--secondary); font-size: 14px; margin-bottom: 25px; font-weight: 700; }
-        .card { background: #fafdfa; border: 2px dashed #c2e0d9; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
-        .card label { display: block; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
-        .btn-process { background-color: var(--primary); color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-size: 20px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .btn-process:hover { background-color: #006d60; transform: translateY(-2px); }
-        .progress-box { margin-top: 25px; display: none; }
-        .bar-container { background: #eee; height: 16px; border-radius: 10px; overflow: hidden; margin-bottom: 5px; }
-        .bar-fill { background: var(--secondary); width: 0%; height: 100%; transition: 0.2s; }
-        .status-text { text-align: center; font-size: 14px; color: var(--primary); font-weight: 700; }
-        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-        .settings-grid input { width: 100%; padding: 5px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+        body { background-color: var(--bg); color: #2c3e50; padding: 20px; }
+        .container { background-color: #fff; padding: 35px; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.12); max-width: 1000px; margin: auto; }
+        h1 { text-align: center; color: var(--primary); font-weight: 800; font-size: 28px; margin-bottom: 5px; }
+        .version { text-align: center; color: var(--secondary); font-size: 15px; margin-bottom: 30px; font-weight: 700; letter-spacing: 1px; }
+        
+        .upload-card { background: #f9fdfc; border: 2px solid #e0ecea; padding: 25px; border-radius: 15px; margin-bottom: 20px; transition: 0.3s; }
+        .upload-card:hover { border-color: var(--primary); }
+        .upload-card label { display: block; font-weight: 700; margin-bottom: 12px; color: var(--primary); font-size: 16px; }
+        
+        .btn-run { background: linear-gradient(135deg, var(--primary), #008e7e); color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 22px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 20px rgba(0,95,86,0.25); transition: 0.3s; }
+        .btn-run:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,95,86,0.35); }
+        .btn-run:disabled { background: #bdc3c7; cursor: not-allowed; transform: none; }
+
+        .log-box { margin-top: 25px; background: #2c3e50; color: #ecf0f1; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 13px; height: 180px; overflow-y: auto; line-height: 1.6; }
+        
+        .progress-section { margin-top: 25px; display: none; }
+        .bar-outer { background: #ddd; height: 18px; border-radius: 20px; overflow: hidden; }
+        .bar-inner { background: linear-gradient(90deg, var(--secondary), #a0d468); width: 0%; height: 100%; transition: 0.3s; }
+        
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-item { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 10px; text-align: center; }
+        .stat-val { display: block; font-size: 20px; font-weight: 800; color: var(--primary); }
+        .stat-lbl { font-size: 12px; color: #7f8c8d; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين (V6)</h1>
-    <div class="version">Global Optimizer Pass - Fairness & Balancing</div>
+    <h1>Titan Engine V7</h1>
+    <div class="version">GLOBAL TRANSACTIONAL OPTIMIZER (ITERATIVE)</div>
 
-    <details class="card">
-        <summary style="cursor:pointer; font-weight:800; color:var(--primary)">⚙️ إعدادات الحقول</summary>
-        <div class="settings-grid">
-            <div><label>رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
-            <div><label>رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
-            <div><label>الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
-            <div><label>الوقت</label><input type="text" id="col_time" value="الوقت"></div>
-            <div><label>اليوم</label><input type="text" id="col_day" value="اليوم"></div>
-            <div><label>المتبقي</label><input type="text" id="col_rem" value="متبقي"></div>
-        </div>
-    </details>
+    <div class="upload-card">
+        <label>1. مصفوفة الطلبات (.xlsx)</label>
+        <input type="file" id="matrixFile" accept=".xlsx, .xls">
+    </div>
 
-    <div class="card"><label>1. مصفوفة طلبات التسجيل (.xlsx)</label><input type="file" id="matrixFile"></div>
-    <div class="card"><label>2. تقرير جداول الشعب SS01 (.xlsx)</label><input type="file" id="ss01File"></div>
+    <div class="upload-card">
+        <label>2. جداول الشعب SS01 (.xlsx)</label>
+        <input type="file" id="ss01File" accept=".xlsx, .xls">
+    </div>
 
-    <button class="btn-process" id="processBtn" onclick="runGlobalOptimizer()">بدء المعالجة العالمية</button>
+    <button class="btn-run" id="startBtn" onclick="runTitanEngine()">إطلاق محرك التحسين العالمي</button>
 
-    <div class="progress-box" id="progressBox">
-        <div class="bar-container"><div class="bar-fill" id="barFill"></div></div>
-        <div class="status-text" id="statusText">جاري تهيئة المحرك...</div>
+    <div class="progress-section" id="progArea">
+        <div class="bar-outer"><div class="bar-inner" id="bar"></div></div>
+        <div id="statusTxt" style="text-align:center; font-weight:700; margin-top:8px; color:var(--primary)">جاري التهيئة...</div>
+    </div>
+
+    <div class="log-box" id="log">/ محرك Titan جاهز للعمل...</div>
+
+    <div class="stat-grid" id="stats" style="display:none">
+        <div class="stat-item"><span class="stat-val" id="st-time">0</span><span class="stat-lbl">زمن المعالجة</span></div>
+        <div class="stat-item"><span class="stat-val" id="st-rounds">0</span><span class="stat-lbl">جولات التحسين</span></div>
+        <div class="stat-item"><span class="stat-val" id="st-swaps">0</span><span class="stat-lbl">تبديلات ناجحة</span></div>
+        <div class="stat-item"><span class="stat-val" id="st-total">0</span><span class="stat-lbl">إجمالي المقاعد</span></div>
     </div>
 </div>
 
 <script>
+/**
+ * TITAN ENGINE V7 CORE
+ * الخوارزمية: Iterative Transactional Swap-Chains (ITSC)
+ */
+
 const DAYS_MAP = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4 };
 const SLOT_SIZE = 30;
 
+// أدوات المعالجة
+const log = (msg) => {
+    const l = document.getElementById('log');
+    l.innerHTML += `<br>> ${msg}`;
+    l.scrollTop = l.scrollHeight;
+};
+
 const parseTime = (tStr) => {
     if (!tStr) return null;
-    let parts = String(tStr).split('-');
-    if (parts.length < 2) return null;
+    let p = String(tStr).split('-');
+    if (p.length < 2) return null;
     const toMin = (s) => {
         let m = s.match(/(\d+):(\d+)/);
         if (!m) return 0;
@@ -74,189 +99,225 @@ const parseTime = (tStr) => {
         if (s.includes('ص') && h === 12) h = 0;
         return h * 60 + min;
     };
-    let start = toMin(parts[0]), end = toMin(parts[1]);
-    return { start, end, str: tStr };
+    return { start: toMin(p[0]), end: toMin(p[1]) };
 };
 
 const getMask = (days, timeData) => {
     let masks = Array(5).fill(0n);
     if (!timeData) return masks;
-    let durationMask = 0n;
-    for (let i = Math.floor(timeData.start/SLOT_SIZE); i < Math.ceil(timeData.end/SLOT_SIZE); i++) 
-        durationMask |= (1n << BigInt(i));
-    days.forEach(d => { if(d >= 0 && d < 5) masks[d] = durationMask; });
+    let dur = 0n;
+    for (let i = Math.floor(timeData.start/SLOT_SIZE); i < Math.ceil(timeData.end/SLOT_SIZE); i++) dur |= (1n << BigInt(i));
+    days.forEach(d => { if(d >= 0 && d < 5) masks[d] = dur; });
     return masks;
 };
 
-async function runGlobalOptimizer() {
-    const startTime = performance.now();
+async function runTitanEngine() {
+    const startT = performance.now();
     const files = { m: document.getElementById('matrixFile').files[0], s: document.getElementById('ss01File').files[0] };
-    if (!files.m || !files.s) return alert("يرجى اختيار الملفات");
+    if(!files.m || !files.s) return alert("يرجى اختيار الملفات");
 
-    const cols = {
-        trainee: document.getElementById('col_trainee_id').value,
-        course: document.getElementById('col_course').value,
-        crn: document.getElementById('col_crn').value,
-        time: document.getElementById('col_time').value,
-        day: document.getElementById('col_day').value,
-        rem: document.getElementById('col_rem').value
-    };
-
-    const btn = document.getElementById('processBtn'), pBox = document.getElementById('progressBox'), bar = document.getElementById('barFill'), txt = document.getElementById('statusText');
-    btn.disabled = true; pBox.style.display = 'block';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('progArea').style.display = 'block';
+    log("بدء تحميل البيانات...");
 
     try {
-        txt.innerText = "تحميل وتحليل البيانات...";
         const [mRaw, sRaw] = await Promise.all([readExcel(files.m), readExcel(files.s)]);
-
-        // 1. بناء قاعدة بيانات الشعب (masterSections)
-        let masterSections = {}; 
-        let courseGroups = {};
-        let sHeader = sRaw.find(r => r.includes(cols.course));
-        let sIdx = sHeader.reduce((acc, c, i) => ({...acc, [String(c).trim()]: i}), {});
+        
+        // 1. بناء قاعدة البيانات
+        let master = {}, groups = {};
+        let sHeader = sRaw.find(r => r.includes("المقرر")); // نفترض اسم العمود الافتراضي
+        let sIdx = sHeader.reduce((a,c,i)=>({...a, [String(c).trim()]:i}), {});
 
         sRaw.slice(sRaw.indexOf(sHeader)+1).forEach(row => {
-            let code = row[sIdx[cols.course]], crn = row[sIdx[cols.crn]];
+            let code = row[sIdx["المقرر"]], crn = row[sIdx["الرقم المرجعي"]];
             if (!code || !crn) return;
-            let days = []; for(let k in DAYS_MAP) if(String(row[sIdx[cols.day]]).includes(k)) days.push(DAYS_MAP[k]);
-            let timeData = parseTime(row[sIdx[cols.time]]);
-            
-            masterSections[crn] = {
-                crn, code, 
-                type: row[sIdx['نوع الجدولة']] || 'نظري',
-                rem: parseInt(row[sIdx[cols.rem]]) || 0,
-                orig: parseInt(row[sIdx[cols.rem]]) || 0,
-                mask: getMask(days, timeData),
-                timeData: timeData, // إصلاح الخطأ 1
-                dayStr: row[sIdx[cols.day]],
-                timeStr: row[sIdx[cols.time]]
+            let days = []; for(let k in DAYS_MAP) if(String(row[sIdx["اليوم"]]).includes(k)) days.push(DAYS_MAP[k]);
+            let tData = parseTime(row[sIdx["الوقت"]]);
+            master[crn] = {
+                crn, code, type: row[sIdx["نوع الجدولة"]] || 'نظري',
+                rem: parseInt(row[sIdx["متبقي"]]) || 0, orig: parseInt(row[sIdx["متبقي"]]) || 0,
+                mask: getMask(days, tData), timeData: tData, dayStr: row[sIdx["اليوم"]], timeStr: row[sIdx["الوقت"]]
             };
-            if(!courseGroups[code]) courseGroups[code] = {};
-            if(!courseGroups[code][masterSections[crn].type]) courseGroups[code][masterSections[crn].type] = [];
-            courseGroups[code][masterSections[crn].type].push(crn);
+            if(!groups[code]) groups[code] = {};
+            if(!groups[code][master[crn].type]) groups[code][master[crn].type] = [];
+            groups[code][master[crn].type].push(crn);
         });
 
         // 2. الكاش ID-Based
         let comboCache = {};
-        for (let code in courseGroups) {
-            comboCache[code] = generateIDCombos(courseGroups[code], Object.keys(courseGroups[code]), 0, masterSections);
-        }
+        for(let c in groups) comboCache[c] = generateIDCombos(groups[c], Object.keys(groups[c]), 0, master);
 
-        // 3. تحليل المتدربين (MRV)
-        let mHeader = mRaw[0], mIdx = mHeader.reduce((acc, c, i) => ({...acc, [String(c).trim()]: i}), {});
-        let courseStats = {};
+        // 3. تحليل المتدربين (MRV + Degree من V5)
+        let mHeader = mRaw[0], mIdx = mHeader.reduce((a,c,i)=>({...a, [String(c).trim()]:i}), {});
         let trainees = mRaw.slice(1).map(row => {
             let req = [];
-            mHeader.forEach((h, i) => {
-                if (h !== cols.trainee && String(row[i]) === "1") {
-                    req.push(h);
-                    if (!courseStats[h]) courseStats[h] = { req:0, ok:0, fail:0, reasons:{} };
-                }
-            });
-            return { id: row[mIdx[cols.trainee]], req, assigned: [] };
+            mHeader.forEach((h, i) => { if(h !== "الرقم" && String(row[i]) === "1") req.push(h); });
+            return { id: row[mIdx["الرقم"]], req, assigned: [], score: -Infinity };
         }).filter(t => t.id);
 
-        // ترتيب البداية
-        trainees.sort((a,b) => b.req.length - a.req.length);
+        const getWeight = (c) => {
+            if(!comboCache[c]) return 9999;
+            let s = 0; for(let t in groups[c]) s += groups[c][t].reduce((a,id)=>a+master[id].rem, 0);
+            return (1000/(s+1)) + (500/(comboCache[c].length+1));
+        };
+        trainees.sort((a,b) => b.req.reduce((s,c)=>s+getWeight(c),0) - a.req.reduce((s,c)=>s+getWeight(c),0));
 
-        // --- المرحلة 1: التوزيع الذكي (CSP Pass) ---
-        txt.innerText = "المرحلة 1: التوزيع الأولي (FCFS + CSP)...";
-        for (let i = 0; i < trainees.length; i++) {
-            let t = trainees[i];
-            let { schedule } = solveCSP(t.req, comboCache, masterSections);
+        // --- المرحلة 1: التوزيع الأولي (CSP) ---
+        log("المرحلة 1: التوزيع الأولي (CSP Mode)...");
+        trainees.forEach((t, i) => {
+            let { schedule } = solveCSP(t.req, comboCache, master);
             t.assigned = schedule;
-            schedule.flat().forEach(crn => masterSections[crn].rem--);
-            
-            if (i % 50 === 0) {
-                bar.style.width = (i/trainees.length * 50) + '%';
-                await new Promise(r => setTimeout(r, 0));
-            }
-        }
-
-        // --- المرحلة 2: إعادة التوازن (Global Optimization) ---
-        txt.innerText = "المرحلة 2: تحسين التوازن العالمي (Fairness Pass)...";
-        let bottlenecks = Object.keys(courseStats).filter(c => courseGroups[c]);
-        
-        for (let t of trainees) {
-            let failed = t.req.filter(c => !t.assigned.some(combo => masterSections[combo[0]].code === c));
-            if (failed.length > 0) {
-                for (let failCode of failed) {
-                    // محاولة "الزحزحة": هل يمكن لمتدرب آخر تبديل شعبته لتوفير مكان لهذا؟
-                    attemptRebalance(t, failCode, trainees, comboCache, masterSections);
-                }
-            }
-        }
-
-        // 4. تجميع النتائج والتقارير
-        let results = [], rejections = [], global = { full:0, partial:0, none:0 };
-        trainees.forEach(t => {
-            let assignedCodes = t.assigned.map(c => masterSections[c[0]].code);
-            t.req.forEach(c => {
-                courseStats[c].req++;
-                if (assignedCodes.includes(c)) courseStats[c].ok++;
-                else {
-                    courseStats[c].fail++;
-                    let reason = "تعارض زمني أو سعة ممتلئة";
-                    rejections.push({ id: t.id, code: c, reason });
-                    courseStats[c].reasons[reason] = (courseStats[c].reasons[reason] || 0) + 1;
-                }
-            });
-            if(assignedCodes.length === t.req.length) global.full++;
-            else if(assignedCodes.length > 0) global.partial++;
-            else global.none++;
-            results.push({ id: t.id, crns: t.assigned.flat().join(', '), count: assignedCodes.length });
+            t.score = scoreSchedule(schedule, master);
+            schedule.flat().forEach(id => master[id].rem--);
         });
 
-        const execTime = (performance.now() - startTime) / 1000;
-        await exportV6Excel(results, rejections, courseStats, masterSections, global, trainees.length, execTime);
-        txt.innerText = "تم الانتهاء بنجاح!"; bar.style.width = '100%';
+        // --- المرحلة 2: التحسين التكراري (Titan Optimizer) ---
+        log("المرحلة 2: بدء جولات التحسين العالمي...");
+        let round = 0, totalSwaps = 0;
+        let improved = true;
 
-    } catch (e) { console.error(e); txt.innerHTML = `<span style="color:red">خطأ: ${e.message}</span>`; }
-    finally { btn.disabled = false; }
+        while(improved && round < 10) {
+            round++;
+            let roundSwaps = 0;
+            log(`الجولة ${round}: فحص المتدربين المتعثرين...`);
+
+            for(let t of trainees) {
+                let missing = t.req.filter(c => !t.assigned.some(combo => master[combo[0]].code === c));
+                if(missing.length > 0) {
+                    for(let mCode of missing) {
+                        if(attemptTitanSwap(t, mCode, trainees, comboCache, master)) {
+                            roundSwaps++;
+                            totalSwaps++;
+                        }
+                    }
+                }
+            }
+            log(`اكتملت الجولة ${round}: تم إجراء ${roundSwaps} تبديل.`);
+            if(roundSwaps === 0) improved = false;
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        // 4. التصدير والنتائج
+        document.getElementById('stats').style.display = 'grid';
+        document.getElementById('st-time').innerText = ((performance.now()-startT)/1000).toFixed(1) + "s";
+        document.getElementById('st-rounds').innerText = round;
+        document.getElementById('st-swaps').innerText = totalSwaps;
+        document.getElementById('st-total').innerText = trainees.reduce((a,b)=>a+b.assigned.length, 0);
+
+        await exportV7Excel(trainees, master, round, totalSwaps);
+        log("اكتملت العملية بنجاح.");
+
+    } catch (e) { log(`خطأ حرج: ${e.message}`); console.error(e); }
+    finally { document.getElementById('startBtn').disabled = false; }
 }
 
-function solveCSP(requested, cache, master) {
-    let bestSched = [], bestScore = -Infinity;
+/**
+ * دالة التبديل العالمي (Transactional Swap)
+ * تحاول إيجاد "مانح" يغير شعبته ليفتح مكاناً لـ "مستقبل"
+ */
+function attemptTitanSwap(recipient, targetCode, allTrainees, cache, master) {
+    let possibleCombos = cache[targetCode] || [];
     
-    function solve(pending, currentMask, currentSched) {
-        if (currentSched.length + pending.length < bestSched.length) return; // Pruning
+    for (let combo of possibleCombos) {
+        // 1. تحديد الشعب الممتلئة التي تمنع المستقبل من الحجز
+        let bottlenecks = combo.filter(id => master[id].rem <= 0);
+        if (bottlenecks.length === 0) continue; 
 
-        if (pending.length === 0) {
-            let score = scoreSchedule(currentSched, master);
-            if (currentSched.length > bestSched.length || (currentSched.length === bestSched.length && score > bestScore)) {
-                bestSched = currentSched.map(c => [...c]); // إصلاح الخطأ 5
-                bestScore = score;
+        for (let bId of bottlenecks) {
+            // 2. البحث عن كافة المتبرعين الممكنين لهذه الشعبة
+            let potentialDonors = allTrainees.filter(t => t.assigned.flat().includes(bId));
+            
+            for (let donor of potentialDonors) {
+                let donorCourse = master[bId].code;
+                let altCombos = cache[donorCourse].filter(c => !c.includes(bId));
+
+                for (let alt of altCombos) {
+                    // --- TRANSACTION START ---
+                    let snapshot = { 
+                        donorPrev: donor.assigned, 
+                        recipientPrev: recipient.assigned,
+                        donorPrevScore: donor.score
+                    };
+
+                    // فحص السعة للشعبة البديلة (هل يوجد مكان للمتبرع؟)
+                    if (alt.every(id => master[id].rem > 0 || donor.assigned.flat().includes(id))) {
+                        // فحص التعارض للمتبرع
+                        let dMask = Array(5).fill(0n);
+                        donor.assigned.filter(c => !c.includes(bId)).flat().forEach(id => master[id].mask.forEach((m,d)=>dMask[d]|=m));
+                        
+                        if (alt.every(id => !hasConflict(master[id].mask, dMask))) {
+                            // تبديل مؤقت للمتبرع
+                            let oldDonorCombo = donor.assigned.find(c => c.includes(bId));
+                            donor.assigned = donor.assigned.filter(c => !c.includes(bId)).concat([alt]);
+                            let newDonorScore = scoreSchedule(donor.assigned, master);
+
+                            // شرط حماية المتبرع: لا نسمح بتبديل يخفض الدرجة بأكثر من 10%
+                            if (newDonorScore >= snapshot.donorPrevScore * 0.9) {
+                                // تنفيذ الخصم/الزيادة المؤقتة في السعات
+                                oldDonorCombo.forEach(id => master[id].rem++);
+                                alt.forEach(id => master[id].rem--);
+
+                                // الآن: هل يمكن للمستقبل الحجز؟
+                                let rMask = Array(5).fill(0n);
+                                recipient.assigned.flat().forEach(id => master[id].mask.forEach((m,d)=>rMask[d]|=m));
+
+                                if (combo.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, rMask))) {
+                                    // نجحت الصفقة! التثبيت (Commit)
+                                    recipient.assigned.push(combo);
+                                    combo.forEach(id => master[id].rem--);
+                                    recipient.score = scoreSchedule(recipient.assigned, master);
+                                    donor.score = newDonorScore;
+                                    return true; 
+                                } else {
+                                    // فشل المستقبل (Rollback) للسعات وجدول المتبرع
+                                    alt.forEach(id => master[id].rem++);
+                                    oldDonorCombo.forEach(id => master[id].rem--);
+                                    donor.assigned = snapshot.donorPrev;
+                                }
+                            } else {
+                                // فشل بسبب درجة المتبرع (Rollback)
+                                donor.assigned = snapshot.donorPrev;
+                            }
+                        }
+                    }
+                    // --- TRANSACTION END ---
+                }
             }
+        }
+    }
+    return false;
+}
+
+function solveCSP(req, cache, master) {
+    let best = [];
+    function solve(pending, mask, current) {
+        if (current.length + pending.length < best.length) return;
+        if (pending.length === 0) {
+            if (current.length > best.length) best = current.map(c => [...c]);
             return;
         }
-
         let code = pending[0];
-        let combos = (cache[code] || []).filter(c => c.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, currentMask)));
-
-        for (let combo of combos) {
-            let nextMask = [...currentMask];
-            combo.forEach(id => master[id].mask.forEach((m,d) => nextMask[d] |= m));
-            solve(pending.slice(1), nextMask, currentSched.concat([combo]));
+        let combos = (cache[code] || []).filter(c => c.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, mask)));
+        for (let c of combos) {
+            let nextMask = [...mask];
+            c.forEach(id => master[id].mask.forEach((m,d) => nextMask[d] |= m));
+            solve(pending.slice(1), nextMask, current.concat([c]));
         }
-        solve(pending.slice(1), currentMask, currentSched);
+        solve(pending.slice(1), mask, current);
     }
-    solve(requested, Array(5).fill(0n), []);
-    return { schedule: bestSched };
+    solve(req, Array(5).fill(0n), []);
+    return { schedule: best };
 }
 
 function hasConflict(m1, m2) { return m1.some((m, d) => (m & m2[d]) !== 0n); }
 
 function scoreSchedule(sched, master) {
-    if (sched.length === 0) return -9999;
-    let days = new Set(), gaps = 0, lastEnd = 0, earliestStart = 1440;
-    let dayMap = {0:[],1:[],2:[],3:[],4:[]};
-
+    if (!sched || sched.length === 0) return 0;
+    let days = new Set(), gaps = 0, lastEnd = 0, earliestStart = 1440, dayMap = {0:[],1:[],2:[],3:[],4:[]};
     sched.flat().forEach(id => {
         let s = master[id];
-        if(!s.timeData) return; // حماية
         s.mask.forEach((m, d) => { if(m > 0n) dayMap[d].push(s.timeData); });
     });
-
     for(let d in dayMap) {
         let evs = dayMap[d].sort((a,b)=>a.start-b.start);
         if(evs.length > 0) {
@@ -266,48 +327,7 @@ function scoreSchedule(sched, master) {
             for(let i=0; i<evs.length-1; i++) gaps += (evs[i+1].start - evs[i].end);
         }
     }
-    // إصلاح الخطأ 3: مكافأة البداية المبكرة
     return (sched.length * 2000) - (days.size * 500) - (gaps * 2) - (lastEnd * 0.5) + (1440 - earliestStart);
-}
-
-// دالة موازنة المقاعد العالمية (V6 Core)
-function attemptRebalance(trainee, failCode, allTrainees, cache, master) {
-    let combos = cache[failCode] || [];
-    for (let combo of combos) {
-        // إذا كان العائق الوحيد هو السعة (ممتلئة)
-        let fullSections = combo.filter(id => master[id].rem <= 0);
-        if (fullSections.length > 0) {
-            for (let fId of fullSections) {
-                // ابحث عن متدرب "مانح": مسجل في fId ولديه بديل
-                let donor = allTrainees.find(t => t.assigned.flat().includes(fId));
-                if (donor) {
-                    let donorCourse = master[fId].code;
-                    let alternatives = cache[donorCourse].filter(c => !c.includes(fId) && c.every(id => master[id].rem > 0));
-                    for (let alt of alternatives) {
-                        // هل يمكن للمتبرع التبديل دون تعارض مع بقية جدوله؟
-                        let donorOtherMask = Array(5).fill(0n);
-                        donor.assigned.filter(c => !c.includes(fId)).flat().forEach(id => master[id].mask.forEach((m,d) => donorOtherMask[d] |= m));
-                        if (alt.every(id => !hasConflict(master[id].mask, donorOtherMask))) {
-                            // تنفيذ التبديل!
-                            donor.assigned = donor.assigned.filter(c => !c.includes(fId)).concat([alt]);
-                            alt.forEach(id => master[id].rem--);
-                            master[fId].rem++; // تحرير المقعد
-                            
-                            // محاولة إعطاء المقعد للمتعثر
-                            let traineeCurrentMask = Array(5).fill(0n);
-                            trainee.assigned.flat().forEach(id => master[id].mask.forEach((m,d) => traineeCurrentMask[d] |= m));
-                            if (combo.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, traineeCurrentMask))) {
-                                trainee.assigned.push(combo);
-                                combo.forEach(id => master[id].rem--);
-                                return true; // نجاح الموازنة
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return false;
 }
 
 function generateIDCombos(groups, types, idx, master) {
@@ -328,30 +348,35 @@ async function readExcel(f) {
     return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
 }
 
-async function exportV6Excel(res, rej, stats, master, global, total, time) {
+async function exportV7Excel(trainees, master, rounds, swaps) {
     const wb = new ExcelJS.Workbook();
-    const ws1 = wb.addWorksheet('توزيع المتدربين');
-    ws1.columns = [{header:'الرقم', key:'id'}, {header:'الشعب', key:'crns', width:40}, {header:'المواد', key:'count'}];
-    ws1.addRows(res);
+    const ws1 = wb.addWorksheet('جدول المتدربين النهائي');
+    ws1.columns = [{header:'رقم المتدرب', key:'id', width:15}, {header:'الأرقام المرجعية', key:'crns', width:40}, {header:'عدد المقررات', key:'count', width:15}];
+    trainees.forEach(t => ws1.addRow({id: t.id, crns: t.assigned.flat().join(', '), count: t.assigned.length}));
 
-    const ws2 = wb.addWorksheet('تحليل السعات');
-    ws2.addRow(['المقرر', 'الرقم المرجعي', 'النوع', 'الأصل', 'المتبقي', 'الاستغلال %']);
+    const ws2 = wb.addWorksheet('إحصائيات الشعب');
+    ws2.addRow(['المقرر', 'الرقم المرجعي', 'السعة الأصلية', 'المتبقي', 'نسبة الإشغال']);
     for(let id in master) {
         let s = master[id];
-        let util = s.orig > 0 ? (((s.orig - s.rem)/s.orig)*100).toFixed(1) : 0; // إصلاح الخطأ 4
-        ws2.addRow([s.code, s.crn, s.type, s.orig, s.rem, util + '%']);
+        ws2.addRow([s.code, s.crn, s.orig, s.rem, (((s.orig-s.rem)/s.orig)*100).toFixed(1)+'%']);
     }
 
-    const ws3 = wb.addWorksheet('إحصائيات عامة');
-    ws3.addRows([['زمن المعالجة', time.toFixed(2) + ' ثانية'], ['نجاح كامل', global.full], ['نجاح جزئي', global.partial], ['فشل', global.none]]);
-    
+    const ws3 = wb.addWorksheet('تقرير المحرك');
+    ws3.addRows([
+        ['المؤشر', 'القيمة'],
+        ['جولات التحسين', rounds],
+        ['إجمالي التبديلات العالمية الناجحة', swaps],
+        ['متوسط المقررات للمتدرب', (trainees.reduce((a,b)=>a+b.assigned.length,0)/trainees.length).toFixed(2)]
+    ]);
+
     wb.eachSheet(s => {
         s.getRow(1).font = { bold:true, color:{argb:'FFFFFFFF'} };
-        s.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF008E7E'} };
-        s.dir = 'rtl'; s.views = [{rightToLeft:true}];
+        s.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF005F56'} };
+        s.dir = 'rtl';
     });
-    saveAs(new Blob([await wb.xlsx.writeBuffer()]), `Global_Optimizer_V6_${Date.now()}.xlsx`);
+    saveAs(new Blob([await wb.xlsx.writeBuffer()]), `Titan_V7_Result_${Date.now()}.xlsx`);
 }
 </script>
+
 </body>
 </html>
