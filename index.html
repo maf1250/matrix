@@ -637,9 +637,14 @@ return {
                 let maxCourses = 0;
                 let iterations = 0;
 
+                      const MAX_ITERATIONS = 500000;
                 function findBestSchedule(cIndex, currentSched, currentCodes) {
-                    if (iterations > 3000) return; 
+                    if (iterations >= MAX_ITERATIONS) return; 
                     iterations++;
+                     let remainingCourses = courseOptions.length - cIndex;
+
+if (currentCodes.length + remainingCourses < maxCourses)
+    return;
                     if (cIndex === courseOptions.length) {
                         if (currentCodes.length > maxCourses) {
                             maxCourses = currentCodes.length;
@@ -650,6 +655,14 @@ return {
                         return;
                     }
                     let cOpt = courseOptions[cIndex];
+                    cOpt.combos.sort((a, b) => {
+
+    let remA = Math.min(...a.map(s => s.remaining));
+    let remB = Math.min(...b.map(s => s.remaining));
+
+    return remB - remA;
+
+});
                     for (let combo of cOpt.combos) {
                         let hasConflict = false;
                         for (let sec of combo) {
@@ -701,18 +714,22 @@ return {
                         t.mrvScore = newRarityScore;
                     });
 
-                    // 3. إعادة ترتيب المتدربين المتبقين (الأكثر حاجة للمقررات النادرة يصعد للأعلى)
-                    structuredTrainees.sort((a, b) => {
-                // نعطي وزن 10 نقاط لكل مقرر يطلبه المتدرب
-                // ونجمع معه درجة الندرة (MRV)
-                let scoreA = (a.requiredCourses.length * 10) + a.mrvScore;
-                let scoreB = (b.requiredCourses.length * 10) + b.mrvScore;
-                // الترتيب من الأعلى نقاطاً إلى الأقل
-                return scoreB - scoreA; 
-            });
+                   // 3. إعادة ترتيب المتدربين المتبقين فقط
+remainingTrainees.sort((a, b) => {
 
-                    // 4. إرجاعهم للقائمة الرئيسية ليكمل النظام معالجتهم بالترتيب الجديد
-                    structuredTrainees.splice(i + 1, remainingTrainees.length, ...remainingTrainees);
+    let scoreA = (a.requiredCourses.length * 10) + a.mrvScore;
+    let scoreB = (b.requiredCourses.length * 10) + b.mrvScore;
+
+    return scoreB - scoreA;
+
+});
+
+// 4. تحديث الجزء المتبقي من القائمة
+structuredTrainees.splice(
+    i + 1,
+    remainingTrainees.length,
+    ...remainingTrainees
+);
                 }
                 // ==========================================
                 requiredCourses.forEach(code => {
