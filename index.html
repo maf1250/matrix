@@ -3,379 +3,643 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Titan Engine V7 - محرك الجدولة العالمي</title>
+    <title>النظام الذكي لجدولة المتدربين</title>
     
+    <!-- SheetJS لقراءة الملفات بسرعة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق احترافي (RTL) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #005f56; --secondary: #7bb32e; --accent: #ff9800; --bg: #f0f4f4; }
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-        body { background-color: var(--bg); color: #2c3e50; padding: 20px; }
-        .container { background-color: #fff; padding: 35px; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.12); max-width: 1000px; margin: auto; }
-        h1 { text-align: center; color: var(--primary); font-weight: 800; font-size: 28px; margin-bottom: 5px; }
-        .version { text-align: center; color: var(--secondary); font-size: 15px; margin-bottom: 30px; font-weight: 700; letter-spacing: 1px; }
+        body { background-color: #f4f9f8; color: #333; margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
+        .container { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 800px; width: 100%; position: relative; }
+        h1 { text-align: center; color: #008e7e; font-size: 24px; margin-bottom: 20px; }
+        .upload-group { margin-bottom: 20px; background: #fafdfa; border: 2px dashed #8dc63f; padding: 15px; border-radius: 8px; text-align: right; }
+        .upload-group label { display: flex; align-items: center; font-weight: 600; margin-bottom: 10px; color: #008e7e; gap: 8px; }
+        input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }
         
-        .upload-card { background: #f9fdfc; border: 2px solid #e0ecea; padding: 25px; border-radius: 15px; margin-bottom: 20px; transition: 0.3s; }
-        .upload-card:hover { border-color: var(--primary); }
-        .upload-card label { display: block; font-weight: 700; margin-bottom: 12px; color: var(--primary); font-size: 16px; }
+        .advanced-settings { background: #eef7f6; border: 1px solid #cbe6e3; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s ease; }
+        .advanced-settings summary { font-weight: 800; color: #006d60; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none; }
+        .advanced-settings summary::-webkit-details-marker { display: none; }
+        .advanced-settings summary::after { content: '▼'; font-size: 12px; transition: transform 0.3s ease; color: #008e7e; }
+        .advanced-settings[open] summary::after { transform: rotate(180deg); }
+        .settings-content { margin-top: 20px; border-top: 1px dashed #b2d8d3; padding-top: 20px; display: flex; flex-direction: column; gap: 25px; }
+        .inner-group h3 { margin-top: 0; color: #006d60; font-size: 15px; text-align: center; margin-bottom: 15px; }
         
-        .btn-run { background: linear-gradient(135deg, var(--primary), #008e7e); color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 22px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 20px rgba(0,95,86,0.25); transition: 0.3s; }
-        .btn-run:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(0,95,86,0.35); }
-        .btn-run:disabled { background: #bdc3c7; cursor: not-allowed; transform: none; }
-
-        .log-box { margin-top: 25px; background: #2c3e50; color: #ecf0f1; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 13px; height: 180px; overflow-y: auto; line-height: 1.6; }
+        .settings-row { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+        .settings-row div { flex: 1; min-width: 150px; display: flex; flex-direction: column; align-items: center; }
+        .settings-row label { font-weight: 600; margin-bottom: 8px; font-size: 12px; color: #006d60; }
+        .settings-row input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-family: inherit; }
+        .settings-row input:focus { outline: none; border-color: #008e7e; }
         
-        .progress-section { margin-top: 25px; display: none; }
-        .bar-outer { background: #ddd; height: 18px; border-radius: 20px; overflow: hidden; }
-        .bar-inner { background: linear-gradient(90deg, var(--secondary), #a0d468); width: 0%; height: 100%; transition: 0.3s; }
-        
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-top: 20px; }
-        .stat-item { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 10px; text-align: center; }
-        .stat-val { display: block; font-size: 20px; font-weight: 800; color: var(--primary); }
-        .stat-lbl { font-size: 12px; color: #7f8c8d; }
+        .btn-process { background-color: #008e7e; color: #fff; border: none; padding: 15px 20px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-process:hover { background-color: #006d60; }
+        .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
+        .status-msg { text-align: center; margin-top: 15px; font-weight: 600; color: #006d60; }
+        .error { color: #dc3545; }
+        .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Titan Engine V7</h1>
-    <div class="version">GLOBAL TRANSACTIONAL OPTIMIZER (ITERATIVE)</div>
+    <h1>النظام الذكي لجدولة المتدربين</h1>
 
-    <div class="upload-card">
-        <label>1. مصفوفة الطلبات (.xlsx)</label>
-        <input type="file" id="matrixFile" accept=".xlsx, .xls">
+    <details class="advanced-settings">
+        <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
+        <div class="settings-content">
+            <div class="inner-group">
+                <h3>إعدادات ملف مصفوفة التسجيل</h3>
+                <div class="settings-row">
+                    <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                </div>
+            </div>
+            <div class="inner-group">
+                <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
+                <div class="settings-row">
+                    <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
+                    <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
+                    <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
+                    <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
+                    <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
+                    <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <div class="upload-group">
+        <label>1. ملف مصفوفة التسجيل والمتوقع</label>
+        <input type="file" id="traineesFile" accept=".xlsx, .xls">
     </div>
 
-    <div class="upload-card">
-        <label>2. جداول الشعب SS01 (.xlsx)</label>
-        <input type="file" id="ss01File" accept=".xlsx, .xls">
+    <div class="upload-group">
+        <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
+        <input type="file" id="ss01File" accept=".csv, .xlsx, .xls">
     </div>
 
-    <button class="btn-run" id="startBtn" onclick="runTitanEngine()">إطلاق محرك التحسين العالمي</button>
+    <button class="btn-process" id="processBtn" onclick="startProcessing()">
+        <span class="loader" id="loader"></span>
+        <span id="btnText">معالجة وبناء الجداول بذكاء</span>
+    </button>
 
-    <div class="progress-section" id="progArea">
-        <div class="bar-outer"><div class="bar-inner" id="bar"></div></div>
-        <div id="statusTxt" style="text-align:center; font-weight:700; margin-top:8px; color:var(--primary)">جاري التهيئة...</div>
-    </div>
-
-    <div class="log-box" id="log">/ محرك Titan جاهز للعمل...</div>
-
-    <div class="stat-grid" id="stats" style="display:none">
-        <div class="stat-item"><span class="stat-val" id="st-time">0</span><span class="stat-lbl">زمن المعالجة</span></div>
-        <div class="stat-item"><span class="stat-val" id="st-rounds">0</span><span class="stat-lbl">جولات التحسين</span></div>
-        <div class="stat-item"><span class="stat-val" id="st-swaps">0</span><span class="stat-lbl">تبديلات ناجحة</span></div>
-        <div class="stat-item"><span class="stat-val" id="st-total">0</span><span class="stat-lbl">إجمالي المقاعد</span></div>
-    </div>
+    <div id="status" class="status-msg"></div>
 </div>
 
 <script>
-/**
- * TITAN ENGINE V7 CORE
- * الخوارزمية: Iterative Transactional Swap-Chains (ITSC)
- */
+    const daysMap = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
+    const reverseDaysMap = { 0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت' };
 
-const DAYS_MAP = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4 };
-const SLOT_SIZE = 30;
+    function parseDays(dayStr) {
+        if (!dayStr) return [];
+        let str = String(dayStr).replace(/\s/g, '');
+        let days = [];
+        for (let key in daysMap) { if (str.includes(key)) days.push(daysMap[key]); }
+        return days;
+    }
 
-// أدوات المعالجة
-const log = (msg) => {
-    const l = document.getElementById('log');
-    l.innerHTML += `<br>> ${msg}`;
-    l.scrollTop = l.scrollHeight;
-};
+    function parseTimeRange(timeStr) {
+        if (!timeStr) return null;
+        let parts = String(timeStr).split('-');
+        if (parts.length < 2) return null;
 
-const parseTime = (tStr) => {
-    if (!tStr) return null;
-    let p = String(tStr).split('-');
-    if (p.length < 2) return null;
-    const toMin = (s) => {
-        let m = s.match(/(\d+):(\d+)/);
-        if (!m) return 0;
-        let h = parseInt(m[1]), min = parseInt(m[2]);
-        if (s.includes('م') && h < 12) h += 12;
-        if (s.includes('ص') && h === 12) h = 0;
-        return h * 60 + min;
-    };
-    return { start: toMin(p[0]), end: toMin(p[1]) };
-};
+        function toMinutes(t) {
+            let m = t.match(/(\d+):(\d+)/);
+            if (!m) return 0;
+            let hrs = parseInt(m[1]);
+            let mins = parseInt(m[2]);
+            if (t.includes('م') && hrs < 12) hrs += 12;
+            if (t.includes('ص') && hrs === 12) hrs = 0;
+            return hrs * 60 + mins;
+        }
+        return { start: toMinutes(parts[0]), end: toMinutes(parts[1]) };
+    }
 
-const getMask = (days, timeData) => {
-    let masks = Array(5).fill(0n);
-    if (!timeData) return masks;
-    let dur = 0n;
-    for (let i = Math.floor(timeData.start/SLOT_SIZE); i < Math.ceil(timeData.end/SLOT_SIZE); i++) dur |= (1n << BigInt(i));
-    days.forEach(d => { if(d >= 0 && d < 5) masks[d] = dur; });
-    return masks;
-};
+    function formatTime(mins) {
+        let h = Math.floor(mins / 60);
+        let m = mins % 60;
+        let ampm = h >= 12 ? 'م' : 'ص';
+        let displayH = h % 12;
+        if (displayH === 0) displayH = 12;
+        return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
 
-async function runTitanEngine() {
-    const startT = performance.now();
-    const files = { m: document.getElementById('matrixFile').files[0], s: document.getElementById('ss01File').files[0] };
-    if(!files.m || !files.s) return alert("يرجى اختيار الملفات");
-
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('progArea').style.display = 'block';
-    log("بدء تحميل البيانات...");
-
-    try {
-        const [mRaw, sRaw] = await Promise.all([readExcel(files.m), readExcel(files.s)]);
+    function getConflictDetail(sec1, sec2) {
+        if (!sec1.timeData || !sec2.timeData || sec1.days.length === 0 || sec2.days.length === 0) return null;
+        let overlapDays = sec1.days.filter(d => sec2.days.includes(d));
+        if (overlapDays.length === 0) return null;
         
-        // 1. بناء قاعدة البيانات
-        let master = {}, groups = {};
-        let sHeader = sRaw.find(r => r.includes("المقرر")); // نفترض اسم العمود الافتراضي
-        let sIdx = sHeader.reduce((a,c,i)=>({...a, [String(c).trim()]:i}), {});
+        if (sec1.timeData.start < sec2.timeData.end && sec2.timeData.start < sec1.timeData.end) {
+            let dayName = reverseDaysMap[overlapDays[0]];
+            return `تعارض مع مقرر (${sec2.code}) يوم ${dayName} من ${formatTime(sec2.timeData.start)} إلى ${formatTime(sec2.timeData.end)}`;
+        }
+        return null;
+    }
 
-        sRaw.slice(sRaw.indexOf(sHeader)+1).forEach(row => {
-            let code = row[sIdx["المقرر"]], crn = row[sIdx["الرقم المرجعي"]];
-            if (!code || !crn) return;
-            let days = []; for(let k in DAYS_MAP) if(String(row[sIdx["اليوم"]]).includes(k)) days.push(DAYS_MAP[k]);
-            let tData = parseTime(row[sIdx["الوقت"]]);
-            master[crn] = {
-                crn, code, type: row[sIdx["نوع الجدولة"]] || 'نظري',
-                rem: parseInt(row[sIdx["متبقي"]]) || 0, orig: parseInt(row[sIdx["متبقي"]]) || 0,
-                mask: getMask(days, tData), timeData: tData, dayStr: row[sIdx["اليوم"]], timeStr: row[sIdx["الوقت"]]
-            };
-            if(!groups[code]) groups[code] = {};
-            if(!groups[code][master[crn].type]) groups[code][master[crn].type] = [];
-            groups[code][master[crn].type].push(crn);
-        });
-
-        // 2. الكاش ID-Based
-        let comboCache = {};
-        for(let c in groups) comboCache[c] = generateIDCombos(groups[c], Object.keys(groups[c]), 0, master);
-
-        // 3. تحليل المتدربين (MRV + Degree من V5)
-        let mHeader = mRaw[0], mIdx = mHeader.reduce((a,c,i)=>({...a, [String(c).trim()]:i}), {});
-        let trainees = mRaw.slice(1).map(row => {
-            let req = [];
-            mHeader.forEach((h, i) => { if(h !== "الرقم" && String(row[i]) === "1") req.push(h); });
-            return { id: row[mIdx["الرقم"]], req, assigned: [], score: -Infinity };
-        }).filter(t => t.id);
-
-        const getWeight = (c) => {
-            if(!comboCache[c]) return 9999;
-            let s = 0; for(let t in groups[c]) s += groups[c][t].reduce((a,id)=>a+master[id].rem, 0);
-            return (1000/(s+1)) + (500/(comboCache[c].length+1));
-        };
-        trainees.sort((a,b) => b.req.reduce((s,c)=>s+getWeight(c),0) - a.req.reduce((s,c)=>s+getWeight(c),0));
-
-        // --- المرحلة 1: التوزيع الأولي (CSP) ---
-        log("المرحلة 1: التوزيع الأولي (CSP Mode)...");
-        trainees.forEach((t, i) => {
-            let { schedule } = solveCSP(t.req, comboCache, master);
-            t.assigned = schedule;
-            t.score = scoreSchedule(schedule, master);
-            schedule.flat().forEach(id => master[id].rem--);
-        });
-
-        // --- المرحلة 2: التحسين التكراري (Titan Optimizer) ---
-        log("المرحلة 2: بدء جولات التحسين العالمي...");
-        let round = 0, totalSwaps = 0;
-        let improved = true;
-
-        while(improved && round < 10) {
-            round++;
-            let roundSwaps = 0;
-            log(`الجولة ${round}: فحص المتدربين المتعثرين...`);
-
-            for(let t of trainees) {
-                let missing = t.req.filter(c => !t.assigned.some(combo => master[combo[0]].code === c));
-                if(missing.length > 0) {
-                    for(let mCode of missing) {
-                        if(attemptTitanSwap(t, mCode, trainees, comboCache, master)) {
-                            roundSwaps++;
-                            totalSwaps++;
-                        }
-                    }
+    function getCombinations(optionsPerType) {
+        let keys = Object.keys(optionsPerType);
+        if (keys.length === 0) return [];
+        let results = [];
+        function helper(idx, currentCombo) {
+            if (idx === keys.length) {
+                results.push([...currentCombo]);
+                return;
+            }
+            let type = keys[idx];
+            for (let sec of optionsPerType[type]) {
+                let hasConflictInside = currentCombo.some(c => getConflictDetail(c, sec) !== null);
+                if (!hasConflictInside) {
+                    currentCombo.push(sec);
+                    helper(idx + 1, currentCombo);
+                    currentCombo.pop();
                 }
             }
-            log(`اكتملت الجولة ${round}: تم إجراء ${roundSwaps} تبديل.`);
-            if(roundSwaps === 0) improved = false;
-            await new Promise(r => setTimeout(r, 0));
+        }
+        helper(0, []);
+        return results;
+    }
+
+    function scoreSchedule(schedule) {
+        let daysUsed = new Set();
+        let dailyClasses = {};
+        let minRemaining = Infinity;
+
+        for (let sec of schedule) {
+            if (sec.remaining < minRemaining) minRemaining = sec.remaining;
+            for (let d of sec.days) {
+                daysUsed.add(d);
+                if (!dailyClasses[d]) dailyClasses[d] = [];
+                dailyClasses[d].push(sec.timeData);
+            }
         }
 
-        // 4. التصدير والنتائج
-        document.getElementById('stats').style.display = 'grid';
-        document.getElementById('st-time').innerText = ((performance.now()-startT)/1000).toFixed(1) + "s";
-        document.getElementById('st-rounds').innerText = round;
-        document.getElementById('st-swaps').innerText = totalSwaps;
-        document.getElementById('st-total').innerText = trainees.reduce((a,b)=>a+b.assigned.length, 0);
+        let totalGaps = 0;
+        let maxEndTime = 0;
 
-        await exportV7Excel(trainees, master, round, totalSwaps);
-        log("اكتملت العملية بنجاح.");
+        for (let d in dailyClasses) {
+            let times = dailyClasses[d];
+            times.sort((a, b) => a.start - b.start);
+            for (let i = 0; i < times.length - 1; i++) {
+                let gap = times[i+1].start - times[i].end;
+                if (gap > 0) totalGaps += gap; 
+            }
+            let lastEnd = times[times.length - 1].end;
+            if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
+        }
+        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 20);
+        return score;
+    }
 
-    } catch (e) { log(`خطأ حرج: ${e.message}`); console.error(e); }
-    finally { document.getElementById('startBtn').disabled = false; }
-}
+    // قراءة الملفات باستخدام SheetJS
+    function readMatrixFile(file, idHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    
+                    let idRowIndex = -1, idColIndex = -1;
+                    for (let r = 0; r < jsonArray.length; r++) {
+                        for (let c = 0; c < jsonArray[r].length; c++) {
+                            if (String(jsonArray[r][c]).trim() === idHeader) { idRowIndex = r; idColIndex = c; break; }
+                        }
+                        if (idRowIndex !== -1) break;
+                    }
+                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على '${idHeader}'`)); return; }
 
-/**
- * دالة التبديل العالمي (Transactional Swap)
- * تحاول إيجاد "مانح" يغير شعبته ليفتح مكاناً لـ "مستقبل"
- */
-function attemptTitanSwap(recipient, targetCode, allTrainees, cache, master) {
-    let possibleCombos = cache[targetCode] || [];
-    
-    for (let combo of possibleCombos) {
-        // 1. تحديد الشعب الممتلئة التي تمنع المستقبل من الحجز
-        let bottlenecks = combo.filter(id => master[id].rem <= 0);
-        if (bottlenecks.length === 0) continue; 
+                    let courseHeaders = [];
+                    for (let c = 0; c < jsonArray[0].length; c++) {
+                        courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim(); 
+                    }
 
-        for (let bId of bottlenecks) {
-            // 2. البحث عن كافة المتبرعين الممكنين لهذه الشعبة
-            let potentialDonors = allTrainees.filter(t => t.assigned.flat().includes(bId));
-            
-            for (let donor of potentialDonors) {
-                let donorCourse = master[bId].code;
-                let altCombos = cache[donorCourse].filter(c => !c.includes(bId));
-
-                for (let alt of altCombos) {
-                    // --- TRANSACTION START ---
-                    let snapshot = { 
-                        donorPrev: donor.assigned, 
-                        recipientPrev: recipient.assigned,
-                        donorPrevScore: donor.score
-                    };
-
-                    // فحص السعة للشعبة البديلة (هل يوجد مكان للمتبرع؟)
-                    if (alt.every(id => master[id].rem > 0 || donor.assigned.flat().includes(id))) {
-                        // فحص التعارض للمتبرع
-                        let dMask = Array(5).fill(0n);
-                        donor.assigned.filter(c => !c.includes(bId)).flat().forEach(id => master[id].mask.forEach((m,d)=>dMask[d]|=m));
-                        
-                        if (alt.every(id => !hasConflict(master[id].mask, dMask))) {
-                            // تبديل مؤقت للمتبرع
-                            let oldDonorCombo = donor.assigned.find(c => c.includes(bId));
-                            donor.assigned = donor.assigned.filter(c => !c.includes(bId)).concat([alt]);
-                            let newDonorScore = scoreSchedule(donor.assigned, master);
-
-                            // شرط حماية المتبرع: لا نسمح بتبديل يخفض الدرجة بأكثر من 10%
-                            if (newDonorScore >= snapshot.donorPrevScore * 0.9) {
-                                // تنفيذ الخصم/الزيادة المؤقتة في السعات
-                                oldDonorCombo.forEach(id => master[id].rem++);
-                                alt.forEach(id => master[id].rem--);
-
-                                // الآن: هل يمكن للمستقبل الحجز؟
-                                let rMask = Array(5).fill(0n);
-                                recipient.assigned.flat().forEach(id => master[id].mask.forEach((m,d)=>rMask[d]|=m));
-
-                                if (combo.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, rMask))) {
-                                    // نجحت الصفقة! التثبيت (Commit)
-                                    recipient.assigned.push(combo);
-                                    combo.forEach(id => master[id].rem--);
-                                    recipient.score = scoreSchedule(recipient.assigned, master);
-                                    donor.score = newDonorScore;
-                                    return true; 
-                                } else {
-                                    // فشل المستقبل (Rollback) للسعات وجدول المتبرع
-                                    alt.forEach(id => master[id].rem++);
-                                    oldDonorCombo.forEach(id => master[id].rem--);
-                                    donor.assigned = snapshot.donorPrev;
+                    const dataRows = [];
+                    for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {};
+                        let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
+                        if (traineeIdVal !== "") {
+                            rowObj[idHeader] = traineeIdVal;
+                            let hasRequests = false;
+                            for (let c = 0; c < courseHeaders.length; c++) {
+                                if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
+                                    rowObj[courseHeaders[c]] = "1"; hasRequests = true;
                                 }
+                            }
+                            if (hasRequests) dataRows.push(rowObj);
+                        }
+                    }
+                    resolve(dataRows);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة مصفوفة التسجيل"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function readSS01File(file, expectedHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < jsonArray.length; i++) {
+                        let rowStrings = jsonArray[i].map(c => String(c).trim());
+                        if (rowStrings.includes(expectedHeader)) { headerRowIndex = i; break; }
+                    }
+                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على '${expectedHeader}'`)); return; }
+
+                    const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
+                    const dataRows = [];
+                    for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {}, hasData = false;
+                        for (let j = 0; j < headers.length; j++) {
+                            if (headers[j]) { rowObj[headers[j]] = jsonArray[i][j]; if (jsonArray[i][j] !== "") hasData = true; }
+                        }
+                        if (hasData) dataRows.push(rowObj);
+                    }
+                    resolve(dataRows);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة تقرير SS01"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // دالة التصدير باستخدام ExcelJS لتنسيق احترافي (RTL)
+    async function exportToExcel(sheetsData, filename) {
+        const workbook = new ExcelJS.Workbook();
+        
+        for (let sheetInfo of sheetsData) {
+            // إضافة الورقة وتعيين الاتجاه للغة العربية
+            const worksheet = workbook.addWorksheet(sheetInfo.name, { 
+            views: [
+            { rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }
+            ] 
+});            
+            if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
+
+            // بناء الأعمدة والترويسة
+            const headers = Object.keys(sheetInfo.data[0]);
+            worksheet.columns = headers.map(header => ({
+                header: header,
+                key: header,
+                width: 25 // عرض مناسب للبيانات
+            }));
+            
+            // إضافة الصفوف
+            worksheet.addRows(sheetInfo.data);
+            
+            // تنسيق ترويسة الجدول (اللون والخلفية)
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // خط أبيض
+            headerRow.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF008E7E' } // خلفية خضراء مثل التصميم
+            };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            // توسيط وتسطير جميع الخلايا
+            worksheet.eachRow((row, rowNumber) => {
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                    if (rowNumber > 1) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                    }
+                    cell.border = {
+                        top: { style: 'thin' },
+                        left: { style: 'thin' },
+                        bottom: { style: 'thin' },
+                        right: { style: 'thin' }
+                    };
+                });
+            });
+            // التعديل التلقائي لعرض الأعمدة بناءً على المحتوى
+worksheet.columns.forEach(column => {
+    let maxLength = 0;
+    column.eachCell({ includeEmpty: true }, cell => {
+        let columnLength = cell.value ? cell.value.toString().length : 0;
+        if (columnLength > maxLength) {
+            maxLength = columnLength;
+        }
+    });
+    column.width = maxLength < 15 ? 15 : maxLength + 2; // عرض أدنى 15 وأقصى حسب النص
+});
+        }
+
+        // حفظ الملف
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, filename);
+    }
+
+    async function startProcessing() {
+        const traineesFile = document.getElementById('traineesFile').files[0];
+        const ss01File = document.getElementById('ss01File').files[0];
+        const statusDiv = document.getElementById('status');
+        const btn = document.getElementById('processBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+
+        if (!traineesFile || !ss01File) {
+            statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
+        }
+
+        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
+        const C_COURSE = document.getElementById('col_course').value.trim();
+        const C_CRN = document.getElementById('col_crn').value.trim();
+        const C_TYPE = document.getElementById('col_type').value.trim();
+        const C_TIME = document.getElementById('col_time').value.trim();
+        const C_DAY = document.getElementById('col_day').value.trim();
+        const C_REM = document.getElementById('col_rem').value.trim();
+
+        btn.disabled = true;
+        loader.style.display = 'inline-block';
+        btnText.innerText = 'جار المعالجة والتحسين...';
+        statusDiv.innerHTML = '';
+
+        try {
+            let [traineesRaw, ss01Raw] = await Promise.all([
+                readMatrixFile(traineesFile, C_TRAINEE_ID), 
+                readSS01File(ss01File, C_COURSE)
+            ]);
+            
+            let courseMap = {};
+            let allSectionsRef = {};
+            let courseTotalCapacity = {};
+            let courseOriginalCapacity = {}; 
+            let courseStats = {}; 
+
+            ss01Raw.forEach(row => {
+                let code = row[C_COURSE];
+                let crn = row[C_CRN];
+                let type = row[C_TYPE] || 'نظري';
+                let rem = parseInt(row[C_REM]) || 0;
+                
+                if (!code || !crn) return;
+
+                let section = {
+                    code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
+                    days: parseDays(row[C_DAY]), timeData: parseTimeRange(row[C_TIME])
+                };
+
+                allSectionsRef[crn] = section;
+                if (!courseMap[code]) courseMap[code] = {};
+                if (!courseMap[code][type]) courseMap[code][type] = [];
+                courseMap[code][type].push(section);
+                
+                if (!courseStats[code]) {
+                    courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} };
+                }
+            });
+
+            for (let code in courseMap) {
+                let minCap = -1;
+                for (let type in courseMap[code]) {
+                    let typeTotal = courseMap[code][type].reduce((sum, sec) => sum + sec.remaining, 0);
+                    if (minCap === -1 || typeTotal < minCap) minCap = typeTotal;
+                }
+                courseTotalCapacity[code] = minCap;
+                courseOriginalCapacity[code] = minCap;
+            }
+
+            let structuredTrainees = traineesRaw.map(tRow => {
+                let req = [];
+                for (let key in tRow) { if (key !== C_TRAINEE_ID && tRow[key] === "1") req.push(key); }
+                return { id: tRow[C_TRAINEE_ID], requiredCourses: req };
+            });
+
+            structuredTrainees.sort((a, b) => b.requiredCourses.length - a.requiredCourses.length);
+
+            let mainSheetData = [];
+            let assignedCodesData = [];
+            let unregisteredData = [];
+            let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
+
+            structuredTrainees.forEach(trainee => {
+                let traineeId = trainee.id;
+                let requiredCourses = trainee.requiredCourses;
+                stats.total++;
+
+                requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
+
+                let courseOptions = [];
+                requiredCourses.forEach(code => {
+                    if(courseStats[code]) courseStats[code].requested++;
+                    else courseStats[code] = { requested: 1, registered: 0, unregistered: 0, reasons: {} };
+
+                    let availableTypes = courseMap[code];
+                    if (!availableTypes) return;
+
+                    let validOptions = {};
+                    let hasMissing = false;
+                    for (let type in availableTypes) {
+                        validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
+                        if (validOptions[type].length === 0) hasMissing = true;
+                    }
+                    if (!hasMissing) {
+                        let combos = getCombinations(validOptions);
+                        if (combos.length > 0) courseOptions.push({ code: code, combos: combos });
+                    }
+                });
+
+                let bestSchedules = [];
+                let maxCourses = 0;
+                let iterations = 0;
+
+                function findBestSchedule(cIndex, currentSched, currentCodes) {
+                    if (iterations > 3000) return; 
+                    iterations++;
+
+                    if (cIndex === courseOptions.length) {
+                        if (currentCodes.length > maxCourses) {
+                            maxCourses = currentCodes.length;
+                            bestSchedules = [ [...currentSched] ];
+                        } else if (currentCodes.length === maxCourses && bestSchedules.length < 20) {
+                            bestSchedules.push([...currentSched]);
+                        }
+                        return;
+                    }
+
+                    let cOpt = courseOptions[cIndex];
+                    let added = false;
+
+                    for (let combo of cOpt.combos) {
+                        let hasConflict = false;
+                        for (let sec of combo) {
+                            for (let existSec of currentSched) {
+                                if (getConflictDetail(sec, existSec) !== null) { hasConflict = true; break; }
+                            }
+                            if(hasConflict) break;
+                        }
+                        if (!hasConflict) {
+                            added = true;
+                            findBestSchedule(cIndex + 1, currentSched.concat(combo), currentCodes.concat([cOpt.code]));
+                        }
+                    }
+                    findBestSchedule(cIndex + 1, currentSched, currentCodes);
+                }
+
+                findBestSchedule(0, [], []);
+
+                let finalSchedule = [];
+                let finalCodes = [];
+                if (bestSchedules.length > 0) {
+                    bestSchedules.sort((a, b) => scoreSchedule(a) - scoreSchedule(b));
+                    finalSchedule = bestSchedules[0];
+                    finalCodes = [...new Set(finalSchedule.map(s => s.code))];
+                }
+
+                let studentCrns = [];
+                finalSchedule.forEach(sec => {
+                    sec.remaining -= 1;
+                    studentCrns.push(sec.crn);
+                });
+                
+                finalCodes.forEach(code => {
+                    courseTotalCapacity[code] -= 1;
+                    courseStats[code].registered++;
+                });
+
+                requiredCourses.forEach(code => {
+                    if (!finalCodes.includes(code)) {
+                        courseStats[code].unregistered++;
+                        let reason = "";
+
+                        if (!courseMap[code]) {
+                            reason = "غير مطروح في تقرير جداول الوحدة التدريبية";
+                        } else {
+                            let isFull = false;
+                            for(let t in courseMap[code]){
+                                if(courseMap[code][t].filter(s=>s.remaining>0).length===0) isFull = true;
+                            }
+                            if (isFull) {
+                                reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
                             } else {
-                                // فشل بسبب درجة المتبرع (Rollback)
-                                donor.assigned = snapshot.donorPrev;
+                                let availableTypes = courseMap[code];
+                                let validOptions = {};
+                                for (let type in availableTypes) validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
+                                let combos = getCombinations(validOptions);
+                                
+                                let specificConflict = null;
+                                for (let combo of combos) {
+                                    for (let sec of combo) {
+                                        for (let existSec of finalSchedule) {
+                                            let conf = getConflictDetail(sec, existSec);
+                                            if (conf) { specificConflict = conf; break; }
+                                        }
+                                        if (specificConflict) break;
+                                    }
+                                    if (specificConflict) break;
+                                }
+                                reason = specificConflict ? specificConflict : "تعارض مركّب لا يمكن تجنبه";
                             }
                         }
+
+                        courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
-                    // --- TRANSACTION END ---
+                });
+
+                if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
+                else if (finalCodes.length > 0) stats.partialSuccess++;
+                else stats.failed++;
+
+                let mainRow = { [C_TRAINEE_ID]: traineeId };
+                studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
+                mainSheetData.push(mainRow);
+
+                assignedCodesData.push({
+                    [C_TRAINEE_ID]: traineeId,
+                    'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر'
+                });
+            });
+
+            let capacityData = [];
+            for (let code in courseOriginalCapacity) {
+                let orig = courseOriginalCapacity[code];
+                let rem = courseTotalCapacity[code];
+                let reg = orig - rem;
+                capacityData.push({
+                    'رمز المقرر': code,
+                    'السعة الأصلية': orig,
+                    'عدد المعين لهم': reg,
+                    'المقاعد المتبقية': rem
+                });
+            }
+
+            let courseStatsData = [];
+            for (let code in courseStats) {
+                let d = courseStats[code];
+                if (d.requested > 0) {
+                    let topReason = "";
+                    if (Object.keys(d.reasons).length > 0) {
+                        topReason = Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b);
+                    }
+                    courseStatsData.push({
+                        'رمز المقرر': code,
+                        'عدد المتوقع': d.requested,
+                        'تم التعيين': d.registered,
+                        'لم يتم التعيين': d.unregistered,
+                        'أبرز سبب لعدم التعيين': topReason || "لا يوجد"
+                    });
                 }
             }
+
+            let fullSectionsData = [];
+            for (let crn in allSectionsRef) {
+                if (allSectionsRef[crn].remaining === 0) {
+                    fullSectionsData.push({
+                        'رمز المقرر': allSectionsRef[crn].code,
+                        'الرقم المرجعي': crn,
+                        'النوع': allSectionsRef[crn].type,
+                        'حالة الشعبة': 'ممتلئة تماماً'
+                    });
+                }
+            }
+
+            let globalStatsData = [
+                { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
+                { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
+                { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
+                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
+            ];
+
+            // تجهيز البيانات للتصدير عبر ExcelJS
+            const sheetsToExport = [
+                { name: "جدول المتدربين", data: mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "المقررات المعينة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "أسباب الرفض والتعارض", data: unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "تقرير السعات", data: capacityData.length ? capacityData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "إحصائيات لكل مقرر", data: courseStatsData.length ? courseStatsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "الشعب الممتلئة", data: fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "الإحصاء العام", data: globalStatsData }
+            ];
+
+            await exportToExcel(sheetsToExport, "تقرير_الجداول_الذكي.xlsx");
+            
+            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerHTML = `<span class="error">حدث خطأ: ${error.message}</span>`;
+        } finally {
+            btn.disabled = false;
+            loader.style.display = 'none';
+            btnText.innerText = 'معالجة وبناء الجداول بذكاء';
         }
     }
-    return false;
-}
-
-function solveCSP(req, cache, master) {
-    let best = [];
-    function solve(pending, mask, current) {
-        if (current.length + pending.length < best.length) return;
-        if (pending.length === 0) {
-            if (current.length > best.length) best = current.map(c => [...c]);
-            return;
-        }
-        let code = pending[0];
-        let combos = (cache[code] || []).filter(c => c.every(id => master[id].rem > 0 && !hasConflict(master[id].mask, mask)));
-        for (let c of combos) {
-            let nextMask = [...mask];
-            c.forEach(id => master[id].mask.forEach((m,d) => nextMask[d] |= m));
-            solve(pending.slice(1), nextMask, current.concat([c]));
-        }
-        solve(pending.slice(1), mask, current);
-    }
-    solve(req, Array(5).fill(0n), []);
-    return { schedule: best };
-}
-
-function hasConflict(m1, m2) { return m1.some((m, d) => (m & m2[d]) !== 0n); }
-
-function scoreSchedule(sched, master) {
-    if (!sched || sched.length === 0) return 0;
-    let days = new Set(), gaps = 0, lastEnd = 0, earliestStart = 1440, dayMap = {0:[],1:[],2:[],3:[],4:[]};
-    sched.flat().forEach(id => {
-        let s = master[id];
-        s.mask.forEach((m, d) => { if(m > 0n) dayMap[d].push(s.timeData); });
-    });
-    for(let d in dayMap) {
-        let evs = dayMap[d].sort((a,b)=>a.start-b.start);
-        if(evs.length > 0) {
-            days.add(d);
-            if(evs[0].start < earliestStart) earliestStart = evs[0].start;
-            if(evs[evs.length-1].end > lastEnd) lastEnd = evs[evs.length-1].end;
-            for(let i=0; i<evs.length-1; i++) gaps += (evs[i+1].start - evs[i].end);
-        }
-    }
-    return (sched.length * 2000) - (days.size * 500) - (gaps * 2) - (lastEnd * 0.5) + (1440 - earliestStart);
-}
-
-function generateIDCombos(groups, types, idx, master) {
-    if (idx === types.length) return [[]];
-    let res = [], next = generateIDCombos(groups, types, idx+1, master);
-    for (let id of groups[types[idx]]) {
-        let sec = master[id];
-        for (let n of next) {
-            if (n.every(nid => !hasConflict(sec.mask, master[nid].mask))) res.push([id, ...n]);
-        }
-    }
-    return res;
-}
-
-async function readExcel(f) {
-    const b = await f.arrayBuffer();
-    const wb = XLSX.read(b);
-    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-}
-
-async function exportV7Excel(trainees, master, rounds, swaps) {
-    const wb = new ExcelJS.Workbook();
-    const ws1 = wb.addWorksheet('جدول المتدربين النهائي');
-    ws1.columns = [{header:'رقم المتدرب', key:'id', width:15}, {header:'الأرقام المرجعية', key:'crns', width:40}, {header:'عدد المقررات', key:'count', width:15}];
-    trainees.forEach(t => ws1.addRow({id: t.id, crns: t.assigned.flat().join(', '), count: t.assigned.length}));
-
-    const ws2 = wb.addWorksheet('إحصائيات الشعب');
-    ws2.addRow(['المقرر', 'الرقم المرجعي', 'السعة الأصلية', 'المتبقي', 'نسبة الإشغال']);
-    for(let id in master) {
-        let s = master[id];
-        ws2.addRow([s.code, s.crn, s.orig, s.rem, (((s.orig-s.rem)/s.orig)*100).toFixed(1)+'%']);
-    }
-
-    const ws3 = wb.addWorksheet('تقرير المحرك');
-    ws3.addRows([
-        ['المؤشر', 'القيمة'],
-        ['جولات التحسين', rounds],
-        ['إجمالي التبديلات العالمية الناجحة', swaps],
-        ['متوسط المقررات للمتدرب', (trainees.reduce((a,b)=>a+b.assigned.length,0)/trainees.length).toFixed(2)]
-    ]);
-
-    wb.eachSheet(s => {
-        s.getRow(1).font = { bold:true, color:{argb:'FFFFFFFF'} };
-        s.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF005F56'} };
-        s.dir = 'rtl';
-    });
-    saveAs(new Blob([await wb.xlsx.writeBuffer()]), `Titan_V7_Result_${Date.now()}.xlsx`);
-}
 </script>
 
 </body>
