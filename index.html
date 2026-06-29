@@ -423,7 +423,7 @@
             for (let i = 0; i < structuredTrainees.length; i++) {
                 let trainee = structuredTrainees[i];
 
-                // إعطاء المتصفح فرصة لتحديث الواجهة كل 10 طلاب
+                // إعطاء المتصفح فرصة لتحديث الواجهة كل 10 متدربين
                 if (i % 10 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 0));
                     let percent = Math.round((i / structuredTrainees.length) * 100);
@@ -510,7 +510,34 @@
                     courseTotalCapacity[code] -= 1;
                     courseStats[code].registered++;
                 });
+                // تفعيل التحديث الديناميكي لندرة المقررات (Dynamic MRV)
+                if (finalCodes.length > 0 && i < structuredTrainees.length - 1) {
+                    // 1. أخذ نسخة من المتدربين الذين لم تتم معالجتهم بعد
+                    let remainingTrainees = structuredTrainees.slice(i + 1);
+                    
+                    // 2. إعادة حساب ندرة المقررات لهم بناءً على السعات الجديدة (بعد الخصم)
+                    remainingTrainees.forEach(t => {
+                        let newRarityScore = 0;
+                        t.requiredCourses.forEach(key => {
+                            // إذا السعة أصبحت 0 أو أقل، نعطيها وزناً عالياً جداً لتجنب القسمة على صفر
+                            let cap = courseTotalCapacity[key] > 0 ? courseTotalCapacity[key] : 0.01;
+                            newRarityScore += (1 / cap);
+                        });
+                        t.mrvScore = newRarityScore;
+                    });
 
+                    // 3. إعادة ترتيب المتدربين المتبقين (الأكثر حاجة للمقررات النادرة يصعد للأعلى)
+                    remainingTrainees.sort((a, b) => {
+                        if (b.requiredCourses.length !== a.requiredCourses.length) {
+                            return b.requiredCourses.length - a.requiredCourses.length;
+                        }
+                        return b.mrvScore - a.mrvScore;
+                    });
+
+                    // 4. إرجاعهم للقائمة الرئيسية ليكمل النظام معالجتهم بالترتيب الجديد
+                    structuredTrainees.splice(i + 1, remainingTrainees.length, ...remainingTrainees);
+                }
+                // ==========================================
                 requiredCourses.forEach(code => {
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
