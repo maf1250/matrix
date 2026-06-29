@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>النظام الذكي المطور لجدولة المتدربين</title>
+    <!-- مكتبة SheetJS لقراءة الملفات (تدعم CSV و Excel القديم والجديد) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- مكتبة ExcelJS لبناء وتصدير الملف النهائي مع دعم اتجاه اليمين لليسار والتنسيق -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
@@ -301,7 +304,7 @@
 
             let courseMap = {};
             let allSectionsRef = {};
-            let courseTotalCapacity = {}; // لحساب سعة الكورس الكلية (لخوارزمية الندرة)
+            let courseTotalCapacity = {}; 
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
@@ -327,7 +330,6 @@
                 courseMap[code][type].push(section);
             });
 
-            // حساب السعة الإجمالية التقريبية لكل مقرر (تساعد في ترتيب الأولوية)
             for (let code in courseMap) {
                 let minCapacityForCourse = -1;
                 for (let type in courseMap[code]) {
@@ -339,7 +341,6 @@
                 courseTotalCapacity[code] = minCapacityForCourse;
             }
 
-            // تجهيز بيانات المتدربين للمقارنة والترتيب (التحسين العالمي)
             let structuredTrainees = traineesRaw.map(tRow => {
                 let requiredCourses = [];
                 for (let key in tRow) {
@@ -354,12 +355,10 @@
                 };
             });
 
-            // التحسين 1: ترتيب المتدربين بناءً على عدد المقررات المطلوبة (الأكثر احتياجاً يعالج أولاً)
-            // هذا يقلل من احتمالية أخذ المتدرب ذو المقرر الواحد لمقعد يحتاجه متدرب لديه 6 مقررات
             structuredTrainees.sort((a, b) => b.requiredCourses.length - a.requiredCourses.length);
 
             let mainSheetData = [];
-            let assignedCodesData = []; // الشيت الجديد للرموز المسجلة
+            let assignedCodesData = []; 
             let unregisteredData = [];
             let conflictsData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
@@ -369,8 +368,6 @@
                 let requiredCourses = trainee.requiredCourses;
                 stats.total++;
 
-                // التحسين 2: ترتيب المقررات المطلوبة داخل المتدرب بناءً على "الندرة"
-                // المقررات التي سعتها الإجمالية أقل تتم معالجتها أولاً لضمان عدم ضياعها
                 requiredCourses.sort((c1, c2) => {
                     let cap1 = courseTotalCapacity[c1] || 0;
                     let cap2 = courseTotalCapacity[c2] || 0;
@@ -379,7 +376,7 @@
 
                 let studentSchedule = [];
                 let studentCrns = [];
-                let registeredCourseCodes = []; // لتخزين رموز المقررات المسجلة للمتدرب
+                let registeredCourseCodes = []; 
                 let registeredCount = 0;
 
                 requiredCourses.forEach(courseCode => {
@@ -412,7 +409,6 @@
                         return;
                     }
 
-                    // التحسين 3: اختيار أفضل تركيبة تترك مقاعد أكثر للآخرين (Load Balancing)
                     validForStudent.sort((a, b) => {
                         let sumA = a.reduce((sum, s) => sum + s.remaining, 0);
                         let sumB = b.reduce((sum, s) => sum + s.remaining, 0);
@@ -429,7 +425,6 @@
                     registeredCourseCodes.push(courseCode);
                     registeredCount++;
 
-                    // تحديث سعة المقرر الديناميكية للمتدربين القادمين
                     if(courseTotalCapacity[courseCode] > 0) courseTotalCapacity[courseCode] -= 1;
                 });
 
@@ -437,14 +432,12 @@
                 else if (registeredCount > 0) stats.partialSuccess++;
                 else stats.failed++;
 
-                // تعبئة الشيت الأساسي (CRNs)
                 let mainRow = { [C_TRAINEE_ID]: traineeId };
                 studentCrns.forEach((crn, idx) => {
                     mainRow[`الرقم المرجعي ${idx + 1}`] = crn;
                 });
                 mainSheetData.push(mainRow);
 
-                // تعبئة شيت الرموز المسجلة (الطلب الجديد)
                 assignedCodesData.push({
                     [C_TRAINEE_ID]: traineeId,
                     'المقررات التي تم تسجيلها بنجاح': registeredCourseCodes.length > 0 ? registeredCourseCodes.join(' ، ') : 'لم يتم تسجيل أي مقرر'
@@ -470,32 +463,70 @@
                 { 'البيان': 'لم يتم تسجيلهم في أي مقرر', 'العدد': stats.failed }
             ];
 
-            const wb = XLSX.utils.book_new();
-            const wsMain = XLSX.utils.json_to_sheet(mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
-            // الشيت الجديد المضاف
-            const wsAssignedCodes = XLSX.utils.json_to_sheet(assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
+            // ----------------------------------------------------
+            // استخدام ExcelJS لتوليد وبناء الملف النهائي بنظام من اليمين لليسار RTL
+            // ----------------------------------------------------
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'النظام الذكي';
+            workbook.created = new Date();
+
+            function addSheetToWorkbook(wb, sheetName, dataArray) {
+                const ws = wb.addWorksheet(sheetName);
+                
+                // تفعيل اتجاه اليمين لليسار هنا
+                ws.views = [{ rightToLeft: true }];
+                
+                const dataToExport = dataArray.length ? dataArray : [{ 'ملاحظة': 'لا توجد بيانات' }];
+                const headers = Object.keys(dataToExport[0]);
+                
+                // إعداد الأعمدة وتحديد العرض
+                ws.columns = headers.map(h => ({
+                    header: h,
+                    key: h,
+                    width: 22
+                }));
+                
+                // إضافة البيانات
+                ws.addRows(dataToExport);
+                
+                // تنسيق ترويسة الجدول لتكون أجمل
+                const headerRow = ws.getRow(1);
+                headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+                headerRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF008E7E' } // نفس لون هوية النظام
+                };
+                headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+                // محاذاة كافة البيانات في المنتصف
+                ws.eachRow((row, rowNumber) => {
+                    if(rowNumber > 1) {
+                        row.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+                });
+            }
+
+            addSheetToWorkbook(workbook, "الجدول الأساسي (CRN)", mainSheetData);
+            addSheetToWorkbook(workbook, "المقررات المسجلة (الرموز)", assignedCodesData);
+            addSheetToWorkbook(workbook, "الشعب الممتلئة", fullSectionsData);
+            addSheetToWorkbook(workbook, "لم يسجلوا (سعة - غير موجود)", unregisteredData);
+            addSheetToWorkbook(workbook, "تعارضات لم تحل", conflictsData);
+            addSheetToWorkbook(workbook, "إحصائيات النجاح", statsData);
+
+            // تصدير وتحميل الملف عبر ExcelJS
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = "تقرير_الجداول_الذكي_المطور.xlsx";
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            window.URL.revokeObjectURL(url);
             
-            const wsFull = XLSX.utils.json_to_sheet(fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا يوجد شعب ممتلئة' }]);
-            const wsUnreg = XLSX.utils.json_to_sheet(unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا يوجد متدربين غير مسجلين' }]);
-            const wsConflicts = XLSX.utils.json_to_sheet(conflictsData.length ? conflictsData : [{ 'ملاحظة': 'لا توجد تعارضات' }]);
-            const wsStats = XLSX.utils.json_to_sheet(statsData);
-
-            wsMain["!dir"] = "rtl"; 
-            wsAssignedCodes["!dir"] = "rtl"; 
-            wsFull["!dir"] = "rtl"; 
-            wsUnreg["!dir"] = "rtl"; 
-            wsConflicts["!dir"] = "rtl"; 
-            wsStats["!dir"] = "rtl";
-
-            XLSX.utils.book_append_sheet(wb, wsMain, "الجدول الأساسي");
-            XLSX.utils.book_append_sheet(wb, wsAssignedCodes, "المقررات المسجلة (الرموز)");
-            XLSX.utils.book_append_sheet(wb, wsFull, "الشعب الممتلئة");
-            XLSX.utils.book_append_sheet(wb, wsUnreg, "لم يسجلوا (سعة - غير موجود)");
-            XLSX.utils.book_append_sheet(wb, wsConflicts, "تعارضات لم تحل");
-            XLSX.utils.book_append_sheet(wb, wsStats, "إحصائيات النجاح");
-
-            XLSX.writeFile(wb, "تقرير_الجداول_الذكي_المطور.xlsx");
-            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
+            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً من اليمين لليسار!';
 
         } catch (error) {
             console.error(error);
