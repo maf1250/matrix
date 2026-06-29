@@ -410,7 +410,7 @@ function parseTimeRange(timeStr) {
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جاري التهيئة...';
+        btnText.innerText = 'جار التهيئة...';
         statusDiv.innerHTML = '';
 
         try {
@@ -519,7 +519,7 @@ function parseTimeRange(timeStr) {
                 if (i % 10 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 0));
                     let percent = Math.round((i / structuredTrainees.length) * 100);
-                    btnText.innerText = `جاري المعالجة: ${percent}% (${i}/${structuredTrainees.length})`;
+                    btnText.innerText = `جار المعالجة: ${percent}% (${i}/${structuredTrainees.length})`;
                 }
 
                 let traineeId = trainee.id;
@@ -694,14 +694,15 @@ function parseTimeRange(timeStr) {
                         unregisteredData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
 
                         missingCount++;
+                        if (missingCount === 0) {
+                        unassignedRow['الحالة'] = 'تم إسناد جميع المقررات';
+                        }
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                     }
                 });
 
-                if (missingCount === 0) {
-                    unassignedRow['الحالة'] = 'لا يوجد (تم إسناد جميع المقررات)';
-                }
+//تبديل
                 unassignedCodesData.push(unassignedRow);
 
                 if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) {
@@ -769,7 +770,7 @@ function parseTimeRange(timeStr) {
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
-            btnText.innerText = 'جاري تصدير الملف...';
+            btnText.innerText = 'جار تصدير الملف...';
             await exportToExcel(sheetsToExport, "تقرير_إسناد_الجدولة.xlsx");
             statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
         } catch (error) {
