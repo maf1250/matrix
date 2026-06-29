@@ -92,6 +92,11 @@
 </div>
 
 <script>
+    // تحسين 6: استخراج الأرقام السحرية لتقييم الجداول لتسهيل التعديل
+    const WEIGHT_DAYS = 5000;
+    const WEIGHT_GAPS = 50;
+    const WEIGHT_REM = 20;
+
     const daysMap = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
     const reverseDaysMap = { 0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت' };
 
@@ -103,13 +108,14 @@
         return days;
     }
 
+    // تحسين 3: دقة استخراج الوقت وتجاهل المسافات العشوائية
     function parseTimeRange(timeStr) {
         if (!timeStr) return null;
         let parts = String(timeStr).split('-');
         if (parts.length < 2) return null;
 
         function toMinutes(t) {
-            let m = t.match(/(\d+):(\d+)/);
+            let m = t.match(/(\d+)\s*:\s*(\d+)/); // تم إضافة \s* لتجاهل المسافات
             if (!m) return 0;
             let hrs = parseInt(m[1]);
             let mins = parseInt(m[2]);
@@ -191,7 +197,8 @@
             let lastEnd = times[times.length - 1].end;
             if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
         }
-        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 20);
+        // استخدام الثوابت المحددة في الأعلى
+        let score = (daysUsed.size * WEIGHT_DAYS) + (totalGaps * WEIGHT_GAPS) + maxEndTime - (minRemaining * WEIGHT_REM);
         return score;
     }
 
@@ -212,7 +219,7 @@
                         }
                         if (idRowIndex !== -1) break;
                     }
-                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على '${idHeader}'`)); return; }
+                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${idHeader}' في ملف المتدربين`)); return; }
 
                     let courseHeaders = [];
                     for (let c = 0; c < jsonArray[0].length; c++) {
@@ -257,7 +264,7 @@
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
                         if (rowStrings.includes(expectedHeader)) { headerRowIndex = i; break; }
                     }
-                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على '${expectedHeader}'`)); return; }
+                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${expectedHeader}' في تقرير SS01`)); return; }
 
                     const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
                     const dataRows = [];
@@ -332,7 +339,7 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جار المعالجة والتحسين...';
+        btnText.innerText = 'جاري التهيئة...';
         statusDiv.innerHTML = '';
 
         try {
@@ -340,6 +347,20 @@
                 readMatrixFile(traineesFile, C_TRAINEE_ID), 
                 readSS01File(ss01File, C_COURSE)
             ]);
+
+            // تحسين 5: التحقق من وجود الأعمدة الأساسية قبل بدء المعالجة
+            if (ss01Raw.length > 0) {
+                let firstRow = ss01Raw[0];
+                let missingCols = [];
+                if (!(C_CRN in firstRow)) missingCols.push(C_CRN);
+                if (!(C_TIME in firstRow)) missingCols.push(C_TIME);
+                if (!(C_DAY in firstRow)) missingCols.push(C_DAY);
+                if (!(C_REM in firstRow)) missingCols.push(C_REM);
+                
+                if (missingCols.length > 0) {
+                    throw new Error(`الأعمدة التالية مفقودة أو مسماة بشكل خاطئ في تقرير SS01: ${missingCols.join(' ، ')}`);
+                }
+            }
             
             let courseMap = {};
             let allSectionsRef = {};
@@ -374,22 +395,18 @@
                 courseOriginalCapacity[code] = minCap;
             }
 
-            // بناء بيانات المتدربين مع حساب MRV (ترتيب ندرة الخيارات)
             let structuredTrainees = traineesRaw.map(tRow => {
                 let req = [];
-                let rarityScore = 0; // مجموع (1 / السعة المتاحة) لكل مادة مطلوبة
+                let rarityScore = 0; 
                 for (let key in tRow) { 
                     if (key !== C_TRAINEE_ID && tRow[key] === "1") {
                         req.push(key);
-                        // حساب ندرة الخيار: كلما قلت السعة زادت القيمة (ندرة أعلى)
                         rarityScore += (1 / (courseTotalCapacity[key] || 1));
                     }
                 }
                 return { id: tRow[C_TRAINEE_ID], requiredCourses: req, mrvScore: rarityScore };
             });
 
-            // الترتيب الأساسي: حسب عدد المواد المطلوبة (الأكثر أولاً)
-            // الترتيب الثانوي (MRV): حسب ندرة الخيارات (الأكثر ندرة أولاً)
             structuredTrainees.sort((a, b) => {
                 if (b.requiredCourses.length !== a.requiredCourses.length) {
                     return b.requiredCourses.length - a.requiredCourses.length;
@@ -402,12 +419,21 @@
             let unregisteredData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
-            structuredTrainees.forEach(trainee => {
+            // تحسين 1: تحويل الحلقة لمنع تجمد المتصفح وإظهار شريط التقدم
+            for (let i = 0; i < structuredTrainees.length; i++) {
+                let trainee = structuredTrainees[i];
+
+                // إعطاء المتصفح فرصة لتحديث الواجهة كل 10 طلاب
+                if (i % 10 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    let percent = Math.round((i / structuredTrainees.length) * 100);
+                    btnText.innerText = `جاري المعالجة: ${percent}% (${i}/${structuredTrainees.length})`;
+                }
+
                 let traineeId = trainee.id;
                 let requiredCourses = trainee.requiredCourses;
                 stats.total++;
 
-                // ترتيب المواد داخل جدول المتدرب من الأقل سعة للأكثر سعة (داخلياً لضمان حجز الأصعب أولاً)
                 requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
 
                 let courseOptions = [];
@@ -428,6 +454,9 @@
                         if (combos.length > 0) courseOptions.push({ code: code, combos: combos });
                     }
                 });
+
+                // تحسين 2: ترتيب الخيارات من الأقل مرونة للأكثر مرونة لتسريع خوارزمية التراجع بشكل هائل
+                courseOptions.sort((a, b) => a.combos.length - b.combos.length);
 
                 let bestSchedules = [];
                 let maxCourses = 0;
@@ -473,7 +502,7 @@
 
                 let studentCrns = [];
                 finalSchedule.forEach(sec => {
-                    sec.remaining -= 1; // حجز المقعد مباشرة (بدون حماية مقاعد نادرة)
+                    sec.remaining -= 1; 
                     studentCrns.push(sec.crn);
                 });
                 
@@ -525,7 +554,7 @@
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
                 assignedCodesData.push({ [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
-            });
+            }
 
             // إعداد تقارير السعات والإحصائيات النهائية
             let capacityData = [];
@@ -568,6 +597,7 @@
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
+            btnText.innerText = 'جاري تصدير الملف...';
             await exportToExcel(sheetsToExport, "تقرير_إسناد_الجدولة.xlsx");
             statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
         } catch (error) {
