@@ -57,7 +57,6 @@
 
 <div class="container">
     <h1>النظام الذكي لجدولة المتدربين</h1>
-    <div class="version"> (True MRV + Branch & Bound + Conflict Cache)</div>
 
     <details class="advanced-settings">
         <summary>⚙️  تخصيص أسماء الأعمدة (تُحفظ تلقائياً)</summary>
@@ -143,14 +142,10 @@
         return { start: toMinutes(parts[0]), end: toMinutes(parts[1]) };
     }
 
-    // --- نظام ذاكرة التعارضات (Conflict Cache) ---
     let conflictCache = new Map();
     function checkConflictCached(sec1, sec2) {
         if (!sec1.timeData || !sec2.timeData || sec1.days.length === 0 || sec2.days.length === 0) return false;
-        
-        // مفتاح فريد لجدول التجزئة بناءً على الرقم المرجعي (CRN)
         let key = sec1.crn < sec2.crn ? `${sec1.crn}-${sec2.crn}` : `${sec2.crn}-${sec1.crn}`;
-        
         let cached = conflictCache.get(key);
         if (cached !== undefined) return cached;
 
@@ -166,6 +161,9 @@
         if (keys.length === 0) return [];
         let results = [];
         function backtrack(idx, currentCombo) {
+            // صمام أمان 1: منع تضخم تركيبات المقرر الواحد (الحد الأقصى 2000 تركيبة للمقرر)
+            if (results.length > 2000) return; 
+
             if (idx === keys.length) {
                 results.push([...currentCombo]);
                 return;
@@ -299,164 +297,4 @@
         });
     }
 
-    async function exportToExcel(sheetsData, filename) {
-        const workbook = new ExcelJS.Workbook();
-        for (let sheetInfo of sheetsData) {
-            const worksheet = workbook.addWorksheet(sheetInfo.name, { views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] });            
-            if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
-
-            const headers = Object.keys(sheetInfo.data[0]);
-            worksheet.columns = headers.map(h => ({ header: h, key: h }));
-            worksheet.addRows(sheetInfo.data);
-            
-            const headerRow = worksheet.getRow(1);
-            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008E7E' } };
-            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-            worksheet.eachRow((row, rowNumber) => {
-                row.eachCell({ includeEmpty: true }, (cell) => {
-                    if (rowNumber > 1) cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
-            });
-
-            worksheet.columns.forEach(column => {
-                let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, cell => {
-                    let columnLength = cell.value ? cell.value.toString().length : 0;
-                    if (columnLength > maxLength) maxLength = columnLength;
-                });
-                column.width = Math.min(50, Math.max(15, Math.ceil(maxLength * 1.4)));
-            });
-        }
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        saveAs(blob, filename);
-    }
-
-    function updateProgress(percent, text) {
-        document.getElementById('progressBar').style.width = percent + '%';
-        document.getElementById('progressText').innerText = text;
-    }
-
-    const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
-
-    async function startProcessing() {
-        const traineesFile = document.getElementById('traineesFile').files[0];
-        const ss01File = document.getElementById('ss01File').files[0];
-        const statusDiv = document.getElementById('status');
-        const btn = document.getElementById('processBtn');
-        const progContainer = document.getElementById('progressContainer');
-
-        if (!traineesFile || !ss01File) {
-            statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
-        }
-
-        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
-        const C_COURSE = document.getElementById('col_course').value.trim();
-        const C_CRN = document.getElementById('col_crn').value.trim();
-        const C_TYPE = document.getElementById('col_type').value.trim();
-        const C_TIME = document.getElementById('col_time').value.trim();
-        const C_DAY = document.getElementById('col_day').value.trim();
-        const C_REM = document.getElementById('col_rem').value.trim();
-
-        btn.disabled = true;
-        progContainer.style.display = 'flex';
-        statusDiv.innerHTML = '';
-        
-        // تفريغ ذاكرة التعارضات لبداية نظيفة
-        conflictCache.clear();
-        
-        updateProgress(5, "قراءة الملفات...");
-
-        try {
-            await yieldToUI();
-            let [traineesRaw, ss01Raw] = await Promise.all([
-                readMatrixFile(traineesFile, C_TRAINEE_ID), 
-                readSS01File(ss01File, C_COURSE)
-            ]);
-            
-            updateProgress(15, "بناء هيكل البيانات وتحديد السعات...");
-            await yieldToUI();
-
-            let courseMap = {};
-            let allSectionsRef = {};
-            let courseTotalCapacity = {};
-            let courseOriginalCapacity = {}; 
-            let courseStats = {}; 
-
-            ss01Raw.forEach(row => {
-                let code = row[C_COURSE], crn = row[C_CRN], type = row[C_TYPE] || 'نظري', rem = parseInt(row[C_REM]) || 0;
-                if (!code || !crn) return;
-
-                let section = { code, crn, type, remaining: rem, originalRem: rem, days: parseDays(row[C_DAY]), timeData: parseTimeRange(row[C_TIME]) };
-                allSectionsRef[crn] = section;
-                if (!courseMap[code]) courseMap[code] = {};
-                if (!courseMap[code][type]) courseMap[code][type] = [];
-                courseMap[code][type].push(section);
-                
-                if (!courseStats[code]) courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} };
-            });
-
-            for (let code in courseMap) {
-                let minCap = -1;
-                for (let type in courseMap[code]) {
-                    let typeTotal = courseMap[code][type].reduce((sum, sec) => sum + sec.remaining, 0);
-                    if (minCap === -1 || typeTotal < minCap) minCap = typeTotal;
-                }
-                courseTotalCapacity[code] = minCap;
-                courseOriginalCapacity[code] = minCap;
-            }
-
-            updateProgress(25, "إنشاء Cache التركيبات...");
-            await yieldToUI();
-
-            let comboCache = {};
-            for (let code in courseMap) {
-                comboCache[code] = generateCourseCombinations(courseMap[code]);
-            }
-
-            updateProgress(35, "تحليل صعوبة المتدربين...");
-            await yieldToUI();
-
-            let structuredTrainees = traineesRaw.map(tRow => {
-                let req = [];
-                for (let key in tRow) { if (key !== C_TRAINEE_ID && tRow[key] === "1") req.push(key); }
-                return { id: tRow[C_TRAINEE_ID], requiredCourses: req, difficultyScore: 0 };
-            });
-
-            structuredTrainees.forEach(t => {
-                let score = 0;
-                t.requiredCourses.forEach(c => {
-                    let cap = courseTotalCapacity[c] || 0.1;
-                    score += (1000 / cap); 
-                });
-                t.difficultyScore = score;
-            });
-            structuredTrainees.sort((a, b) => b.difficultyScore - a.difficultyScore);
-
-            let mainSheetData = [];
-            let assignedCodesData = [];
-            let unregisteredData = [];
-            let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
-
-            for (let i = 0; i < structuredTrainees.length; i++) {
-                if (i % 10 === 0) {
-                    let pct = 40 + Math.floor((i / structuredTrainees.length) * 50);
-                    updateProgress(pct, `جدولة المتدرب ${i+1} من ${structuredTrainees.length} (باستخدام Branch & Bound)...`);
-                    await yieldToUI();
-                }
-
-                let trainee = structuredTrainees[i];
-                let requiredCourses = trainee.requiredCourses;
-                stats.total++;
-
-                requiredCourses.forEach(c => { if(courseStats[c]) courseStats[c].requested++; });
-
-                let courseOptions = [];
-                requiredCourses.forEach(code => {
-                    if (!comboCache[code]) return;
-                    let validCombos = comboCache[code].filter(combo => combo.every(sec => sec.remaining > 0));
-                    if (validCombos.length > 0) courseOptions.push({ code: code, combos: validCombos });
-                });
+    async function exportToExcel(sh
