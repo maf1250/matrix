@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>النظام الذكي لجدولة المتدربين</title>
+    <title>الإسناد الآلي لجدولة المتدربين</title>
     
     <!-- SheetJS لقراءة الملفات بسرعة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,7 +48,7 @@
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين</h1>
+    <h1>النظام الآلي لجدولة المتدربين</h1>
 
     <details class="advanced-settings">
         <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
@@ -80,12 +80,12 @@
 
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
-        <input type="file" id="ss01File" accept=".csv, .xlsx, .xls">
+        <input type="file" id="ss01File" accept=".csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
         <span class="loader" id="loader"></span>
-        <span id="btnText">معالجة وبناء الجداول بذكاء</span>
+        <span id="btnText">معالجة وبناء الجداول</span>
     </button>
 
     <div id="status" class="status-msg"></div>
@@ -568,7 +568,7 @@
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
-            await exportToExcel(sheetsToExport, "تقرير_الجداول_الذكي.xlsx");
+            await exportToExcel(sheetsToExport, "تقرير_إسناد_الجدولة.xlsx");
             statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
         } catch (error) {
             console.error(error);
@@ -576,7 +576,7 @@
         } finally {
             btn.disabled = false;
             loader.style.display = 'none';
-            btnText.innerText = 'معالجة وبناء الجداول بذكاء';
+            btnText.innerText = 'معالجة وبناء الجداول';
         }
     }
 </script>
