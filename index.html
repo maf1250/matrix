@@ -56,7 +56,8 @@
             <div class="inner-group">
                 <h3>إعدادات ملف مصفوفة التسجيل</h3>
                 <div class="settings-row">
-                    <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                    <div><label>عمود رقم المتدرب</label><input type="text" id="col_trainee_name" value="الرقم"></div>
+                    <div><label>عمود اسم المتدرب</label><input type="text" id="col_trainee_id" value="الاسم"></div>
                 </div>
             </div>
             <div class="inner-group">
@@ -329,6 +330,7 @@
             statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
         }
 
+        const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();     
         const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
@@ -354,6 +356,7 @@
                 let missingCols = [];
                 if (!(C_CRN in firstRow)) missingCols.push(C_CRN);
                 if (!(C_TIME in firstRow)) missingCols.push(C_TIME);
+                if (!(C_TYPE in firstRow)) missingCols.push(C_TYPE);
                 if (!(C_DAY in firstRow)) missingCols.push(C_DAY);
                 if (!(C_REM in firstRow)) missingCols.push(C_REM);
                 
@@ -613,7 +616,7 @@ ss01Raw.forEach(row => {
                             }
                         }
                         courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
-                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
+                        unregisteredData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
                 });
 
