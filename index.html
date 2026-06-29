@@ -578,7 +578,7 @@
                         'عدد المتوقع': d.requested,
                         'تم التعيين': d.registered,
                         'لم يتم التعيين': d.unregistered,
-                        'أبرز سبب لعدم التسجيل': topReason || "لا يوجد"
+                        'أبرز سبب لعدم التعيين': topReason || "لا يوجد"
                     });
                 }
             }
@@ -597,15 +597,15 @@
 
             let globalStatsData = [
                 { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
-                { 'البيان': 'مسجلين بالكامل بنجاح', 'العدد': stats.fullSuccess },
-                { 'البيان': 'مسجلين جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
+                { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
+                { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
                 { 'البيان': 'لم يتم تسجيلهم مطلقاً', 'العدد': stats.failed }
             ];
 
             // تجهيز البيانات للتصدير عبر ExcelJS
             const sheetsToExport = [
                 { name: "جدول المتدربين", data: mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "المقررات المسجلة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "المقررات المعينة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
                 { name: "تقرير السعات", data: capacityData.length ? capacityData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
                 { name: "إحصائيات لكل مقرر", data: courseStatsData.length ? courseStatsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
