@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الإسناد الآلي لجدولة المتدربين</title>
-    
+    <title>الإسناد الآلي لجدولة المتدربين</title>   
     <!-- SheetJS لقراءة الملفات بسرعة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق احترافي (RTL) -->
+    <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق (RTL) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
@@ -20,16 +17,14 @@
         h1 { text-align: center; color: #008e7e; font-size: 24px; margin-bottom: 20px; }
         .upload-group { margin-bottom: 20px; background: #fafdfa; border: 2px dashed #8dc63f; padding: 15px; border-radius: 8px; text-align: right; }
         .upload-group label { display: flex; align-items: center; font-weight: 600; margin-bottom: 10px; color: #008e7e; gap: 8px; }
-        input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }
-        
+        input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }        
         .advanced-settings { background: #eef7f6; border: 1px solid #cbe6e3; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s ease; }
         .advanced-settings summary { font-weight: 800; color: #006d60; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none; }
         .advanced-settings summary::-webkit-details-marker { display: none; }
         .advanced-settings summary::after { content: '▼'; font-size: 12px; transition: transform 0.3s ease; color: #008e7e; }
         .advanced-settings[open] summary::after { transform: rotate(180deg); }
         .settings-content { margin-top: 20px; border-top: 1px dashed #b2d8d3; padding-top: 20px; display: flex; flex-direction: column; gap: 25px; }
-        .inner-group h3 { margin-top: 0; color: #006d60; font-size: 15px; text-align: center; margin-bottom: 15px; }
-        
+        .inner-group h3 { margin-top: 0; color: #006d60; font-size: 15px; text-align: center; margin-bottom: 15px; }     
         .settings-row { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
         .settings-row div { flex: 1; min-width: 150px; display: flex; flex-direction: column; align-items: center; }
         .settings-row label { font-weight: 600; margin-bottom: 8px; font-size: 12px; color: #006d60; }
@@ -56,7 +51,6 @@
             </svg>
         </a>
     <h1>النظام الآلي لجدولة المتدربين</h1>
-
     <details class="advanced-settings">
         <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
         <div class="settings-content">
@@ -100,7 +94,7 @@
 </div>
 
 <script>
-    // تحسين 6: استخراج الأرقام السحرية لتقييم الجداول لتسهيل التعديل
+    // تحسين 6: استخراج الأرقام  لتقييم الجداول لتسهيل التعديل
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
     const WEIGHT_REM = 20;
@@ -626,7 +620,7 @@ return {
 
                     // 3. إعادة ترتيب المتدربين المتبقين (الأكثر حاجة للمقررات النادرة يصعد للأعلى)
                     structuredTrainees.sort((a, b) => {
-                // نعطي وزن 10 نقاط لكل مقرر يطلبه الطالب
+                // نعطي وزن 10 نقاط لكل مقرر يطلبه المتدرب
                 // ونجمع معه درجة الندرة (MRV)
                 let scoreA = (a.requiredCourses.length * 10) + a.mrvScore;
                 let scoreB = (b.requiredCourses.length * 10) + b.mrvScore;
