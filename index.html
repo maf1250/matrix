@@ -742,13 +742,13 @@ else {
     stats.failed++;
 
     notAssignedData.push({
-        [C_TRAINEE_NAME]: trainee.name,
+        [C_TRAINEE_NAME]: traineeName,
         [C_TRAINEE_ID]: traineeId
     });
 }
 
                 let mainRow = {
-                    [C_TRAINEE_NAME]: trainee.name,
+                    [C_TRAINEE_NAME]: traineeName,
                     [C_TRAINEE_ID]: traineeId
                 };
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
