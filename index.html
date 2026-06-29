@@ -635,23 +635,81 @@ return {
                 requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
 
                 let courseOptions = [];
-                requiredCourses.forEach(code => {
-                    if(courseStats[code]) courseStats[code].requested++;
-                    else courseStats[code] = { requested: 1, registered: 0, unregistered: 0, reasons: {} };
+                // ==========================================
+// تجهيز صف المقررات المتبقية للمتدرب
+let unassignedRow = {
+    [C_TRAINEE_NAME]: traineeName,
+    [C_TRAINEE_ID]: traineeId
+};
+let missingCount = 0;
 
-                    let availableTypes = courseMap[code];
-                    if (!availableTypes) return;
-                    let validOptions = {};
-                    let hasMissing = false;
-                    for (let type in availableTypes) {
-                        validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
-                        if (validOptions[type].length === 0) hasMissing = true;
+requiredCourses.forEach(code => {
+    if (!finalCodes.includes(code)) {
+        courseStats[code].unregistered++;
+        let reason = "";
+        
+        if (!courseMap[code]) {
+            reason = "غير مطروح في تقرير جداول الوحدة التدريبية";
+        } else {
+            let availableTypes = courseMap[code];
+            let typesCount = Object.keys(availableTypes).length;
+            let validOptions = {};
+            let emptyTypes = [];
+            
+            // فحص كل شق من شقوق المقرر (نظري، عملي، إلخ)
+            for (let type in availableTypes) {
+                let availableSections = availableTypes[type].filter(s => s.remaining > 0);
+                validOptions[type] = availableSections;
+                if (availableSections.length === 0) {
+                    emptyTypes.push(type); // تسجيل الشق الممتلئ
+                }
+            }
+            
+            if (emptyTypes.length === typesCount) {
+                reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
+            } else if (emptyTypes.length > 0) {
+                // إذا كان أحد الشقين ممتلئ والآخر متاح
+                reason = `لا توجد مقاعد شاغرة في الشق (${emptyTypes.join(' و ')})`;
+            } else {
+                // جميع الشقوق بها مقاعد، الآن نفحص التعارض الداخلي
+                let combos = getCombinations(validOptions);
+                
+                if (combos.length === 0 && typesCount > 1) {
+                    // لا يمكن الجمع بين النظري والعملي للمقرر نفسه بسبب تعارض أوقاتها
+                    reason = "وجود تعارض في الشق الآخر (تعارض داخلي بين شعب المقرر نفسه)";
+                } else {
+                    // المقرر سليم داخلياً، إذن التعارض مع جدول المتدرب
+                    let specificConflict = null;
+                    for (let combo of combos) {
+                        for (let sec of combo) {
+                            for (let existSec of finalSchedule) {
+                                let conf = getConflictDetail(sec, existSec);
+                                if (conf) { specificConflict = conf; break; }
+                            }
+                            if (specificConflict) break;
+                        }
+                        if (specificConflict) break;
                     }
-                    if (!hasMissing) {
-                        let combos = getCombinations(validOptions);
-                        if (combos.length > 0) courseOptions.push({ code: code, combos: combos });
-                    }
-                });
+                    reason = specificConflict ? specificConflict : "تعارض أحد شقي المقرر مع مقررات أخرى ولا يمكن تجنبه";
+                }
+            }
+        }
+        courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
+        unregisteredData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
+
+        // الإضافة الجديدة: فصل كل مقرر وسببه في عمود مستقل
+        missingCount++;
+        unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
+        unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
+    }
+});
+
+// إذا لم يكن هناك مقررات متبقية
+if (missingCount === 0) {
+    unassignedRow['الحالة'] = 'لا يوجد (تم إسناد جميع المقررات)';
+}
+// إضافة الصف إلى شيت المقررات المتبقية
+unassignedCodesData.push(unassignedRow);
 
                 // تحسين 2: ترتيب الخيارات من الأقل مرونة للأكثر مرونة لتسريع خوارزمية التراجع بشكل هائل
                 courseOptions.sort((a, b) => a.combos.length - b.combos.length);
@@ -833,16 +891,7 @@ else {
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
                 assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
-            
-// استخراج المقررات التي طلبها المتدرب ولم يتم إسنادها له
-let missingCodes = requiredCourses.filter(code => !finalCodes.includes(code));
-
-unassignedCodesData.push({ 
-    [C_TRAINEE_NAME]: traineeName, 
-    [C_TRAINEE_ID]: traineeId, 
-    'المقررات المتبقية': missingCodes.length > 0 ? missingCodes.join(' ، ') : 'لا يوجد (تم إسناد جميع المقررات)' 
-});
-                }
+                        }
             // إعداد تقارير السعات والإحصائيات النهائية
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
