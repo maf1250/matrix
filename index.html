@@ -209,71 +209,115 @@
         let score = (daysUsed.size * WEIGHT_DAYS) + (totalGaps * WEIGHT_GAPS) + maxEndTime - (minRemaining * WEIGHT_REM);
         return score;
     }
+function readMatrixFile(file, idHeader, nameHeader) {
+    return new Promise((resolve, reject) => {
 
-        function readMatrixFile(file, idHeader, nameHeader) {
-            return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-                    let idRowIndex = -1;
-                    let idColIndex = -1;
-                    let nameColIndex = -1;
-                    for (let r = 0; r < jsonArray.length; r++) {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+
+            try {
+
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonArray = XLSX.utils.sheet_to_json(sheet, {
+                    header: 1,
+                    defval: ""
+                });
+
+                let idRowIndex = -1;
+                let idColIndex = -1;
+                let nameColIndex = -1;
+
+                // البحث عن صف الاسم والرقم
+                for (let r = 0; r < jsonArray.length; r++) {
+
                     for (let c = 0; c < jsonArray[r].length; c++) {
-                    let value = String(jsonArray[r][c]).trim();
 
-                    if (value === idHeader) {
-                    idRowIndex = r;
-                    idColIndex = c;
-                    }
+                        let value = String(jsonArray[r][c]).trim();
 
-                    if (value === nameHeader) {
-                    nameColIndex = c;
-                    }
-                    }
+                        if (value === idHeader) {
+                            idRowIndex = r;
+                            idColIndex = c;
+                        }
 
-                    if (idColIndex !== -1 && nameColIndex !== -1) {
-                    break;
-                }
-                }
-                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${idHeader}' في ملف المتدربين`)); return; }
-
-                   let courseHeaders = [];
-
-                    for (let c = 0; c < jsonArray[idRowIndex].length; c++) {
-                    courseHeaders[c] = String(jsonArray[idRowIndex][c]).trim();
-                    }
-                    
-                    const dataRows = [];
-                    for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
-                        let rowObj = {};
-                        let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
-                        if (traineeIdVal !== "") {
-                            rowObj[idHeader] = traineeIdVal;
-                            if (nameColIndex !== -1) {
-                            rowObj[nameHeader] = String(jsonArray[i][nameColIndex]).trim();
-                            }
-                            let hasRequests = false;
-                            for (let c = 0; c < courseHeaders.length; c++) {
-                                if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
-                                    rowObj[courseHeaders[c]] = "1"; hasRequests = true;
-                                }
-                            }
-                            if (hasRequests) dataRows.push(rowObj);
+                        if (value === nameHeader) {
+                            nameColIndex = c;
                         }
                     }
-                    resolve(dataRows);
-                } catch (err) { reject(err); }
-            };
-            reader.onerror = () => reject(new Error("خطأ بقراءة مصفوفة التسجيل"));
-            reader.readAsArrayBuffer(file);
-        });
-    }
 
+                    if (idColIndex !== -1 && nameColIndex !== -1)
+                        break;
+                }
+
+                if (idRowIndex === -1)
+                    return reject(new Error("لم يتم العثور على عمود رقم المتدرب"));
+
+                // المقررات دائماً في الصف الأول
+                let courseHeaders = [];
+
+                for (let c = 0; c < jsonArray[0].length; c++) {
+
+                    if (c === idColIndex)
+                        courseHeaders[c] = idHeader;
+
+                    else if (c === nameColIndex)
+                        courseHeaders[c] = nameHeader;
+
+                    else
+                        courseHeaders[c] = String(jsonArray[0][c]).trim();
+                }
+
+                const dataRows = [];
+
+                // تبدأ البيانات بعد صف العناوين
+                for (let r = idRowIndex + 1; r < jsonArray.length; r++) {
+
+                    let traineeId = String(jsonArray[r][idColIndex]).trim();
+
+                    if (traineeId === "")
+                        continue;
+
+                    let rowObj = {};
+
+                    rowObj[idHeader] = traineeId;
+                    rowObj[nameHeader] = String(jsonArray[r][nameColIndex]).trim();
+
+                    let hasRequests = false;
+
+                    for (let c = 0; c < courseHeaders.length; c++) {
+
+                        if (
+                            c !== idColIndex &&
+                            c !== nameColIndex &&
+                            courseHeaders[c] !== "" &&
+                            String(jsonArray[r][c]).trim() === "1"
+                        ) {
+                            rowObj[courseHeaders[c]] = "1";
+                            hasRequests = true;
+                        }
+                    }
+
+                    if (hasRequests)
+                        dataRows.push(rowObj);
+                }
+
+                resolve(dataRows);
+
+            } catch (err) {
+                reject(err);
+            }
+
+        };
+
+        reader.onerror = () => reject(new Error("خطأ بقراءة ملف المصفوفة"));
+
+        reader.readAsArrayBuffer(file);
+
+    });
+}
     function readSS01File(file, expectedHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
