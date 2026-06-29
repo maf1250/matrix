@@ -203,8 +203,8 @@
         return score;
     }
 
-    function readMatrixFile(file, idHeader) {
-        return new Promise((resolve, reject) => {
+        function readMatrixFile(file, idHeader, nameHeader) {
+            return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -228,7 +228,7 @@
                     courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim();
                     }
 
-                    let nameColIndex = courseHeaders.indexOf(C_TRAINEE_NAME);
+                    let nameColIndex = courseHeaders.indexOf(nameHeader);
 
                     const dataRows = [];
                     for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
@@ -237,7 +237,7 @@
                         if (traineeIdVal !== "") {
                             rowObj[idHeader] = traineeIdVal;
                             if (nameColIndex !== -1) {
-                            rowObj[C_TRAINEE_NAME] = String(jsonArray[i][nameColIndex]).trim();
+                            rowObj[nameHeader] = String(jsonArray[i][nameColIndex]).trim();
                             }
                             let hasRequests = false;
                             for (let c = 0; c < courseHeaders.length; c++) {
@@ -352,7 +352,7 @@
 
         try {
             let [traineesRaw, ss01Raw] = await Promise.all([
-                readMatrixFile(traineesFile, C_TRAINEE_ID), 
+                readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME), 
                 readSS01File(ss01File, C_COURSE)
             ]);
 
