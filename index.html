@@ -619,6 +619,9 @@ return {
             // تحسين 1: تحويل الحلقة لمنع تجمد المتصفح وإظهار شريط التقدم
             for (let i = 0; i < structuredTrainees.length; i++) {
                 let trainee = structuredTrainees[i];
+                let finalSchedule = [];
+                let finalCodes = [];
+                let studentCrns = [];
 
                 // إعطاء المتصفح فرصة لتحديث الواجهة كل 10 متدربين
                 if (i % 10 === 0) {
@@ -761,15 +764,12 @@ if (currentCodes.length + remainingCourses < maxCourses)
 
                 findBestSchedule(0, [], []);
 
-                let finalSchedule = [];
-                let finalCodes = [];
                 if (bestSchedules.length > 0) {
                     bestSchedules.sort((a, b) => scoreSchedule(a) - scoreSchedule(b));
                     finalSchedule = bestSchedules[0];
                     finalCodes = [...new Set(finalSchedule.map(s => s.code))];
                 }
 
-                let studentCrns = [];
                 finalSchedule.forEach(sec => {
                     sec.remaining -= 1; 
                     studentCrns.push(sec.crn);
