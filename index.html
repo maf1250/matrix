@@ -59,6 +59,7 @@
                 <div class="settings-row">
                     <div><label>عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
                     <div><label>عمود اسم المتدرب</label><input type="text" id="col_trainee_name" value="الاسم"></div>
+                    <div><label>عنوان رموز المقررات</label><input type="text" id="col_course_header" value="رمز"></div>
                 </div>
             </div>
             <div class="inner-group">
@@ -204,7 +205,7 @@
         return score;
     }
 
-    function readMatrixFile(file, idHeader, nameHeader) {
+    function readMatrixFile(file, idHeader, nameHeader, courseHeaderTitle) {
     return new Promise((resolve, reject) => {
 
         const reader = new FileReader();
@@ -266,7 +267,7 @@
 
                     for (let c = 0; c < row.length; c++) {
 
-                        if (String(row[c]).trim() !== "رمز")
+                        if (String(row[c]).trim() !== courseHeaderTitle)
                             continue;
 
                         let count = 0;
@@ -437,6 +438,7 @@
 
         const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
         const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
+        const C_COURSE_HEADER = document.getElementById('col_course_header').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
         const C_TYPE = document.getElementById('col_type').value.trim();
@@ -451,7 +453,7 @@
 
         try {
             let [traineesRaw, ss01Raw] = await Promise.all([
-                readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME), 
+                readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME, C_COURSE_HEADER), 
                 readSS01File(ss01File, C_COURSE)
             ]);
 
