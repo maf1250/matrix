@@ -277,7 +277,16 @@
                 // 6. تشخيص دقيق للأعطال
                 student.req.forEach(c => {
                     if (!registeredCodes.includes(c)) {
-                        courseStats[c].unreg++;
+                        if (!courseStats[c]) {
+    courseStats[c] = {
+        req: 0,
+        reg: 0,
+        unreg: 0,
+        reasons: {}
+    };
+}
+
+courseStats[c].unreg++;
                         let reason = "تعارض مع الشعب المختارة";
                         if (!courseMap[c]) reason = "غير مطروح بالخطة";
                         else {
