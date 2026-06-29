@@ -408,10 +408,12 @@
             });
 
             structuredTrainees.sort((a, b) => {
-                if (b.requiredCourses.length !== a.requiredCourses.length) {
-                    return b.requiredCourses.length - a.requiredCourses.length;
-                }
-                return b.mrvScore - a.mrvScore; 
+                // نعطي وزن 10 نقاط لكل مقرر يطلبه المتدرب
+                // ونجمع معه درجة الندرة (MRV)
+                let scoreA = (a.requiredCourses.length * 10) + a.mrvScore;
+                let scoreB = (b.requiredCourses.length * 10) + b.mrvScore;
+                // الترتيب من الأعلى نقاطاً إلى الأقل
+                return scoreB - scoreA; 
             });
 
             let mainSheetData = [];
@@ -527,12 +529,14 @@
                     });
 
                     // 3. إعادة ترتيب المتدربين المتبقين (الأكثر حاجة للمقررات النادرة يصعد للأعلى)
-                    remainingTrainees.sort((a, b) => {
-                        if (b.requiredCourses.length !== a.requiredCourses.length) {
-                            return b.requiredCourses.length - a.requiredCourses.length;
-                        }
-                        return b.mrvScore - a.mrvScore;
-                    });
+                    structuredTrainees.sort((a, b) => {
+                // نعطي وزن 10 نقاط لكل مقرر يطلبه الطالب
+                // ونجمع معه درجة الندرة (MRV)
+                let scoreA = (a.requiredCourses.length * 10) + a.mrvScore;
+                let scoreB = (b.requiredCourses.length * 10) + b.mrvScore;
+                // الترتيب من الأعلى نقاطاً إلى الأقل
+                return scoreB - scoreA; 
+            });
 
                     // 4. إرجاعهم للقائمة الرئيسية ليكمل النظام معالجتهم بالترتيب الجديد
                     structuredTrainees.splice(i + 1, remainingTrainees.length, ...remainingTrainees);
