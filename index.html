@@ -195,7 +195,6 @@
         return score;
     }
 
-    // قراءة الملفات باستخدام SheetJS
     function readMatrixFile(file, idHeader) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -277,68 +276,35 @@
         });
     }
 
-    // دالة التصدير باستخدام ExcelJS لتنسيق احترافي (RTL)
     async function exportToExcel(sheetsData, filename) {
         const workbook = new ExcelJS.Workbook();
-        
         for (let sheetInfo of sheetsData) {
-            // إضافة الورقة وتعيين الاتجاه للغة العربية
             const worksheet = workbook.addWorksheet(sheetInfo.name, { 
-            views: [
-            { rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }
-            ] 
-});            
+                views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] 
+            });            
             if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
-
-            // بناء الأعمدة والترويسة
             const headers = Object.keys(sheetInfo.data[0]);
-            worksheet.columns = headers.map(header => ({
-                header: header,
-                key: header,
-                width: 25 // عرض مناسب للبيانات
-            }));
-            
-            // إضافة الصفوف
+            worksheet.columns = headers.map(header => ({ header: header, key: header, width: 25 }));
             worksheet.addRows(sheetInfo.data);
-            
-            // تنسيق ترويسة الجدول (اللون والخلفية)
             const headerRow = worksheet.getRow(1);
-            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // خط أبيض
-            headerRow.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FF008E7E' } // خلفية خضراء مثل التصميم
-            };
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008E7E' } };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-            // توسيط وتسطير جميع الخلايا
             worksheet.eachRow((row, rowNumber) => {
                 row.eachCell({ includeEmpty: true }, (cell) => {
-                    if (rowNumber > 1) {
-                        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-                    }
-                    cell.border = {
-                        top: { style: 'thin' },
-                        left: { style: 'thin' },
-                        bottom: { style: 'thin' },
-                        right: { style: 'thin' }
-                    };
+                    if (rowNumber > 1) { cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; }
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                 });
             });
-            // التعديل التلقائي لعرض الأعمدة بناءً على المحتوى
-worksheet.columns.forEach(column => {
-    let maxLength = 0;
-    column.eachCell({ includeEmpty: true }, cell => {
-        let columnLength = cell.value ? cell.value.toString().length : 0;
-        if (columnLength > maxLength) {
-            maxLength = columnLength;
+            worksheet.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    let columnLength = cell.value ? cell.value.toString().length : 0;
+                    if (columnLength > maxLength) maxLength = columnLength;
+                });
+                column.width = maxLength < 15 ? 15 : maxLength + 2;
+            });
         }
-    });
-    column.width = maxLength < 15 ? 15 : maxLength + 2; // عرض أدنى 15 وأقصى حسب النص
-});
-        }
-
-        // حفظ الملف
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(blob, filename);
@@ -386,22 +352,16 @@ worksheet.columns.forEach(column => {
                 let crn = row[C_CRN];
                 let type = row[C_TYPE] || 'نظري';
                 let rem = parseInt(row[C_REM]) || 0;
-                
                 if (!code || !crn) return;
-
                 let section = {
                     code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
                     days: parseDays(row[C_DAY]), timeData: parseTimeRange(row[C_TIME])
                 };
-
                 allSectionsRef[crn] = section;
                 if (!courseMap[code]) courseMap[code] = {};
                 if (!courseMap[code][type]) courseMap[code][type] = [];
                 courseMap[code][type].push(section);
-                
-                if (!courseStats[code]) {
-                    courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} };
-                }
+                if (!courseStats[code]) { courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} }; }
             });
 
             for (let code in courseMap) {
@@ -414,13 +374,28 @@ worksheet.columns.forEach(column => {
                 courseOriginalCapacity[code] = minCap;
             }
 
+            // بناء بيانات المتدربين مع حساب MRV (ترتيب ندرة الخيارات)
             let structuredTrainees = traineesRaw.map(tRow => {
                 let req = [];
-                for (let key in tRow) { if (key !== C_TRAINEE_ID && tRow[key] === "1") req.push(key); }
-                return { id: tRow[C_TRAINEE_ID], requiredCourses: req };
+                let rarityScore = 0; // مجموع (1 / السعة المتاحة) لكل مادة مطلوبة
+                for (let key in tRow) { 
+                    if (key !== C_TRAINEE_ID && tRow[key] === "1") {
+                        req.push(key);
+                        // حساب ندرة الخيار: كلما قلت السعة زادت القيمة (ندرة أعلى)
+                        rarityScore += (1 / (courseTotalCapacity[key] || 1));
+                    }
+                }
+                return { id: tRow[C_TRAINEE_ID], requiredCourses: req, mrvScore: rarityScore };
             });
 
-            structuredTrainees.sort((a, b) => b.requiredCourses.length - a.requiredCourses.length);
+            // الترتيب الأساسي: حسب عدد المواد المطلوبة (الأكثر أولاً)
+            // الترتيب الثانوي (MRV): حسب ندرة الخيارات (الأكثر ندرة أولاً)
+            structuredTrainees.sort((a, b) => {
+                if (b.requiredCourses.length !== a.requiredCourses.length) {
+                    return b.requiredCourses.length - a.requiredCourses.length;
+                }
+                return b.mrvScore - a.mrvScore; 
+            });
 
             let mainSheetData = [];
             let assignedCodesData = [];
@@ -432,6 +407,7 @@ worksheet.columns.forEach(column => {
                 let requiredCourses = trainee.requiredCourses;
                 stats.total++;
 
+                // ترتيب المواد داخل جدول المتدرب من الأقل سعة للأكثر سعة (داخلياً لضمان حجز الأصعب أولاً)
                 requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
 
                 let courseOptions = [];
@@ -441,7 +417,6 @@ worksheet.columns.forEach(column => {
 
                     let availableTypes = courseMap[code];
                     if (!availableTypes) return;
-
                     let validOptions = {};
                     let hasMissing = false;
                     for (let type in availableTypes) {
@@ -461,7 +436,6 @@ worksheet.columns.forEach(column => {
                 function findBestSchedule(cIndex, currentSched, currentCodes) {
                     if (iterations > 3000) return; 
                     iterations++;
-
                     if (cIndex === courseOptions.length) {
                         if (currentCodes.length > maxCourses) {
                             maxCourses = currentCodes.length;
@@ -471,10 +445,7 @@ worksheet.columns.forEach(column => {
                         }
                         return;
                     }
-
                     let cOpt = courseOptions[cIndex];
-                    let added = false;
-
                     for (let combo of cOpt.combos) {
                         let hasConflict = false;
                         for (let sec of combo) {
@@ -484,7 +455,6 @@ worksheet.columns.forEach(column => {
                             if(hasConflict) break;
                         }
                         if (!hasConflict) {
-                            added = true;
                             findBestSchedule(cIndex + 1, currentSched.concat(combo), currentCodes.concat([cOpt.code]));
                         }
                     }
@@ -503,7 +473,7 @@ worksheet.columns.forEach(column => {
 
                 let studentCrns = [];
                 finalSchedule.forEach(sec => {
-                    sec.remaining -= 1;
+                    sec.remaining -= 1; // حجز المقعد مباشرة (بدون حماية مقاعد نادرة)
                     studentCrns.push(sec.crn);
                 });
                 
@@ -516,14 +486,11 @@ worksheet.columns.forEach(column => {
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
                         let reason = "";
-
                         if (!courseMap[code]) {
                             reason = "غير مطروح في تقرير جداول الوحدة التدريبية";
                         } else {
                             let isFull = false;
-                            for(let t in courseMap[code]){
-                                if(courseMap[code][t].filter(s=>s.remaining>0).length===0) isFull = true;
-                            }
+                            for(let t in courseMap[code]){ if(courseMap[code][t].filter(s=>s.remaining>0).length===0) isFull = true; }
                             if (isFull) {
                                 reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
                             } else {
@@ -531,7 +498,6 @@ worksheet.columns.forEach(column => {
                                 let validOptions = {};
                                 for (let type in availableTypes) validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
                                 let combos = getCombinations(validOptions);
-                                
                                 let specificConflict = null;
                                 for (let combo of combos) {
                                     for (let sec of combo) {
@@ -546,7 +512,6 @@ worksheet.columns.forEach(column => {
                                 reason = specificConflict ? specificConflict : "تعارض مركّب لا يمكن تجنبه";
                             }
                         }
-
                         courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
                         unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
@@ -559,53 +524,30 @@ worksheet.columns.forEach(column => {
                 let mainRow = { [C_TRAINEE_ID]: traineeId };
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
-
-                assignedCodesData.push({
-                    [C_TRAINEE_ID]: traineeId,
-                    'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر'
-                });
+                assignedCodesData.push({ [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
             });
 
+            // إعداد تقارير السعات والإحصائيات النهائية
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
                 let orig = courseOriginalCapacity[code];
                 let rem = courseTotalCapacity[code];
-                let reg = orig - rem;
-                capacityData.push({
-                    'رمز المقرر': code,
-                    'السعة الأصلية': orig,
-                    'عدد المعين لهم': reg,
-                    'المقاعد المتبقية': rem
-                });
+                capacityData.push({ 'رمز المقرر': code, 'السعة الأصلية': orig, 'عدد المعين لهم': orig - rem, 'المقاعد المتبقية': rem });
             }
 
             let courseStatsData = [];
             for (let code in courseStats) {
                 let d = courseStats[code];
                 if (d.requested > 0) {
-                    let topReason = "";
-                    if (Object.keys(d.reasons).length > 0) {
-                        topReason = Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b);
-                    }
-                    courseStatsData.push({
-                        'رمز المقرر': code,
-                        'عدد المتوقع': d.requested,
-                        'تم التعيين': d.registered,
-                        'لم يتم التعيين': d.unregistered,
-                        'أبرز سبب لعدم التعيين': topReason || "لا يوجد"
-                    });
+                    let topReason = Object.keys(d.reasons).length > 0 ? Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b) : "لا يوجد";
+                    courseStatsData.push({ 'رمز المقرر': code, 'عدد المتوقع': d.requested, 'تم التعيين': d.registered, 'لم يتم التعيين': d.unregistered, 'أبرز سبب لعدم التعيين': topReason });
                 }
             }
 
             let fullSectionsData = [];
             for (let crn in allSectionsRef) {
                 if (allSectionsRef[crn].remaining === 0) {
-                    fullSectionsData.push({
-                        'رمز المقرر': allSectionsRef[crn].code,
-                        'الرقم المرجعي': crn,
-                        'النوع': allSectionsRef[crn].type,
-                        'حالة الشعبة': 'ممتلئة تماماً'
-                    });
+                    fullSectionsData.push({ 'رمز المقرر': allSectionsRef[crn].code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
                 }
             }
 
@@ -616,21 +558,18 @@ worksheet.columns.forEach(column => {
                 { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
             ];
 
-            // تجهيز البيانات للتصدير عبر ExcelJS
             const sheetsToExport = [
-                { name: "جدول المتدربين", data: mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "المقررات المعينة", data: assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "أسباب الرفض والتعارض", data: unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "تقرير السعات", data: capacityData.length ? capacityData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "إحصائيات لكل مقرر", data: courseStatsData.length ? courseStatsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
-                { name: "الشعب الممتلئة", data: fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا توجد بيانات' }] },
+                { name: "جدول المتدربين", data: mainSheetData },
+                { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "أسباب الرفض والتعارض", data: unregisteredData },
+                { name: "تقرير السعات", data: capacityData },
+                { name: "إحصائيات لكل مقرر", data: courseStatsData },
+                { name: "الشعب الممتلئة", data: fullSectionsData },
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
             await exportToExcel(sheetsToExport, "تقرير_الجداول_الذكي.xlsx");
-            
             statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
-
         } catch (error) {
             console.error(error);
             statusDiv.innerHTML = `<span class="error">حدث خطأ: ${error.message}</span>`;
