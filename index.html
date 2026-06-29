@@ -442,7 +442,12 @@ function scoreSchedule(schedule) {
                 views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] 
             });            
             if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
-            const headers = Object.keys(sheetInfo.data[0]);
+            // استخراج جميع الأعمدة الممكنة من جميع الصفوف لضمان عدم ضياع أي عمود
+            let allKeys = new Set();
+            sheetInfo.data.forEach(row => {
+         Object.keys(row).forEach(key => allKeys.add(key));
+        });
+            const headers = Array.from(allKeys);
             worksheet.columns = headers.map(header => ({ header: header, key: header, width: 25 }));
             worksheet.addRows(sheetInfo.data);
             worksheet.autoFilter = {from: { row: 1, column: 1 }, to: { row: 1, column: headers.length }};
@@ -604,6 +609,7 @@ return {
 
             let mainSheetData = [];
             let assignedCodesData = [];
+            let unassignedCodesData = [];
             let unregisteredData = [];
             let notAssignedData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
@@ -825,8 +831,16 @@ else {
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
                 assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
-            }
+            
+// استخراج المقررات التي طلبها المتدرب ولم يتم إسنادها له
+let missingCodes = requiredCourses.filter(code => !finalCodes.includes(code));
 
+unassignedCodesData.push({ 
+    [C_TRAINEE_NAME]: traineeName, 
+    [C_TRAINEE_ID]: traineeId, 
+    'المقررات المتبقية': missingCodes.length > 0 ? missingCodes.join(' ، ') : 'لا يوجد (تم إسناد جميع المقررات)' 
+});
+                }
             // إعداد تقارير السعات والإحصائيات النهائية
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
@@ -861,11 +875,12 @@ else {
             const sheetsToExport = [
                 { name: "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "المقررات المتبقية", data: unassignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
                 { name: "تقرير السعة", data: capacityData },
-                { name: "إحصائيات لكل مقرر", data: courseStatsData },
                 { name: "الشعب الممتلئة", data: fullSectionsData },
+                { name: "إحصائيات لكل مقرر", data: courseStatsData },
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
