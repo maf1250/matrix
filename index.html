@@ -728,7 +728,7 @@ return {
                             }
                         }
                         courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
-                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
+                        unregisteredData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
                 });
 
@@ -753,7 +753,7 @@ else {
                 };
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
-                assignedCodesData.push({ [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
+                assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
             }
 
             // إعداد تقارير السعات والإحصائيات النهائية
@@ -792,7 +792,7 @@ else {
                 { name: "المقررات المعينة", data: assignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
-                { name: "تقرير السعات", data: capacityData },
+                { name: "تقرير السعة", data: capacityData },
                 { name: "إحصائيات لكل مقرر", data: courseStatsData },
                 { name: "الشعب الممتلئة", data: fullSectionsData },
                 { name: "الإحصاء العام", data: globalStatsData }
