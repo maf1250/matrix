@@ -3,352 +3,580 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام الجدولة الذكي V5.0 - المحرك الاحترافي</title>
+    <title>النظام الذكي لجدولة المتدربين</title>
     
+    <!-- SheetJS لقراءة الملفات بسرعة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق احترافي (RTL) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
-        body { background-color: #f8fafc; color: #1e293b; margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
-        .container { background-color: #fff; padding: 35px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); max-width: 850px; width: 100%; }
-        h1 { text-align: center; color: #0f766e; font-size: 26px; margin-bottom: 25px; font-weight: 800; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; }
-        .upload-group { margin-bottom: 20px; background: #fdfdfd; border: 2px dashed #14b8a6; padding: 20px; border-radius: 10px; }
-        .upload-group label { display: flex; align-items: center; font-weight: 700; margin-bottom: 12px; color: #0f766e; gap: 10px; }
-        input[type="file"] { width: 100%; font-family: inherit; }
+        body { background-color: #f4f9f8; color: #333; margin: 0; padding: 40px 20px; display: flex; justify-content: center; }
+        .container { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 800px; width: 100%; position: relative; }
+        h1 { text-align: center; color: #008e7e; font-size: 24px; margin-bottom: 20px; }
+        .upload-group { margin-bottom: 20px; background: #fafdfa; border: 2px dashed #8dc63f; padding: 15px; border-radius: 8px; text-align: right; }
+        .upload-group label { display: flex; align-items: center; font-weight: 600; margin-bottom: 10px; color: #008e7e; gap: 8px; }
+        input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }
         
-        .advanced-settings { background: #f0fdfa; border: 1px solid #ccfbf1; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
-        .advanced-settings summary { font-weight: 800; color: #134e4a; cursor: pointer; outline: none; list-style: none; display: flex; justify-content: space-between; }
-        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
-        .settings-grid div { display: flex; flex-direction: column; }
-        .settings-grid label { font-size: 13px; font-weight: 600; color: #0f766e; margin-bottom: 5px; }
-        .settings-grid input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; }
-
-        .btn-process { background-color: #0d9488; color: #fff; border: none; padding: 18px 25px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 12px; }
-        .btn-process:hover { background-color: #0f766e; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(13,148,136,0.2); }
-        .btn-process:disabled { background-color: #94a3b8; cursor: not-allowed; transform: none; }
+        .advanced-settings { background: #eef7f6; border: 1px solid #cbe6e3; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s ease; }
+        .advanced-settings summary { font-weight: 800; color: #006d60; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none; }
+        .advanced-settings summary::-webkit-details-marker { display: none; }
+        .advanced-settings summary::after { content: '▼'; font-size: 12px; transition: transform 0.3s ease; color: #008e7e; }
+        .advanced-settings[open] summary::after { transform: rotate(180deg); }
+        .settings-content { margin-top: 20px; border-top: 1px dashed #b2d8d3; padding-top: 20px; display: flex; flex-direction: column; gap: 25px; }
+        .inner-group h3 { margin-top: 0; color: #006d60; font-size: 15px; text-align: center; margin-bottom: 15px; }
         
-        .status-msg { text-align: center; margin-top: 20px; font-weight: 700; color: #0f766e; }
-        .loader { display: none; width: 22px; height: 22px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .settings-row { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+        .settings-row div { flex: 1; min-width: 150px; display: flex; flex-direction: column; align-items: center; }
+        .settings-row label { font-weight: 600; margin-bottom: 8px; font-size: 12px; color: #006d60; }
+        .settings-row input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-family: inherit; }
+        .settings-row input:focus { outline: none; border-color: #008e7e; }
+        
+        .btn-process { background-color: #008e7e; color: #fff; border: none; padding: 15px 20px; width: 100%; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-process:hover { background-color: #006d60; }
+        .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
+        .status-msg { text-align: center; margin-top: 15px; font-weight: 600; color: #006d60; }
+        .error { color: #dc3545; }
+        .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين V5.0</h1>
+    <h1>النظام الذكي لجدولة المتدربين</h1>
 
     <details class="advanced-settings">
-        <summary>⚙️ إعدادات أعمدة البيانات (تحكم كامل)</summary>
-        <div class="settings-grid">
-            <div><label>عمود المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
-            <div><label>عمود المقرر</label><input type="text" id="col_course" value="المقرر"></div>
-            <div><label>الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
-            <div><label>نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
-            <div><label>الوقت</label><input type="text" id="col_time" value="الوقت"></div>
-            <div><label>اليوم</label><input type="text" id="col_day" value="اليوم"></div>
-            <div><label>المتبقي</label><input type="text" id="col_rem" value="متبقي"></div>
+        <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
+        <div class="settings-content">
+            <div class="inner-group">
+                <h3>إعدادات ملف مصفوفة التسجيل</h3>
+                <div class="settings-row">
+                    <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                </div>
+            </div>
+            <div class="inner-group">
+                <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
+                <div class="settings-row">
+                    <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
+                    <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
+                    <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
+                    <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
+                    <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
+                    <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
+                </div>
+            </div>
         </div>
     </details>
 
     <div class="upload-group">
-        <label>📁 1. ملف مصفوفة التسجيل (المتوقع)</label>
+        <label>1. ملف مصفوفة التسجيل والمتوقع</label>
         <input type="file" id="traineesFile" accept=".xlsx, .xls">
     </div>
 
     <div class="upload-group">
-        <label>📊 2. تقرير جداول الوحدة (SS01)</label>
+        <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
         <input type="file" id="ss01File" accept=".csv, .xlsx, .xls">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
         <span class="loader" id="loader"></span>
-        <span id="btnText">معالجة وبناء الجداول باحترافية</span>
+        <span id="btnText">معالجة وبناء الجداول بذكاء</span>
     </button>
 
     <div id="status" class="status-msg"></div>
 </div>
 
 <script>
-    // --- Constants ---
-    const DAYS_MAP = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
-    const REVERSE_DAYS = { 0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت' };
+    const daysMap = { 'الأحد':0, 'الاحد':0, 'الإثنين':1, 'الاثنين':1, 'الثلاثاء':2, 'الأربعاء':3, 'الاربعاء':3, 'الخميس':4, 'الجمعة':5, 'السبت':6 };
+    const reverseDaysMap = { 0: 'الأحد', 1: 'الإثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت' };
 
-    // --- Core Logic Helpers ---
     function parseDays(dayStr) {
         if (!dayStr) return [];
         let str = String(dayStr).replace(/\s/g, '');
-        let res = [];
-        for (let k in DAYS_MAP) { if (str.includes(k)) res.push(DAYS_MAP[k]); }
-        return res;
+        let days = [];
+        for (let key in daysMap) { if (str.includes(key)) days.push(daysMap[key]); }
+        return days;
     }
 
     function parseTimeRange(timeStr) {
-        if (!timeStr || !timeStr.includes('-')) return null;
-        let parts = timeStr.split('-');
-        const toMin = (t) => {
+        if (!timeStr) return null;
+        let parts = String(timeStr).split('-');
+        if (parts.length < 2) return null;
+
+        function toMinutes(t) {
             let m = t.match(/(\d+):(\d+)/);
             if (!m) return 0;
-            let h = parseInt(m[1]), min = parseInt(m[2]);
-            if (t.includes('م') && h < 12) h += 12;
-            if (t.includes('ص') && h === 12) h = 0;
-            return h * 60 + min;
-        };
-        return { start: toMin(parts[0]), end: toMin(parts[1]) };
-    }
-
-    function hasConflict(s1, s2) {
-        if (!s1.timeData || !s2.timeData) return null;
-        let overlap = s1.days.filter(d => s2.days.includes(d));
-        if (overlap.length === 0) return null;
-        if (s1.timeData.start < s2.timeData.end && s2.timeData.start < s1.timeData.end) return true;
-        return false;
-    }
-
-    // --- Excel Professional Reader ---
-    async function readExcelDetailed(file, targetHeader) {
-        const data = new Uint8Array(await file.arrayBuffer());
-        const wb = XLSX.read(data, { type: 'array' });
-        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
-        
-        let headerIdx = -1;
-        for (let r = 0; r < json.length; r++) {
-            if (json[r].some(c => String(c).trim() === targetHeader)) { headerIdx = r; break; }
+            let hrs = parseInt(m[1]);
+            let mins = parseInt(m[2]);
+            if (t.includes('م') && hrs < 12) hrs += 12;
+            if (t.includes('ص') && hrs === 12) hrs = 0;
+            return hrs * 60 + mins;
         }
-        if (headerIdx === -1) throw new Error(`لم يتم العثور على عمود: ${targetHeader}`);
-        return { headers: json[headerIdx].map(h => String(h).trim()), rows: json.slice(headerIdx + 1) };
+        return { start: toMinutes(parts[0]), end: toMinutes(parts[1]) };
     }
 
-    // --- The AI Engine ---
-    let courseMap = {};
-    let courseStats = {};
-    let memoCombos = {};
+    function formatTime(mins) {
+        let h = Math.floor(mins / 60);
+        let m = mins % 60;
+        let ampm = h >= 12 ? 'م' : 'ص';
+        let displayH = h % 12;
+        if (displayH === 0) displayH = 12;
+        return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
 
-    function getValidCombos(code, currentSched = []) {
-        if (!courseMap[code]) return [];
-        let types = Object.keys(courseMap[code]);
-        let results = [];
+    function getConflictDetail(sec1, sec2) {
+        if (!sec1.timeData || !sec2.timeData || sec1.days.length === 0 || sec2.days.length === 0) return null;
+        let overlapDays = sec1.days.filter(d => sec2.days.includes(d));
+        if (overlapDays.length === 0) return null;
         
-        function helper(idx, current) {
-            if (idx === types.length) { results.push([...current]); return; }
-            let type = types[idx];
-            for (let sec of courseMap[code][type]) {
-                if (sec.remaining <= 0) continue;
-                if (current.some(s => hasConflict(s, sec)) || currentSched.some(s => hasConflict(s, sec))) continue;
-                current.push(sec);
-                helper(idx + 1, current);
-                current.pop();
+        if (sec1.timeData.start < sec2.timeData.end && sec2.timeData.start < sec1.timeData.end) {
+            let dayName = reverseDaysMap[overlapDays[0]];
+            return `تعارض مع مقرر (${sec2.code}) يوم ${dayName} من ${formatTime(sec2.timeData.start)} إلى ${formatTime(sec2.timeData.end)}`;
+        }
+        return null;
+    }
+
+    function getCombinations(optionsPerType) {
+        let keys = Object.keys(optionsPerType);
+        if (keys.length === 0) return [];
+        let results = [];
+        function helper(idx, currentCombo) {
+            if (idx === keys.length) {
+                results.push([...currentCombo]);
+                return;
+            }
+            let type = keys[idx];
+            for (let sec of optionsPerType[type]) {
+                let hasConflictInside = currentCombo.some(c => getConflictDetail(c, sec) !== null);
+                if (!hasConflictInside) {
+                    currentCombo.push(sec);
+                    helper(idx + 1, currentCombo);
+                    currentCombo.pop();
+                }
             }
         }
         helper(0, []);
-        // Branch Ordering (LCV): البدء بالخيارات الأكثر سعة
-        return results.sort((a, b) => {
-            let sumA = a.reduce((s, x) => s + x.remaining, 0);
-            let sumB = b.reduce((s, x) => s + x.remaining, 0);
-            return sumB - sumA;
+        return results;
+    }
+
+    function scoreSchedule(schedule) {
+        let daysUsed = new Set();
+        let dailyClasses = {};
+        let minRemaining = Infinity;
+
+        for (let sec of schedule) {
+            if (sec.remaining < minRemaining) minRemaining = sec.remaining;
+            for (let d of sec.days) {
+                daysUsed.add(d);
+                if (!dailyClasses[d]) dailyClasses[d] = [];
+                dailyClasses[d].push(sec.timeData);
+            }
+        }
+
+        let totalGaps = 0;
+        let maxEndTime = 0;
+
+        for (let d in dailyClasses) {
+            let times = dailyClasses[d];
+            times.sort((a, b) => a.start - b.start);
+            for (let i = 0; i < times.length - 1; i++) {
+                let gap = times[i+1].start - times[i].end;
+                if (gap > 0) totalGaps += gap; 
+            }
+            let lastEnd = times[times.length - 1].end;
+            if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
+        }
+        let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 20);
+        return score;
+    }
+
+    function readMatrixFile(file, idHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    
+                    let idRowIndex = -1, idColIndex = -1;
+                    for (let r = 0; r < jsonArray.length; r++) {
+                        for (let c = 0; c < jsonArray[r].length; c++) {
+                            if (String(jsonArray[r][c]).trim() === idHeader) { idRowIndex = r; idColIndex = c; break; }
+                        }
+                        if (idRowIndex !== -1) break;
+                    }
+                    if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على '${idHeader}'`)); return; }
+
+                    let courseHeaders = [];
+                    for (let c = 0; c < jsonArray[0].length; c++) {
+                        courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim(); 
+                    }
+
+                    const dataRows = [];
+                    for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {};
+                        let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
+                        if (traineeIdVal !== "") {
+                            rowObj[idHeader] = traineeIdVal;
+                            let hasRequests = false;
+                            for (let c = 0; c < courseHeaders.length; c++) {
+                                if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
+                                    rowObj[courseHeaders[c]] = "1"; hasRequests = true;
+                                }
+                            }
+                            if (hasRequests) dataRows.push(rowObj);
+                        }
+                    }
+                    resolve(dataRows);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة مصفوفة التسجيل"));
+            reader.readAsArrayBuffer(file);
         });
     }
 
-    function calculateDiff(code) {
-        if (!courseMap[code]) return 9999;
-        let combos = memoCombos[code] || [];
-        let seats = 0;
-        for(let t in courseMap[code]) seats += courseMap[code][t].reduce((a,b)=>a+Math.max(0,b.remaining), 0);
-        // المعادلة المطورة: (1 / (التوليفات * إجمالي المقاعد))
-        return 1 / ((combos.length * seats) + 0.01);
+    function readSS01File(file, expectedHeader) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                    
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < jsonArray.length; i++) {
+                        let rowStrings = jsonArray[i].map(c => String(c).trim());
+                        if (rowStrings.includes(expectedHeader)) { headerRowIndex = i; break; }
+                    }
+                    if (headerRowIndex === -1) { reject(new Error(`لم يتم العثور على '${expectedHeader}'`)); return; }
+
+                    const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
+                    const dataRows = [];
+                    for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {}, hasData = false;
+                        for (let j = 0; j < headers.length; j++) {
+                            if (headers[j]) { rowObj[headers[j]] = jsonArray[i][j]; if (jsonArray[i][j] !== "") hasData = true; }
+                        }
+                        if (hasData) dataRows.push(rowObj);
+                    }
+                    resolve(dataRows);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة تقرير SS01"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    async function exportToExcel(sheetsData, filename) {
+        const workbook = new ExcelJS.Workbook();
+        for (let sheetInfo of sheetsData) {
+            const worksheet = workbook.addWorksheet(sheetInfo.name, { 
+                views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] 
+            });            
+            if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
+            const headers = Object.keys(sheetInfo.data[0]);
+            worksheet.columns = headers.map(header => ({ header: header, key: header, width: 25 }));
+            worksheet.addRows(sheetInfo.data);
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008E7E' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+            worksheet.eachRow((row, rowNumber) => {
+                row.eachCell({ includeEmpty: true }, (cell) => {
+                    if (rowNumber > 1) { cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; }
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                });
+            });
+            worksheet.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    let columnLength = cell.value ? cell.value.toString().length : 0;
+                    if (columnLength > maxLength) maxLength = columnLength;
+                });
+                column.width = maxLength < 15 ? 15 : maxLength + 2;
+            });
+        }
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, filename);
     }
 
     async function startProcessing() {
-        const trFile = document.getElementById('traineesFile').files[0];
-        const ssFile = document.getElementById('ss01File').files[0];
-        if (!trFile || !ssFile) return alert("يرجى إرفاق الملفات المطلوبة");
+        const traineesFile = document.getElementById('traineesFile').files[0];
+        const ss01File = document.getElementById('ss01File').files[0];
+        const statusDiv = document.getElementById('status');
+        const btn = document.getElementById('processBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
 
-        const btn = document.getElementById('processBtn'), loader = document.getElementById('loader'), st = document.getElementById('status');
-        btn.disabled = true; loader.style.display = 'inline-block'; st.innerText = "جاري تشغيل محرك CSP الاحترافي...";
+        if (!traineesFile || !ss01File) {
+            statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
+        }
+
+        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
+        const C_COURSE = document.getElementById('col_course').value.trim();
+        const C_CRN = document.getElementById('col_crn').value.trim();
+        const C_TYPE = document.getElementById('col_type').value.trim();
+        const C_TIME = document.getElementById('col_time').value.trim();
+        const C_DAY = document.getElementById('col_day').value.trim();
+        const C_REM = document.getElementById('col_rem').value.trim();
+
+        btn.disabled = true;
+        loader.style.display = 'inline-block';
+        btnText.innerText = 'جار المعالجة والتحسين...';
+        statusDiv.innerHTML = '';
 
         try {
-            const C_ID = document.getElementById('col_trainee_id').value;
-            const C_COURSE = document.getElementById('col_course').value;
-            const C_CRN = document.getElementById('col_crn').value;
-            const C_TYPE = document.getElementById('col_type').value;
-            const C_TIME = document.getElementById('col_time').value;
-            const C_DAY = document.getElementById('col_day').value;
-            const C_REM = document.getElementById('col_rem').value;
+            let [traineesRaw, ss01Raw] = await Promise.all([
+                readMatrixFile(traineesFile, C_TRAINEE_ID), 
+                readSS01File(ss01File, C_COURSE)
+            ]);
+            
+            let courseMap = {};
+            let allSectionsRef = {};
+            let courseTotalCapacity = {};
+            let courseOriginalCapacity = {}; 
+            let courseStats = {}; 
 
-            const trData = await readExcelDetailed(trFile, C_ID);
-            const ssData = await readExcelDetailed(ssFile, C_COURSE);
-
-            // 1. بناء هيكل البيانات وتخزين السعة الأصلية
-            courseMap = {}; courseStats = {}; memoCombos = {};
-            ssData.rows.forEach(r => {
-                let code = r[ssData.headers.indexOf(C_COURSE)], crn = r[ssData.headers.indexOf(C_CRN)];
+            ss01Raw.forEach(row => {
+                let code = row[C_COURSE];
+                let crn = row[C_CRN];
+                let type = row[C_TYPE] || 'نظري';
+                let rem = parseInt(row[C_REM]) || 0;
                 if (!code || !crn) return;
-                let type = r[ssData.headers.indexOf(C_TYPE)] || "نظري";
-                let rem = parseInt(r[ssData.headers.indexOf(C_REM)]) || 0;
+                let section = {
+                    code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
+                    days: parseDays(row[C_DAY]), timeData: parseTimeRange(row[C_TIME])
+                };
+                allSectionsRef[crn] = section;
                 if (!courseMap[code]) courseMap[code] = {};
                 if (!courseMap[code][type]) courseMap[code][type] = [];
-                courseMap[code][type].push({
-                    code, crn, type, remaining: rem, originalRemaining: rem,
-                    days: parseDays(r[ssData.headers.indexOf(C_DAY)]),
-                    timeData: parseTimeRange(r[ssData.headers.indexOf(C_TIME)])
-                });
-                if(!courseStats[code]) courseStats[code] = { req:0, reg:0, unreg:0, reasons:{} };
+                courseMap[code][type].push(section);
+                if (!courseStats[code]) { courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} }; }
             });
 
-            // 2. حساب التوليفات مسبقاً (Pre-calculation) لتسريع البحث
-            for (let code in courseMap) memoCombos[code] = getValidCombos(code);
+            for (let code in courseMap) {
+                let minCap = -1;
+                for (let type in courseMap[code]) {
+                    let typeTotal = courseMap[code][type].reduce((sum, sec) => sum + sec.remaining, 0);
+                    if (minCap === -1 || typeTotal < minCap) minCap = typeTotal;
+                }
+                courseTotalCapacity[code] = minCap;
+                courseOriginalCapacity[code] = minCap;
+            }
 
-            // 3. بناء قائمة المتدربين (MRV)
-            let trainees = trData.rows.map(r => {
-                let id = r[trData.headers.indexOf(C_ID)], req = [];
-                if(!id) return null;
-                trData.headers.forEach((h, idx) => { if (h !== C_ID && r[idx] == "1") req.push(h); });
-                return { id, req };
-            }).filter(t => t && t.req.length > 0);
+            // بناء بيانات المتدربين مع حساب MRV (ترتيب ندرة الخيارات)
+            let structuredTrainees = traineesRaw.map(tRow => {
+                let req = [];
+                let rarityScore = 0; // مجموع (1 / السعة المتاحة) لكل مادة مطلوبة
+                for (let key in tRow) { 
+                    if (key !== C_TRAINEE_ID && tRow[key] === "1") {
+                        req.push(key);
+                        // حساب ندرة الخيار: كلما قلت السعة زادت القيمة (ندرة أعلى)
+                        rarityScore += (1 / (courseTotalCapacity[key] || 1));
+                    }
+                }
+                return { id: tRow[C_TRAINEE_ID], requiredCourses: req, mrvScore: rarityScore };
+            });
 
-            let finalSchedules = [], assignedCodesLog = [], rejectionLog = [];
-            let globalStats = { total: trainees.length, full: 0, partial: 0, fail: 0 };
+            // الترتيب الأساسي: حسب عدد المواد المطلوبة (الأكثر أولاً)
+            // الترتيب الثانوي (MRV): حسب ندرة الخيارات (الأكثر ندرة أولاً)
+            structuredTrainees.sort((a, b) => {
+                if (b.requiredCourses.length !== a.requiredCourses.length) {
+                    return b.requiredCourses.length - a.requiredCourses.length;
+                }
+                return b.mrvScore - a.mrvScore; 
+            });
 
-            // 4. حلقة الإسناد الذكية
-            let queue = [...trainees];
-            while (queue.length > 0) {
-                // Dynamic MRV: إعادة فرز الطلاب بناءً على ندرة موادهم المتبقية في هذه اللحظة
-                queue.sort((a, b) => {
-                    let diffA = a.req.reduce((s, c) => s + calculateDiff(c), 0);
-                    let diffB = b.req.reduce((s, c) => s + calculateDiff(c), 0);
-                    return diffB - diffA;
+            let mainSheetData = [];
+            let assignedCodesData = [];
+            let unregisteredData = [];
+            let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
+
+            structuredTrainees.forEach(trainee => {
+                let traineeId = trainee.id;
+                let requiredCourses = trainee.requiredCourses;
+                stats.total++;
+
+                // ترتيب المواد داخل جدول المتدرب من الأقل سعة للأكثر سعة (داخلياً لضمان حجز الأصعب أولاً)
+                requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
+
+                let courseOptions = [];
+                requiredCourses.forEach(code => {
+                    if(courseStats[code]) courseStats[code].requested++;
+                    else courseStats[code] = { requested: 1, registered: 0, unregistered: 0, reasons: {} };
+
+                    let availableTypes = courseMap[code];
+                    if (!availableTypes) return;
+                    let validOptions = {};
+                    let hasMissing = false;
+                    for (let type in availableTypes) {
+                        validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
+                        if (validOptions[type].length === 0) hasMissing = true;
+                    }
+                    if (!hasMissing) {
+                        let combos = getCombinations(validOptions);
+                        if (combos.length > 0) courseOptions.push({ code: code, combos: combos });
+                    }
                 });
 
-                let student = queue.shift();
-                student.req.forEach(c => { if(courseStats[c]) courseStats[c].req++; });
-                student.req.sort((a, b) => calculateDiff(b) - calculateDiff(a));
+                let bestSchedules = [];
+                let maxCourses = 0;
+                let iterations = 0;
 
-                let bestSchedule = [];
-                let minPenalty = Infinity;
-
-                function solve(idx, currentSched) {
-                    if (idx === student.req.length) {
-                        // Rare Seat Penalty: حساب عقوبة استهلاك مقاعد نادرة
-                        let penalty = 0;
-                        currentSched.forEach(s => { if(s.remaining <= 2) penalty += (5 - s.remaining); });
-                        if (currentSched.length > bestSchedule.length || (currentSched.length === bestSchedule.length && penalty < minPenalty)) {
-                            bestSchedule = [...currentSched];
-                            minPenalty = penalty;
+                function findBestSchedule(cIndex, currentSched, currentCodes) {
+                    if (iterations > 3000) return; 
+                    iterations++;
+                    if (cIndex === courseOptions.length) {
+                        if (currentCodes.length > maxCourses) {
+                            maxCourses = currentCodes.length;
+                            bestSchedules = [ [...currentSched] ];
+                        } else if (currentCodes.length === maxCourses && bestSchedules.length < 20) {
+                            bestSchedules.push([...currentSched]);
                         }
                         return;
                     }
-
-                    let code = student.req[idx];
-                    let combos = getValidCombos(code, currentSched);
-
-                    for (let combo of combos) {
-                        // Forward Checking: هل المواد القادمة لا تزال قابلة للحل؟
-                        let canContinue = true;
-                        for (let j = idx + 1; j < student.req.length; j++) {
-                            if (getValidCombos(student.req[j], currentSched.concat(combo)).length === 0) {
-                                // فحص هل السبب "امتلاء" أم "تعارض"
-                                canContinue = false; break;
+                    let cOpt = courseOptions[cIndex];
+                    for (let combo of cOpt.combos) {
+                        let hasConflict = false;
+                        for (let sec of combo) {
+                            for (let existSec of currentSched) {
+                                if (getConflictDetail(sec, existSec) !== null) { hasConflict = true; break; }
                             }
+                            if(hasConflict) break;
                         }
-
-                        if (canContinue) {
-                            solve(idx + 1, currentSched.concat(combo));
-                            if (bestSchedule.length === student.req.length) return; // قمة المثالية
+                        if (!hasConflict) {
+                            findBestSchedule(cIndex + 1, currentSched.concat(combo), currentCodes.concat([cOpt.code]));
                         }
                     }
-                    solve(idx + 1, currentSched); // تجربة تجاوز المادة
+                    findBestSchedule(cIndex + 1, currentSched, currentCodes);
                 }
 
-                solve(0, []);
+                findBestSchedule(0, [], []);
 
-                // 5. التثبيت وتحديث الحالة
-                let studentCrns = [], registeredCodes = [];
-                bestSchedule.forEach(sec => {
-                    sec.remaining--;
+                let finalSchedule = [];
+                let finalCodes = [];
+                if (bestSchedules.length > 0) {
+                    bestSchedules.sort((a, b) => scoreSchedule(a) - scoreSchedule(b));
+                    finalSchedule = bestSchedules[0];
+                    finalCodes = [...new Set(finalSchedule.map(s => s.code))];
+                }
+
+                let studentCrns = [];
+                finalSchedule.forEach(sec => {
+                    sec.remaining -= 1; // حجز المقعد مباشرة (بدون حماية مقاعد نادرة)
                     studentCrns.push(sec.crn);
-                    if (!registeredCodes.includes(sec.code)) {
-                        registeredCodes.push(sec.code);
-                        courseStats[sec.code].reg++;
-                    }
+                });
+                
+                finalCodes.forEach(code => {
+                    courseTotalCapacity[code] -= 1;
+                    courseStats[code].registered++;
                 });
 
-                // 6. تشخيص دقيق للأعطال
-                student.req.forEach(c => {
-                    if (!registeredCodes.includes(c)) {
-                        if (!courseStats[c]) {
-    courseStats[c] = {
-        req: 0,
-        reg: 0,
-        unreg: 0,
-        reasons: {}
-    };
-}
-
-courseStats[c].unreg++;
-                        let reason = "تعارض مع الشعب المختارة";
-                        if (!courseMap[c]) reason = "غير مطروح بالخطة";
-                        else {
-                            for (let type in courseMap[c]) {
-                                if (courseMap[c][type].every(s => s.remaining <= 0)) reason = `امتلاء شعب الـ ${type}`;
+                requiredCourses.forEach(code => {
+                    if (!finalCodes.includes(code)) {
+                        courseStats[code].unregistered++;
+                        let reason = "";
+                        if (!courseMap[code]) {
+                            reason = "غير مطروح في تقرير جداول الوحدة التدريبية";
+                        } else {
+                            let isFull = false;
+                            for(let t in courseMap[code]){ if(courseMap[code][t].filter(s=>s.remaining>0).length===0) isFull = true; }
+                            if (isFull) {
+                                reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
+                            } else {
+                                let availableTypes = courseMap[code];
+                                let validOptions = {};
+                                for (let type in availableTypes) validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
+                                let combos = getCombinations(validOptions);
+                                let specificConflict = null;
+                                for (let combo of combos) {
+                                    for (let sec of combo) {
+                                        for (let existSec of finalSchedule) {
+                                            let conf = getConflictDetail(sec, existSec);
+                                            if (conf) { specificConflict = conf; break; }
+                                        }
+                                        if (specificConflict) break;
+                                    }
+                                    if (specificConflict) break;
+                                }
+                                reason = specificConflict ? specificConflict : "تعارض مركّب لا يمكن تجنبه";
                             }
                         }
-                        rejectionLog.push({ [C_ID]: student.id, 'رمز المقرر': c, 'السبب بالتفصيل': reason });
-                        courseStats[c].reasons[reason] = (courseStats[c].reasons[reason] || 0) + 1;
+                        courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
                     }
                 });
 
-                if (registeredCodes.length === student.req.length) globalStats.full++;
-                else if (registeredCodes.length > 0) globalStats.partial++;
-                else globalStats.fail++;
+                if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
+                else if (finalCodes.length > 0) stats.partialSuccess++;
+                else stats.failed++;
 
-                let resRow = { [C_ID]: student.id };
-                studentCrns.forEach((c, i) => resRow[`الرقم المرجعي ${i+1}`] = c);
-                finalSchedules.push(resRow);
-                assignedCodesLog.push({ [C_ID]: student.id, 'المقررات المعينة': registeredCodes.join(" ، ") });
+                let mainRow = { [C_TRAINEE_ID]: traineeId };
+                studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
+                mainSheetData.push(mainRow);
+                assignedCodesData.push({ [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
+            });
+
+            // إعداد تقارير السعات والإحصائيات النهائية
+            let capacityData = [];
+            for (let code in courseOriginalCapacity) {
+                let orig = courseOriginalCapacity[code];
+                let rem = courseTotalCapacity[code];
+                capacityData.push({ 'رمز المقرر': code, 'السعة الأصلية': orig, 'عدد المعين لهم': orig - rem, 'المقاعد المتبقية': rem });
             }
 
-            // 7. تصدير التقارير (ExcelJS)
-            const wb = new ExcelJS.Workbook();
-            const exportWS = (name, data) => {
-                if(!data || data.length === 0) return;
-                const ws = wb.addWorksheet(name, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
-                ws.columns = Object.keys(data[0]).map(k => ({ header: k, key: k, width: 20 }));
-                ws.addRows(data);
-                ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
-                ws.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
-            };
+            let courseStatsData = [];
+            for (let code in courseStats) {
+                let d = courseStats[code];
+                if (d.requested > 0) {
+                    let topReason = Object.keys(d.reasons).length > 0 ? Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b) : "لا يوجد";
+                    courseStatsData.push({ 'رمز المقرر': code, 'عدد المتوقع': d.requested, 'تم التعيين': d.registered, 'لم يتم التعيين': d.unregistered, 'أبرز سبب لعدم التعيين': topReason });
+                }
+            }
 
-            exportWS("جدول المتدربين", finalSchedules);
-            exportWS("المقررات المعينة", assignedCodesLog);
-            exportWS("أسباب الرفض والتعارض", rejectionLog);
-            exportWS("تقرير السعات", Object.keys(courseMap).map(c => {
-                let totalOrig = 0, totalRem = 0;
-                for(let t in courseMap[c]) courseMap[c][t].forEach(s => { totalOrig += s.originalRemaining; totalRem += s.remaining; });
-                return { 'رمز المقرر': c, 'السعة الأصلية': totalOrig, 'المعالجين': totalOrig - totalRem, 'المقاعد المتبقية': totalRem };
-            }));
-            exportWS("إحصائيات لكل مقرر", Object.keys(courseStats).map(c => ({
-                'رمز المقرر': c, 'المتوقع': courseStats[c].req, 'تم التعيين': courseStats[c].reg, 'فشل': courseStats[c].unreg,
-                'أبرز سبب للرفض': Object.keys(courseStats[c].reasons).reduce((a,b)=> courseStats[c].reasons[a]>courseStats[c].reasons[b]?a:b, "لا يوجد")
-            })));
-            exportWS("الشعب الممتلئة", Object.keys(courseMap).flatMap(c => Object.keys(courseMap[c]).flatMap(t => courseMap[c][t].filter(s=>s.remaining<=0).map(s=>({ 'رمز المقرر':c, 'المرجع':s.crn, 'النوع':t })))));
-            exportWS("الإحصاء العام", [
-                { 'البيان': 'إجمالي المتدربين', 'العدد': globalStats.total },
-                { 'البيان': 'إسناد كامل', 'العدد': globalStats.full },
-                { 'البيان': 'إسناد جزئي', 'العدد': globalStats.partial },
-                { 'البيان': 'فشل تماماً', 'العدد': globalStats.fail }
-            ]);
+            let fullSectionsData = [];
+            for (let crn in allSectionsRef) {
+                if (allSectionsRef[crn].remaining === 0) {
+                    fullSectionsData.push({ 'رمز المقرر': allSectionsRef[crn].code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
+                }
+            }
 
-            const buffer = await wb.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), `تقرير_الجداول_V5_${new Date().getTime()}.xlsx`);
-            st.innerHTML = "<span style='color:green'>تم إنجاز المهمة بنجاح!</span>";
+            let globalStatsData = [
+                { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
+                { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
+                { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
+                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
+            ];
 
-        } catch (e) {
-            console.error(e);
-            st.innerHTML = `<span style='color:red'>خطأ: ${e.message}</span>`;
+            const sheetsToExport = [
+                { name: "جدول المتدربين", data: mainSheetData },
+                { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "أسباب الرفض والتعارض", data: unregisteredData },
+                { name: "تقرير السعات", data: capacityData },
+                { name: "إحصائيات لكل مقرر", data: courseStatsData },
+                { name: "الشعب الممتلئة", data: fullSectionsData },
+                { name: "الإحصاء العام", data: globalStatsData }
+            ];
+
+            await exportToExcel(sheetsToExport, "تقرير_الجداول_الذكي.xlsx");
+            statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerHTML = `<span class="error">حدث خطأ: ${error.message}</span>`;
         } finally {
-            btn.disabled = false; loader.style.display = 'none';
+            btn.disabled = false;
+            loader.style.display = 'none';
+            btnText.innerText = 'معالجة وبناء الجداول بذكاء';
         }
     }
 </script>
