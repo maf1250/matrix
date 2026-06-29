@@ -368,16 +368,35 @@
             let courseOriginalCapacity = {}; 
             let courseStats = {}; 
 
-            ss01Raw.forEach(row => {
+ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
                 let crn = row[C_CRN];
-                let type = row[C_TYPE] || 'نظري';
+                
+                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : '';
+                if (!type && row['نوع الشعبة']) {
+                    type = String(row['نوع الشعبة']).trim();
+                }
+                if (!type) {
+                    type = 'نظري';
+                }
+
                 let rem = parseInt(row[C_REM]) || 0;
                 if (!code || !crn) return;
+
+                // استخراج الأيام والوقت
+                let days = parseDays(row[C_DAY]);
+                let timeData = parseTimeRange(row[C_TIME]);
+
+                //  تجاهل الشُعب التي ليس لها وقت أو يوم
+                if (days.length === 0 || !timeData) {
+                    return; // تخطي هذه الشعبة تماماً وعدم إضافتها للنظام
+                }
+
                 let section = {
                     code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
-                    days: parseDays(row[C_DAY]), timeData: parseTimeRange(row[C_TIME])
+                    days: days, timeData: timeData
                 };
+                
                 allSectionsRef[crn] = section;
                 if (!courseMap[code]) courseMap[code] = {};
                 if (!courseMap[code][type]) courseMap[code][type] = [];
