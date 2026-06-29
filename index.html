@@ -237,12 +237,10 @@
 
                    let courseHeaders = [];
 
-                    for (let c = 0; c < jsonArray[0].length; c++) {
-                    courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim();
+                    for (let c = 0; c < jsonArray[idRowIndex].length; c++) {
+                    courseHeaders[c] = String(jsonArray[idRowIndex][c]).trim();
                     }
-
-                    let nameColIndex = courseHeaders.indexOf(nameHeader);
-
+                    
                     const dataRows = [];
                     for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
                         let rowObj = {};
