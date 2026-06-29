@@ -56,7 +56,8 @@
             <div class="inner-group">
                 <h3>إعدادات ملف مصفوفة التسجيل</h3>
                 <div class="settings-row">
-                    <div><label>اسم عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                    <div><label>عمود رقم المتدرب</label><input type="text" id="col_trainee_id" value="الرقم"></div>
+                    <div><label>عمود اسم المتدرب</label><input type="text" id="col_trainee_name" value="الاسم"></div>
                 </div>
             </div>
             <div class="inner-group">
@@ -221,10 +222,13 @@
                     }
                     if (idRowIndex === -1) { reject(new Error(`لم يتم العثور على عمود '${idHeader}' في ملف المتدربين`)); return; }
 
-                    let courseHeaders = [];
+                   let courseHeaders = [];
+
                     for (let c = 0; c < jsonArray[0].length; c++) {
-                        courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim(); 
+                    courseHeaders[c] = (c === idColIndex) ? idHeader : String(jsonArray[0][c]).trim();
                     }
+
+                    let nameColIndex = courseHeaders.indexOf(C_TRAINEE_NAME);
 
                     const dataRows = [];
                     for (let i = idRowIndex + 1; i < jsonArray.length; i++) {
@@ -232,6 +236,9 @@
                         let traineeIdVal = String(jsonArray[i][idColIndex]).trim();
                         if (traineeIdVal !== "") {
                             rowObj[idHeader] = traineeIdVal;
+                            if (nameColIndex !== -1) {
+                            rowObj[C_TRAINEE_NAME] = String(jsonArray[i][nameColIndex]).trim();
+                            }
                             let hasRequests = false;
                             for (let c = 0; c < courseHeaders.length; c++) {
                                 if (c !== idColIndex && courseHeaders[c] !== "" && String(jsonArray[i][c]).trim() === "1") {
@@ -329,6 +336,7 @@
             statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
         }
 
+        const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
         const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
@@ -423,7 +431,12 @@ ss01Raw.forEach(row => {
                         rarityScore += (1 / (courseTotalCapacity[key] || 1));
                     }
                 }
-                return { id: tRow[C_TRAINEE_ID], requiredCourses: req, mrvScore: rarityScore };
+return {
+    id: tRow[C_TRAINEE_ID],
+    name: tRow[C_TRAINEE_NAME] || "",
+    requiredCourses: req,
+    mrvScore: rarityScore
+};
             });
 
             structuredTrainees.sort((a, b) => {
@@ -621,7 +634,10 @@ ss01Raw.forEach(row => {
                 else if (finalCodes.length > 0) stats.partialSuccess++;
                 else stats.failed++;
 
-                let mainRow = { [C_TRAINEE_ID]: traineeId };
+                let mainRow = {
+                    [C_TRAINEE_NAME]: trainee.name,
+                    [C_TRAINEE_ID]: traineeId
+                };
                 studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
                 assignedCodesData.push({ [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
