@@ -164,7 +164,6 @@
         return results;
     }
 
-    // تقييم الجدول: تم رفع وزن الفجوات لتكون الأولوية القصوى للمتدرب بعد عدد الأيام
     function scoreSchedule(schedule) {
         let daysUsed = new Set();
         let dailyClasses = {};
@@ -192,8 +191,6 @@
             let lastEnd = times[times.length - 1].end;
             if (lastEnd > maxEndTime) maxEndTime = lastEnd; 
         }
-
-        // تم رفع وزن الفجوات (totalGaps * 50) لتجنب الفراغات قدر الإمكان
         let score = (daysUsed.size * 5000) + (totalGaps * 50) + maxEndTime - (minRemaining * 5);
         return score;
     }
@@ -551,7 +548,7 @@
 
                 assignedCodesData.push({
                     [C_TRAINEE_ID]: traineeId,
-                    'المقررات المسجلة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يسجل أي مقرر'
+                    'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر'
                 });
             });
 
@@ -563,7 +560,7 @@
                 capacityData.push({
                     'رمز المقرر': code,
                     'السعة الأصلية': orig,
-                    'عدد المسجلين': reg,
+                    'عدد المعين لهم': reg,
                     'المقاعد المتبقية': rem
                 });
             }
@@ -578,9 +575,9 @@
                     }
                     courseStatsData.push({
                         'رمز المقرر': code,
-                        'عدد الطلبات': d.requested,
-                        'تم تسجيلهم': d.registered,
-                        'لم يسجلوا': d.unregistered,
+                        'عدد المتوقع': d.requested,
+                        'تم التعيين': d.registered,
+                        'لم يتم التعيين': d.unregistered,
                         'أبرز سبب لعدم التسجيل': topReason || "لا يوجد"
                     });
                 }
