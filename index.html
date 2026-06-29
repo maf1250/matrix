@@ -694,17 +694,14 @@ function parseTimeRange(timeStr) {
                         unregisteredData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'رمز المقرر': code, 'السبب بالتفصيل': reason });
 
                         missingCount++;
-                        if (missingCount === 0) {
-                        unassignedRow['الحالة'] = 'تم إسناد جميع المقررات';
-                        }
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                     }
                 });
 
-//تبديل
-                unassignedCodesData.push(unassignedRow);
-
+                if (missingCount > 0) {
+                    unassignedCodesData.push(unassignedRow);
+                    }
                 if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) {
                     stats.fullSuccess++;
                 }
