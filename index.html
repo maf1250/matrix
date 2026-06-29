@@ -546,30 +546,51 @@
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
                         let reason = "";
+                        
                         if (!courseMap[code]) {
                             reason = "غير مطروح في تقرير جداول الوحدة التدريبية";
                         } else {
-                            let isFull = false;
-                            for(let t in courseMap[code]){ if(courseMap[code][t].filter(s=>s.remaining>0).length===0) isFull = true; }
-                            if (isFull) {
+                            let availableTypes = courseMap[code];
+                            let typesCount = Object.keys(availableTypes).length;
+                            let validOptions = {};
+                            let emptyTypes = [];
+                            
+                            // فحص كل شق من شقوق المقرر (نظري، عملي، إلخ)
+                            for (let type in availableTypes) {
+                                let availableSections = availableTypes[type].filter(s => s.remaining > 0);
+                                validOptions[type] = availableSections;
+                                if (availableSections.length === 0) {
+                                    emptyTypes.push(type); // تسجيل الشق الممتلئ
+                                }
+                            }
+                            
+                            if (emptyTypes.length === typesCount) {
                                 reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
+                            } else if (emptyTypes.length > 0) {
+                                // إذا كان أحد الشقين ممتلئ والآخر متاح
+                                reason = `لا توجد مقاعد شاغرة في الشق (${emptyTypes.join(' و ')})`;
                             } else {
-                                let availableTypes = courseMap[code];
-                                let validOptions = {};
-                                for (let type in availableTypes) validOptions[type] = availableTypes[type].filter(s => s.remaining > 0);
+                                // جميع الشقوق بها مقاعد، الآن نفحص التعارض الداخلي
                                 let combos = getCombinations(validOptions);
-                                let specificConflict = null;
-                                for (let combo of combos) {
-                                    for (let sec of combo) {
-                                        for (let existSec of finalSchedule) {
-                                            let conf = getConflictDetail(sec, existSec);
-                                            if (conf) { specificConflict = conf; break; }
+                                
+                                if (combos.length === 0 && typesCount > 1) {
+                                    // لا يمكن الجمع بين النظري والعملي للمقرر نفسه بسبب تعارض أوقاتها
+                                    reason = "وجود تعارض في الشق الآخر (تعارض داخلي بين شعب المقرر نفسه)";
+                                } else {
+                                    // المقرر سليم داخلياً، إذن التعارض مع جدول المتدرب
+                                    let specificConflict = null;
+                                    for (let combo of combos) {
+                                        for (let sec of combo) {
+                                            for (let existSec of finalSchedule) {
+                                                let conf = getConflictDetail(sec, existSec);
+                                                if (conf) { specificConflict = conf; break; }
+                                            }
+                                            if (specificConflict) break;
                                         }
                                         if (specificConflict) break;
                                     }
-                                    if (specificConflict) break;
+                                    reason = specificConflict ? specificConflict : "تعارض أحد شقي المقرر مع مقررات أخرى ولا يمكن تجنبه";
                                 }
-                                reason = specificConflict ? specificConflict : "تعارض مركّب لا يمكن تجنبه";
                             }
                         }
                         courseStats[code].reasons[reason] = (courseStats[code].reasons[reason] || 0) + 1;
