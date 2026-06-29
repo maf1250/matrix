@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>النظام الذكي لجدولة المتدربين</title>
+    <title>النظام الذكي المطور لجدولة المتدربين</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -15,7 +15,6 @@
         .upload-group label { display: flex; align-items: center; font-weight: 600; margin-bottom: 10px; color: #008e7e; gap: 8px; }
         input[type="file"] { display: block; width: 100%; font-family: inherit; margin-top: 10px; }
         
-        /* تنسيق قسم الإعدادات الذكي (القابل للطي) */
         .advanced-settings { background: #eef7f6; border: 1px solid #cbe6e3; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s ease; }
         .advanced-settings summary { font-weight: 800; color: #006d60; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none; }
         .advanced-settings summary::-webkit-details-marker { display: none; }
@@ -42,9 +41,8 @@
 <body>
 
 <div class="container">
-    <h1>النظام الذكي لجدولة المتدربين</h1>
+    <h1>النظام الذكي المطور لجدولة المتدربين ⚡</h1>
 
-    <!-- قسم الإعدادات القابل للطي (مخفي افتراضياً) -->
     <details class="advanced-settings">
         <summary>⚙️  تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
         
@@ -77,12 +75,12 @@
 
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
-        <input type="file" id="ss01File" accept=".csv">
+        <input type="file" id="ss01File" accept=".csv, .xlsx, .xls">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
         <span class="loader" id="loader"></span>
-        <span id="btnText">معالجة وبناء الجداول</span>
+        <span id="btnText">معالجة وبناء الجداول بذكاء</span>
     </button>
 
     <div id="status" class="status-msg"></div>
@@ -289,7 +287,7 @@
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
-        btnText.innerText = 'جار المعالجة...';
+        btnText.innerText = 'جار المعالجة والتحسين...';
         statusDiv.innerHTML = '';
 
         try {
@@ -303,6 +301,7 @@
 
             let courseMap = {};
             let allSectionsRef = {};
+            let courseTotalCapacity = {}; // لحساب سعة الكورس الكلية (لخوارزمية الندرة)
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
@@ -328,30 +327,65 @@
                 courseMap[code][type].push(section);
             });
 
-            let mainSheetData = [];
-            let unregisteredData = [];
-            let conflictsData = [];
-            let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
+            // حساب السعة الإجمالية التقريبية لكل مقرر (تساعد في ترتيب الأولوية)
+            for (let code in courseMap) {
+                let minCapacityForCourse = -1;
+                for (let type in courseMap[code]) {
+                    let typeTotal = courseMap[code][type].reduce((sum, sec) => sum + sec.remaining, 0);
+                    if (minCapacityForCourse === -1 || typeTotal < minCapacityForCourse) {
+                        minCapacityForCourse = typeTotal;
+                    }
+                }
+                courseTotalCapacity[code] = minCapacityForCourse;
+            }
 
-            traineesRaw.forEach(tRow => {
-                let traineeId = tRow[C_TRAINEE_ID];
-                stats.total++;
-                
+            // تجهيز بيانات المتدربين للمقارنة والترتيب (التحسين العالمي)
+            let structuredTrainees = traineesRaw.map(tRow => {
                 let requiredCourses = [];
                 for (let key in tRow) {
                     if (key !== C_TRAINEE_ID && tRow[key] === "1") {
                         requiredCourses.push(key);
                     }
                 }
+                return {
+                    id: tRow[C_TRAINEE_ID],
+                    requiredCourses: requiredCourses,
+                    raw: tRow
+                };
+            });
+
+            // التحسين 1: ترتيب المتدربين بناءً على عدد المقررات المطلوبة (الأكثر احتياجاً يعالج أولاً)
+            // هذا يقلل من احتمالية أخذ المتدرب ذو المقرر الواحد لمقعد يحتاجه متدرب لديه 6 مقررات
+            structuredTrainees.sort((a, b) => b.requiredCourses.length - a.requiredCourses.length);
+
+            let mainSheetData = [];
+            let assignedCodesData = []; // الشيت الجديد للرموز المسجلة
+            let unregisteredData = [];
+            let conflictsData = [];
+            let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
+
+            structuredTrainees.forEach(trainee => {
+                let traineeId = trainee.id;
+                let requiredCourses = trainee.requiredCourses;
+                stats.total++;
+
+                // التحسين 2: ترتيب المقررات المطلوبة داخل المتدرب بناءً على "الندرة"
+                // المقررات التي سعتها الإجمالية أقل تتم معالجتها أولاً لضمان عدم ضياعها
+                requiredCourses.sort((c1, c2) => {
+                    let cap1 = courseTotalCapacity[c1] || 0;
+                    let cap2 = courseTotalCapacity[c2] || 0;
+                    return cap1 - cap2; 
+                });
 
                 let studentSchedule = [];
                 let studentCrns = [];
+                let registeredCourseCodes = []; // لتخزين رموز المقررات المسجلة للمتدرب
                 let registeredCount = 0;
 
                 requiredCourses.forEach(courseCode => {
                     let availableTypes = courseMap[courseCode];
                     if (!availableTypes) {
-                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في تقرير جداول الوحدة التدريبية طولي' });
+                        unregisteredData.push({ [C_TRAINEE_ID]: traineeId, 'رمز المقرر': courseCode, 'السبب': 'المقرر غير موجود في تقرير جداول الوحدة التدريبية' });
                         return;
                     }
 
@@ -378,6 +412,7 @@
                         return;
                     }
 
+                    // التحسين 3: اختيار أفضل تركيبة تترك مقاعد أكثر للآخرين (Load Balancing)
                     validForStudent.sort((a, b) => {
                         let sumA = a.reduce((sum, s) => sum + s.remaining, 0);
                         let sumB = b.reduce((sum, s) => sum + s.remaining, 0);
@@ -390,18 +425,30 @@
                         studentSchedule.push(sec);
                         studentCrns.push(sec.crn);
                     });
+                    
+                    registeredCourseCodes.push(courseCode);
                     registeredCount++;
+
+                    // تحديث سعة المقرر الديناميكية للمتدربين القادمين
+                    if(courseTotalCapacity[courseCode] > 0) courseTotalCapacity[courseCode] -= 1;
                 });
 
                 if (registeredCount === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
                 else if (registeredCount > 0) stats.partialSuccess++;
                 else stats.failed++;
 
+                // تعبئة الشيت الأساسي (CRNs)
                 let mainRow = { [C_TRAINEE_ID]: traineeId };
                 studentCrns.forEach((crn, idx) => {
                     mainRow[`الرقم المرجعي ${idx + 1}`] = crn;
                 });
                 mainSheetData.push(mainRow);
+
+                // تعبئة شيت الرموز المسجلة (الطلب الجديد)
+                assignedCodesData.push({
+                    [C_TRAINEE_ID]: traineeId,
+                    'المقررات التي تم تسجيلها بنجاح': registeredCourseCodes.length > 0 ? registeredCourseCodes.join(' ، ') : 'لم يتم تسجيل أي مقرر'
+                });
             });
 
             let fullSectionsData = [];
@@ -425,20 +472,29 @@
 
             const wb = XLSX.utils.book_new();
             const wsMain = XLSX.utils.json_to_sheet(mainSheetData.length ? mainSheetData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
+            // الشيت الجديد المضاف
+            const wsAssignedCodes = XLSX.utils.json_to_sheet(assignedCodesData.length ? assignedCodesData : [{ 'ملاحظة': 'لا توجد بيانات' }]);
+            
             const wsFull = XLSX.utils.json_to_sheet(fullSectionsData.length ? fullSectionsData : [{ 'ملاحظة': 'لا يوجد شعب ممتلئة' }]);
             const wsUnreg = XLSX.utils.json_to_sheet(unregisteredData.length ? unregisteredData : [{ 'ملاحظة': 'لا يوجد متدربين غير مسجلين' }]);
             const wsConflicts = XLSX.utils.json_to_sheet(conflictsData.length ? conflictsData : [{ 'ملاحظة': 'لا توجد تعارضات' }]);
             const wsStats = XLSX.utils.json_to_sheet(statsData);
 
-            wsMain["!dir"] = "rtl"; wsFull["!dir"] = "rtl"; wsUnreg["!dir"] = "rtl"; wsConflicts["!dir"] = "rtl"; wsStats["!dir"] = "rtl";
+            wsMain["!dir"] = "rtl"; 
+            wsAssignedCodes["!dir"] = "rtl"; 
+            wsFull["!dir"] = "rtl"; 
+            wsUnreg["!dir"] = "rtl"; 
+            wsConflicts["!dir"] = "rtl"; 
+            wsStats["!dir"] = "rtl";
 
             XLSX.utils.book_append_sheet(wb, wsMain, "الجدول الأساسي");
+            XLSX.utils.book_append_sheet(wb, wsAssignedCodes, "المقررات المسجلة (الرموز)");
             XLSX.utils.book_append_sheet(wb, wsFull, "الشعب الممتلئة");
             XLSX.utils.book_append_sheet(wb, wsUnreg, "لم يسجلوا (سعة - غير موجود)");
             XLSX.utils.book_append_sheet(wb, wsConflicts, "تعارضات لم تحل");
             XLSX.utils.book_append_sheet(wb, wsStats, "إحصائيات النجاح");
 
-            XLSX.writeFile(wb, "تقرير_الجداول_الذكي.xlsx");
+            XLSX.writeFile(wb, "تقرير_الجداول_الذكي_المطور.xlsx");
             statusDiv.innerHTML = 'تم الانتهاء بنجاح وتحميل الملف تلقائياً!';
 
         } catch (error) {
@@ -447,7 +503,7 @@
         } finally {
             btn.disabled = false;
             loader.style.display = 'none';
-            btnText.innerText = 'معالجة وبناء الجداول';
+            btnText.innerText = 'معالجة وبناء الجداول بذكاء';
         }
     }
 </script>
