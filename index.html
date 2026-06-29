@@ -362,6 +362,7 @@ function readMatrixFile(file, idHeader, nameHeader) {
             const headers = Object.keys(sheetInfo.data[0]);
             worksheet.columns = headers.map(header => ({ header: header, key: header, width: 25 }));
             worksheet.addRows(sheetInfo.data);
+            worksheet.autoFilter = {from: { row: 1, column: 1 }, to: { row: 1, column: headers.length }};
             const headerRow = worksheet.getRow(1);
             headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008E7E' } };
