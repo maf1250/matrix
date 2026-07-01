@@ -76,6 +76,13 @@
                     <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
                 </div>
             </div>
+            <div class="inner-group">
+                <h3>إعدادات تقرير الشعب المرتبطة (SF33)</h3>
+                <div class="settings-row">
+                    <div><label>عمود الرقم (الشعبة الأساسية)</label><input type="text" id="col_sf33_crn1" value="الرقم"></div>
+                    <div><label>عمود الشعبة المرتبطة</label><input type="text" id="col_sf33_crn2" value="الشعبة المرتبطة"></div>
+                </div>
+            </div>
         </div>
     </details>
     
@@ -84,6 +91,7 @@
     <div class="settings-content">
 <div><label>1. عند وجود قيود على مقررات قسم الدراسات العامة للقسم المختار، يجب الإبقاء على الأرقام المرجعية الخاصة بالقسم المختار فقط، وحذف الأرقام المرجعية الخاصة ببقية الأقسام من تقرير SS01.</label></div>
 <div><label>2. في أثناء عملية التسجيل، قد يقوم بعض المتدربين بالتسجيل ذاتيًا، ولكي يتم تسجيل المقررات بشكل مثالي، ننصح بتحديث المصفوفة ليتم استبعاد المقررات التي تم تسجيلها ذاتيًا من منظومة الإسناد الآلي.</label></div>
+<div><label>3.  (L1, L2, L3)لنتائج أكثر دقة وتجنباً للتعارضات، يُوصى برفع تقرير "الشعب والشعب المرتبطة" للوحدات التدريبية التي تستخدم رموز ربط مختلفة لعدد من الشعب لنفس المقرر.</label></div>
     </div>
 </details>
     
@@ -95,6 +103,11 @@
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
         <input type="file" id="ss01File" accept=".csv">
+    </div>
+
+    <div class="upload-group">
+        <label>3. تقرير الشعب والشعب المرتبطة (SF33) - اختياري</label>
+        <input type="file" id="sf33File" accept=".csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
@@ -195,7 +208,7 @@ function parseTimeRange(timeStr) {
         return null;
     }
 
-    function getCombinations(optionsPerType) {
+    function getCombinations(optionsPerType, linkedCRNs = {}, crnToType = {}) {
         let keys = Object.keys(optionsPerType);
         if (keys.length === 0) return [];
         let results = [];
@@ -207,7 +220,43 @@ function parseTimeRange(timeStr) {
             let type = keys[idx];
             for (let sec of optionsPerType[type]) {
                 let hasConflictInside = currentCombo.some(c => getConflictDetail(c, sec) !== null);
-                if (!hasConflictInside) {
+                if (hasConflictInside) continue;
+
+                let isLinkValid = true;
+                let crn2 = String(sec.crn);
+                
+                for (let existSec of currentCombo) {
+                    let crn1 = String(existSec.crn);
+                    
+                    let crn1HasLinksOfCrn2Type = false;
+                    if (linkedCRNs[crn1]) {
+                        for (let linkedCrn of linkedCRNs[crn1]) {
+                            if (crnToType[linkedCrn] === sec.type) {
+                                crn1HasLinksOfCrn2Type = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    let crn2HasLinksOfCrn1Type = false;
+                    if (linkedCRNs[crn2]) {
+                        for (let linkedCrn of linkedCRNs[crn2]) {
+                            if (crnToType[linkedCrn] === existSec.type) {
+                                crn2HasLinksOfCrn1Type = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (crn1HasLinksOfCrn2Type && !linkedCRNs[crn1].has(crn2)) {
+                        isLinkValid = false; break;
+                    }
+                    if (crn2HasLinksOfCrn1Type && !linkedCRNs[crn2].has(crn1)) {
+                        isLinkValid = false; break;
+                    }
+                }
+
+                if (isLinkValid) {
                     currentCombo.push(sec);
                     helper(idx + 1, currentCombo);
                     currentCombo.pop();
@@ -356,6 +405,51 @@ function parseTimeRange(timeStr) {
         });
     }
 
+    function readSF33File(file, crn1Header, crn2Header) {
+        if (!file) return Promise.resolve([]);
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < jsonArray.length; i++) {
+                        let rowStrings = jsonArray[i].map(c => String(c).trim());
+                        if (rowStrings.includes(crn1Header) && rowStrings.includes(crn2Header)) {
+                            headerRowIndex = i; break;
+                        }
+                    }
+                    if (headerRowIndex === -1) {
+                        resolve([]); 
+                        return;
+                    }
+
+                    const headers = jsonArray[headerRowIndex].map(c => String(c).trim());
+                    const links = [];
+                    for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                        let rowObj = {};
+                        for (let j = 0; j < headers.length; j++) {
+                            if (headers[j]) rowObj[headers[j]] = jsonArray[i][j];
+                        }
+                        if (rowObj[crn1Header] && rowObj[crn2Header]) {
+                            links.push({
+                                crn1: String(rowObj[crn1Header]).trim(),
+                                crn2: String(rowObj[crn2Header]).trim()
+                            });
+                        }
+                    }
+                    resolve(links);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة تقرير SF33"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
 async function exportToExcel(sheetsData, filename) {
     const workbook = new ExcelJS.Workbook();
     
@@ -433,13 +527,14 @@ async function exportToExcel(sheetsData, filename) {
     async function startProcessing() {
         const traineesFile = document.getElementById('traineesFile').files[0];
         const ss01File = document.getElementById('ss01File').files[0];
+        const sf33File = document.getElementById('sf33File').files[0];
         const statusDiv = document.getElementById('status');
         const btn = document.getElementById('processBtn');
         const loader = document.getElementById('loader');
         const btnText = document.getElementById('btnText');
 
         if (!traineesFile || !ss01File) {
-            statusDiv.innerHTML = '<span class="error">نأمل إرفاق كلا الملفين أولاً!</span>'; return;
+            statusDiv.innerHTML = '<span class="error">نأمل إرفاق الملفات أولاً!</span>'; return;
         }
 
         const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
@@ -451,6 +546,8 @@ async function exportToExcel(sheetsData, filename) {
         const C_TIME = document.getElementById('col_time').value.trim();
         const C_DAY = document.getElementById('col_day').value.trim();
         const C_REM = document.getElementById('col_rem').value.trim();
+        const C_SF33_CRN1 = document.getElementById('col_sf33_crn1').value.trim();
+        const C_SF33_CRN2 = document.getElementById('col_sf33_crn2').value.trim();
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
@@ -458,9 +555,10 @@ async function exportToExcel(sheetsData, filename) {
         statusDiv.innerHTML = '';
 
         try {
-            let [traineesRaw, ss01Raw] = await Promise.all([
+            let [traineesRaw, ss01Raw, sf33Raw] = await Promise.all([
                 readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME, C_COURSE_HEADER), 
-                readSS01File(ss01File, C_COURSE)
+                readSS01File(ss01File, C_COURSE),
+                readSF33File(sf33File, C_SF33_CRN1, C_SF33_CRN2)
             ]);
 
             if (ss01Raw.length > 0) {
@@ -481,10 +579,11 @@ async function exportToExcel(sheetsData, filename) {
             let courseTotalCapacity = {};
             let courseOriginalCapacity = {}; 
             let courseStats = {}; 
+            let crnToType = {};
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
-                let crn = row[C_CRN];
+                let crn = String(row[C_CRN]).trim();
                 
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : '';
                 if (!type && row['نوع الشعبة']) { type = String(row['نوع الشعبة']).trim(); }
@@ -492,6 +591,8 @@ async function exportToExcel(sheetsData, filename) {
 
                 let rem = parseInt(row[C_REM]) || 0;
                 if (!code || !crn) return;
+
+                crnToType[crn] = type;
 
                 let days = parseDays(row[C_DAY]);
                 let timeData = parseTimeRange(row[C_TIME]);
@@ -512,6 +613,16 @@ async function exportToExcel(sheetsData, filename) {
                 }
 
                 if (!courseStats[code]) { courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} }; }
+            });
+
+            let linkedCRNs = {};
+            sf33Raw.forEach(link => {
+                let c1 = link.crn1;
+                let c2 = link.crn2;
+                if (!linkedCRNs[c1]) linkedCRNs[c1] = new Set();
+                if (!linkedCRNs[c2]) linkedCRNs[c2] = new Set();
+                linkedCRNs[c1].add(c2);
+                linkedCRNs[c2].add(c1);
             });
 
             for (let code in courseMap) {
@@ -587,7 +698,7 @@ async function exportToExcel(sheetsData, filename) {
                         for (let type in courseMap[code]) {
                             validOptions[type] = courseMap[code][type].filter(s => s.remaining > 0);
                         }
-                        let combos = getCombinations(validOptions);
+                        let combos = getCombinations(validOptions, linkedCRNs, crnToType);
                         if (combos.length > 0) {
                             courseOptions.push({ code: code, combos: combos });
                         }
@@ -712,10 +823,10 @@ async function exportToExcel(sheetsData, filename) {
                             } else if (emptyTypes.length > 0) {
                                 reason = `لا توجد مقاعد شاغرة في الشق (${emptyTypes.join(' و ')})`;
                             } else {
-                                let combos = getCombinations(validOptions);
+                                let combos = getCombinations(validOptions, linkedCRNs, crnToType);
                                 
                                 if (combos.length === 0 && typesCount > 1) {
-                                    reason = "وجود تعارض في الشق الآخر (تعارض داخلي بين شعب المقرر نفسه)";
+                                    reason = "وجود تعارض في الشق الآخر (تعارض داخلي بين شعب المقرر نفسه أو عدم تطابق روابط الشعب SF33)";
                                 } else {
                                     let specificConflict = null;
                                     for (let combo of combos) {
