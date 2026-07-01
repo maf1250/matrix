@@ -356,7 +356,7 @@ function parseTimeRange(timeStr) {
         });
     }
 
-    async function exportToExcel(sheetsData, filename) {
+async function exportToExcel(sheetsData, filename) {
     const workbook = new ExcelJS.Workbook();
     
     for (let sheetInfo of sheetsData) {
@@ -404,20 +404,32 @@ function parseTimeRange(timeStr) {
                 }
             });
         });
+
         worksheet.columns.forEach(column => {
             let maxLength = 0;
+            
             column.eachCell({ includeEmpty: true }, cell => {
-                let columnLength = cell.value ? cell.value.toString().length : 0;
-                if (columnLength > maxLength) maxLength = columnLength;
+                if (cell.value) {
+                    let text = cell.value.toString();
+                    let lines = text.split('\n');
+                    lines.forEach(line => {
+                        let length = line.length;
+                        if (length > maxLength) {
+                            maxLength = length;
+                        }
+                    });
+                }
             });
-            column.width = maxLength < 15 ? 15 : (maxLength > 50 ? 50 : maxLength + 2);
+            
+            column.width = maxLength < 12 ? 12 : maxLength + 4;
         });
     } 
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, filename);
 }
-
+    
     async function startProcessing() {
         const traineesFile = document.getElementById('traineesFile').files[0];
         const ss01File = document.getElementById('ss01File').files[0];
