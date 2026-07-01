@@ -375,12 +375,33 @@ function parseTimeRange(timeStr) {
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF008E7E' } };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
             worksheet.eachRow((row, rowNumber) => {
-                row.eachCell({ includeEmpty: true }, (cell) => {
-                    if (rowNumber > 1) { cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; }
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
-            });
-            worksheet.columns.forEach(column => {
+            row.eachCell({ includeEmpty: false }, (cell) => {
+            cell.alignment = {
+            vertical: 'middle',
+            horizontal: 'center',
+            wrapText: true
+        };
+            cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD6E3E1' } },
+            left: { style: 'thin', color: { argb: 'FFD6E3E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFD6E3E1' } },
+            right: { style: 'thin', color: { argb: 'FFD6E3E1' } }
+        };
+            if (rowNumber > 1) {
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: {
+                    argb: rowNumber % 2 === 0
+                        ? 'FFF2F8F7'   // أخضر فاتح جداً
+                        : 'FFFFFFFF'   // أبيض
+                }
+            };
+        }
+    });
+
+});
+                 worksheet.columns.forEach(column => {
                 let maxLength = 0;
                 column.eachCell({ includeEmpty: true }, cell => {
                     let columnLength = cell.value ? cell.value.toString().length : 0;
@@ -539,7 +560,6 @@ function parseTimeRange(timeStr) {
 
                 let courseOptions = [];
                 
-                // ==========================================
                 // بناء الخيارات المتاحة لكل مقرر للمتدرب
                 requiredCourses.forEach(code => {
                     if (!courseStats[code]) {
@@ -644,7 +664,6 @@ function parseTimeRange(timeStr) {
                     structuredTrainees.splice(i + 1, remainingTrainees.length, ...remainingTrainees);
                 }
                 
-                // ==========================================
                 // تسجيل المقررات المتبقية وأسباب عدم الإسناد
                 let unassignedRow = {
                     [C_TRAINEE_NAME]: traineeName,
