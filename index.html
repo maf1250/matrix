@@ -358,9 +358,9 @@ function parseTimeRange(timeStr) {
     async function exportToExcel(sheetsData, filename) {
         const workbook = new ExcelJS.Workbook();
         for (let sheetInfo of sheetsData) {
-            const worksheet = workbook.addWorksheet(sheetInfo.name, { 
-                views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }] 
-            });            
+           // const worksheet = workbook.addWorksheet(sheetInfo.name, { 
+             //   views: [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }]         }); 
+            const worksheet = workbook.addWorksheet(sheetInfo.name);
             if (!sheetInfo.data || sheetInfo.data.length === 0) continue;
             let allKeys = new Set();
             sheetInfo.data.forEach(row => {
