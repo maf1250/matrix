@@ -587,7 +587,6 @@ async function exportToExcel(sheetsData, filename) {
                 let crn = String(row[C_CRN]).trim();
                 
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : '';
-                if (!type && row['نوع الشعبة']) { type = String(row['نوع الشعبة']).trim(); }
                 if (!type) { type = 'نظري'; }
 
                 let rem = parseInt(row[C_REM]) || 0;
