@@ -565,6 +565,7 @@ async function exportToExcel(sheetsData, filename) {
                 let firstRow = ss01Raw[0];
                 let missingCols = [];
                 if (!(C_CRN in firstRow)) missingCols.push(C_CRN);
+                if (!(C_TYPE in firstRow)) missingCols.push(C_TYPE);
                 if (!(C_TIME in firstRow)) missingCols.push(C_TIME);
                 if (!(C_DAY in firstRow)) missingCols.push(C_DAY);
                 if (!(C_REM in firstRow)) missingCols.push(C_REM);
