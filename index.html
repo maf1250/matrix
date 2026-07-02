@@ -937,14 +937,6 @@ async function exportToExcel(sheetsData, filename) {
             btnText.innerText = 'معالجة وبناء الجداول';
         }
     }
-   // إعداد عداد الزيارات التلقائي
-    window.addEventListener('DOMContentLoaded', () => {
-        const counterImg = document.getElementById('visitCounterImage');
-        const baseUrl = window.location.hostname ? (window.location.hostname + window.location.pathname) : "maf1250-esnad-app";
-        const siteUrl = encodeURIComponent(baseUrl);
-        const titleText = encodeURIComponent("الزيارات");
-        counterImg.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${siteUrl}&count_bg=%23008E7E&title_bg=%23006D60&title=${titleText}&edge_flat=false`;
-    });
 </script>
 
 </body>
