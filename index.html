@@ -79,12 +79,11 @@
         /* الجداول (مع ميزة الترتيب) */
         table.data-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 14px; }
         table.data-table th, table.data-table td { border: 1px solid #e0e0e0; padding: 10px; text-align: center; }
-        table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; transition: background 0.3s; padding-left: 25px; /* مساحة للأيقونة */}
+        table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; transition: background 0.3s; padding-left: 25px; }
         table.data-table th:hover { background-color: #006d60; }
         table.data-table tr:nth-child(even) { background-color: #f9f9f9; }
         table.data-table tr:hover { background-color: #f1f1f1; }
         
-        /* تصميم أيقونة الترتيب */
         .sort-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: 0.4; transition: opacity 0.3s; }
         table.data-table th:hover .sort-icon { opacity: 0.8; }
         table.data-table th.asc .sort-icon, table.data-table th.desc .sort-icon { opacity: 1; font-weight: bold; color: #fff; }
@@ -98,7 +97,8 @@
         .day-label { width: 100px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 16px; flex-shrink: 0; }
         .day-courses { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex-grow: 1; min-height: 60px; align-items: center; }
         .course-card { background: #eef7f6; border-right: 4px solid #8dc63f; padding: 10px 15px; border-radius: 4px; font-size: 13px; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 5px; }
+        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;}
+        .crn-badge { background: #008e7e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
         .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; }
         
         /* ستايل المقررات المتبقية (عمودي) */
@@ -106,6 +106,7 @@
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
         .u-code { font-weight: 800; color: #c62828; font-size: 15px; }
         .u-reason { color: #555; font-size: 14px; }
+        .u-crns { background: #fff; border: 1px dashed #ffcdd2; padding: 6px 10px; border-radius: 4px; font-size: 13px; color: #d32f2f; margin-top: 4px; line-height: 1.5; }
         
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -141,6 +142,7 @@
                     <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
                     <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
                     <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
+                    <div><label>عمود المدرب</label><input type="text" id="col_instructor" value="المدرب الأساسي"></div>
                 </div>
             </div>
             <div class="inner-group">
@@ -536,6 +538,7 @@
         const C_TIME = document.getElementById('col_time').value.trim();
         const C_DAY = document.getElementById('col_day').value.trim();
         const C_REM = document.getElementById('col_rem').value.trim();
+        const C_INSTRUCTOR = document.getElementById('col_instructor').value.trim();
         const C_SF33_CRN1 = document.getElementById('col_sf33_crn1').value.trim();
         const C_SF33_CRN2 = document.getElementById('col_sf33_crn2').value.trim();
 
@@ -579,6 +582,7 @@
                 let crn = String(row[C_CRN]).trim();
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
                 let rem = parseInt(row[C_REM]) || 0;
+                let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
                 
                 if (!code || !crn) return;
                 crnToType[crn] = type;
@@ -593,6 +597,7 @@
                 } else {
                     let section = {
                         code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
+                        instructor: instructor,
                         schedules: [{ days: days, timeData: timeData }]
                     };
                     allSectionsRef[crn] = section;
@@ -758,18 +763,35 @@
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
                         let reason = "";
+                        let suggestedCrnsText = "";
                         
-                        if (!courseMap[code]) { reason = "غير مطروح في تقرير جداول الوحدة التدريبية"; } 
+                        if (!courseMap[code]) { 
+                            reason = "غير مطروح في تقرير جداول الوحدة التدريبية"; 
+                        } 
                         else {
                             let availableTypes = courseMap[code];
                             let typesCount = Object.keys(availableTypes).length;
                             let validOptions = {}, emptyTypes = [];
+                            
+                            // جمع الأرقام المرجعية لعرضها في حال عدم الإسناد
+                            let crnsList = [];
+
                             for (let type in availableTypes) {
                                 let availableSections = availableTypes[type].filter(s => s.remaining > 0);
                                 validOptions[type] = availableSections;
                                 if (availableSections.length === 0) emptyTypes.push(type);
+
+                                // تسجيل حالة الأرقام المرجعية للمقرر
+                                availableTypes[type].forEach(sec => {
+                                    let status = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
+                                    crnsList.push(`${sec.crn} (${status})`);
+                                });
                             }
                             
+                            if (crnsList.length > 0) {
+                                suggestedCrnsText = crnsList.join(' ، ');
+                            }
+
                             if (emptyTypes.length === typesCount) reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
                             else if (emptyTypes.length > 0) reason = `لا توجد مقاعد شاغرة في الشق (${emptyTypes.join(' و ')})`;
                             else {
@@ -799,7 +821,7 @@
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                         
-                        traineeUnassignedList.push({ code: code, reason: reason });
+                        traineeUnassignedList.push({ code: code, reason: reason, suggestedCrns: suggestedCrnsText });
                     }
                 });
 
@@ -1050,6 +1072,8 @@
                             daySchedules[dayIndex].push({
                                 code: sec.code,
                                 type: sec.type,
+                                crn: sec.crn,
+                                instructor: sec.instructor,
                                 start: sched.timeData.start,
                                 end: sched.timeData.end,
                                 textTime: sched.timeData.originalText
@@ -1072,7 +1096,7 @@
                     classesToday.forEach(cls => {
                         gridHTML += `
                             <div class="course-card">
-                                <strong>${cls.code} (${cls.type})</strong>
+                                <strong>${cls.code} (${cls.type}) <span class="crn-badge">${cls.crn}</span></strong>
                                 <span class="time">🕒 ${cls.textTime}</span>
                             </div>
                         `;
@@ -1083,9 +1107,9 @@
             gridHTML += '</div>';
 
             detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
-            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th></tr></thead><tbody>';
+            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
             schedule.forEach(sec => {
-                detailsHTML += `<tr><td>${sec.code}</td><td style="font-weight:bold;">${sec.crn}</td><td>${sec.type}</td></tr>`;
+                detailsHTML += `<tr><td>${sec.code}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${sec.type}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
             });
             detailsHTML += '</tbody></table>';
 
@@ -1102,6 +1126,7 @@
                 <div class="unassigned-card">
                     <span class="u-code">📌 ${item.code}</span>
                     <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
+                    ${item.suggestedCrns ? `<div class="u-crns"><strong>الأرقام المرجعية للمقرر:</strong><br> ${item.suggestedCrns}</div>` : ''}
                 </div>`;
             });
             
