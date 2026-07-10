@@ -528,7 +528,7 @@
         btnText.innerText = 'جار التهيئة...';
         statusDiv.innerHTML = '';
         globalTraineesSchedules = {}; 
-        document.getElementById('global-search').value = ''; // تصفير حقل البحث
+        document.getElementById('global-search').value = ''; 
 
         try {
             let [traineesRaw, ss01Raw, sf33Raw] = await Promise.all([
@@ -735,7 +735,6 @@
                 let unassignedRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
                 let missingCount = 0;
                 
-                // قائمة للاحتفاظ بالمقررات غير المسندة لعرضها في الويب بشكل عمودي
                 let traineeUnassignedList = [];
 
                 requiredCourses.forEach(code => {
@@ -787,7 +786,6 @@
                     }
                 });
 
-                // حفظ بيانات المتدرب للعرض (حتى لو لم يُسند له شيء)
                 globalTraineesSchedules[traineeId] = {
                     name: traineeName,
                     id: traineeId,
@@ -880,7 +878,6 @@
         tabsContainer.innerHTML = '';
         contentsContainer.innerHTML = '';
 
-        // إنشاء تبويبة عرض جدول المتدرب (تبويبة خاصة)
         let singleTabBtn = document.createElement('button');
         singleTabBtn.className = 'tab-btn active';
         singleTabBtn.innerText = 'عرض جدول متدرب';
@@ -901,7 +898,6 @@
         singleTabContent.innerHTML = selectHTML + '<div id="visual-schedule-container"></div>';
         contentsContainer.appendChild(singleTabContent);
 
-        // إنشاء التبويبات لبقية الجداول (إضافة كلاس report-table للبحث)
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
             
@@ -916,7 +912,6 @@
             contentDiv.className = 'tab-content';
             
             if (sheet.data && sheet.data.length > 0) {
-                // لاحظ إضافة الكلاس report-table لتمييزه عن جداول تبويبة المتدرب
                 let table = document.createElement('table');
                 table.className = 'data-table report-table';
                 
@@ -960,6 +955,13 @@
         
         btnElement.classList.add('active');
         document.getElementById(tabId).classList.add('active');
+
+        // مسح مربع البحث وإلغاء الفلترة عند الانتقال لتبويبة جديدة
+        let searchBox = document.getElementById('global-search');
+        if (searchBox.value !== '') {
+            searchBox.value = '';
+            handleGlobalSearch();
+        }
     }
 
     function renderSingleTraineeSchedule() {
@@ -976,7 +978,6 @@
         let gridHTML = '';
         let detailsHTML = '';
 
-        // بناء الجدول المرئي (فقط إذا كان مسند له مقررات)
         if (schedule.length > 0) {
             let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
@@ -1028,11 +1029,9 @@
             detailsHTML += '</tbody></table>';
 
         } else {
-            // حالة عدم إسناد أي مقرر نهائياً
             gridHTML = '<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر لهذا المتدرب! يرجى مراجعة أسباب عدم الإسناد بالأسفل.</div>';
         }
 
-        // بناء بطاقات المقررات المتبقية بشكل عمودي (إن وجدت)
         if (traineeData.unassigned && traineeData.unassigned.length > 0) {
             detailsHTML += '<h3 style="color:#dc3545; border-bottom:2px solid #dc3545; padding-bottom:5px; margin-top:30px;">المقررات المتبقية وأسباب عدم الإسناد</h3>';
             detailsHTML += '<div class="unassigned-cards-container">';
@@ -1051,11 +1050,9 @@
         container.innerHTML = gridHTML + detailsHTML;
     }
 
-    // --- دالة البحث الذكي ---
     function handleGlobalSearch() {
         const searchTerm = document.getElementById('global-search').value.trim();
         
-        // 1. فلترة الجداول الرئيسية فقط (بواسطة الكلاس report-table) لتجنب إخفاء تفاصيل المتدرب المفتوح
         const allTables = document.querySelectorAll('.report-table');
         allTables.forEach(table => {
             const rows = table.querySelectorAll('tbody tr');
@@ -1068,7 +1065,6 @@
             });
         });
 
-        // 2. التحديد التلقائي في تبويبة "جدول متدرب" إذا كان البحث يطابق رقم متدرب
         if (searchTerm !== "") {
             const dropdown = document.getElementById('trainee-dropdown');
             let matchedId = Object.keys(globalTraineesSchedules).find(id => id.includes(searchTerm));
@@ -1080,7 +1076,6 @@
         }
     }
 
-    // --- تصدير الإكسل ---
     async function downloadExcelFile() {
         if (!globalSheetsData || globalSheetsData.length === 0) return;
         
