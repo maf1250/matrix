@@ -48,8 +48,10 @@
         .btn-process:hover, .btn-action:hover { background-color: #006d60; }
         .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
         
+        /* عداد الزيارات */
         .visitor-counter { margin-top: 30px; padding-top: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
+        /* أزرار وشريط البحث في صفحة النتائج */
         .header-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: space-between; background: #fafdfa; padding: 15px; border-radius: 8px; border: 1px solid #cbe6e3; }
         .action-buttons { display: flex; gap: 10px; }
         .header-actions .btn-action { width: auto; padding: 10px 20px; font-size: 14px; }
@@ -63,6 +65,7 @@
         .error { color: #dc3545; }
         .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         
+        /* التبويبات */
         .tabs { display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 2px solid #008e7e; margin-bottom: 20px; }
         .tab-btn { background: #eef7f6; border: 1px solid #cbe6e3; border-bottom: none; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; color: #006d60; transition: 0.3s; }
         .tab-btn:hover { background: #d8f0ed; }
@@ -70,8 +73,10 @@
         .tab-content { display: none; overflow-x: auto; max-height: 70vh;}
         .tab-content.active { display: block; }
 
+        /* تلميح الترتيب */
         .sort-helper-alert { background: #eef7f6; border-right: 4px solid #008e7e; color: #006d60; padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         
+        /* الجداول (مع ميزة الترتيب) */
         table.data-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 14px; }
         table.data-table th, table.data-table td { border: 1px solid #e0e0e0; padding: 10px; text-align: center; }
         table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; transition: background 0.3s; padding-left: 25px; }
@@ -83,6 +88,7 @@
         table.data-table th:hover .sort-icon { opacity: 0.8; }
         table.data-table th.asc .sort-icon, table.data-table th.desc .sort-icon { opacity: 1; font-weight: bold; color: #fff; }
 
+        /* ستايل جدول المتدرب الواحد */
         .single-trainee-selector { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background: #fafdfa; padding: 15px; border-radius: 8px; border: 1px solid #cbe6e3; }
         .single-trainee-selector select { padding: 8px; border-radius: 4px; border: 1px solid #008e7e; font-family: inherit; font-size: 14px; min-width: 250px; outline: none; }
         
@@ -92,11 +98,12 @@
         .day-courses { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex-grow: 1; min-height: 60px; align-items: center; }
         
         .course-card { background: #eef7f6; border-right: 4px solid #8dc63f; padding: 10px 15px; border-radius: 4px; font-size: 13px; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 140px; }
-        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 8px; border-bottom: 1px dashed #b2d8d3; padding-bottom: 4px;}
+        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 8px; border-bottom: 1px dashed #b2d8d3; padding-bottom: 4px; display: flex; align-items: center; gap: 5px;}
         .course-card-details { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         .crn-badge { background: #006d60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600;}
         
+        /* ستايل المقررات المتبقية (عمودي) */
         .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
         .u-code { font-weight: 800; color: #c62828; font-size: 15px; }
@@ -136,6 +143,7 @@
                 <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
                 <div class="settings-row">
                     <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
+                    <div><label>عمود اسم المقرر</label><input type="text" id="col_course_name" value="اسم المقرر"></div>
                     <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
                     <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
                     <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
@@ -523,6 +531,7 @@
         const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE_HEADER = document.getElementById('col_course_header').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
+        const C_COURSE_NAME = document.getElementById('col_course_name').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
         const C_TYPE = document.getElementById('col_type').value.trim();
         const C_TIME = document.getElementById('col_time').value.trim();
@@ -569,6 +578,7 @@
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
+                let courseName = row[C_COURSE_NAME] ? String(row[C_COURSE_NAME]).trim() : '';
                 let crn = String(row[C_CRN]).trim();
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
                 let rem = parseInt(row[C_REM]) || 0;
@@ -586,7 +596,7 @@
                     allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
                 } else {
                     let section = {
-                        code: code, crn: crn, type: type, remaining: rem, originalRem: rem,
+                        code: code, courseName: courseName, crn: crn, type: type, remaining: rem, originalRem: rem,
                         instructor: instructor,
                         schedules: [{ days: days, timeData: timeData }]
                     };
@@ -769,7 +779,6 @@
                                 validOptions[type] = availableSections;
                                 if (availableSections.length === 0) emptyTypes.push(type);
 
-                                // تقييم كل رقم مرجعي للمقرر وعرض حالته وتعارضه مع جدول المتدرب
                                 availableTypes[type].forEach(sec => {
                                     let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
                                     
@@ -784,11 +793,11 @@
                                     let cssClass = '';
                                     
                                     if (!hasConflict && sec.remaining > 0) {
-                                        cssClass = 'crn-perfect'; // أخضر
+                                        cssClass = 'crn-perfect'; 
                                     } else if (!hasConflict && sec.remaining <= 0) {
-                                        cssClass = 'crn-potential'; // برتقالي
+                                        cssClass = 'crn-potential'; 
                                     } else {
-                                        cssClass = 'crn-conflict'; // أحمر باهت
+                                        cssClass = 'crn-conflict'; 
                                     }
 
                                     crnsListHTML.push(`<span class="crn-item ${cssClass}">${sec.crn} (${statusText} - ${fitStatusText})</span>`);
@@ -1070,6 +1079,7 @@
                         if (dayIndex <= 4) { 
                             daySchedules[dayIndex].push({
                                 code: sec.code,
+                                courseName: sec.courseName,
                                 type: sec.type,
                                 crn: sec.crn,
                                 instructor: sec.instructor,
@@ -1093,7 +1103,6 @@
                                     <div class="day-courses">`;
                     
                     classesToday.forEach(cls => {
-                        // تعديل شكل البطاقة ليكون الرقم المرجعي أمام الوقت
                         gridHTML += `
                             <div class="course-card">
                                 <strong>${cls.code} (${cls.type})</strong>
@@ -1110,9 +1119,9 @@
             gridHTML += '</div>';
 
             detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
-            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
+            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
             schedule.forEach(sec => {
-                detailsHTML += `<tr><td>${sec.code}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${sec.type}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
+                detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${sec.type}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
             });
             detailsHTML += '</tbody></table>';
 
