@@ -48,10 +48,8 @@
         .btn-process:hover, .btn-action:hover { background-color: #006d60; }
         .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
         
-        /* عداد الزيارات */
         .visitor-counter { margin-top: 30px; padding-top: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
-        /* أزرار وشريط البحث في صفحة النتائج */
         .header-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: space-between; background: #fafdfa; padding: 15px; border-radius: 8px; border: 1px solid #cbe6e3; }
         .action-buttons { display: flex; gap: 10px; }
         .header-actions .btn-action { width: auto; padding: 10px 20px; font-size: 14px; }
@@ -65,7 +63,6 @@
         .error { color: #dc3545; }
         .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
         
-        /* التبويبات */
         .tabs { display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 2px solid #008e7e; margin-bottom: 20px; }
         .tab-btn { background: #eef7f6; border: 1px solid #cbe6e3; border-bottom: none; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; color: #006d60; transition: 0.3s; }
         .tab-btn:hover { background: #d8f0ed; }
@@ -73,10 +70,8 @@
         .tab-content { display: none; overflow-x: auto; max-height: 70vh;}
         .tab-content.active { display: block; }
 
-        /* تلميح الترتيب */
         .sort-helper-alert { background: #eef7f6; border-right: 4px solid #008e7e; color: #006d60; padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         
-        /* الجداول (مع ميزة الترتيب) */
         table.data-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 14px; }
         table.data-table th, table.data-table td { border: 1px solid #e0e0e0; padding: 10px; text-align: center; }
         table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; transition: background 0.3s; padding-left: 25px; }
@@ -88,7 +83,6 @@
         table.data-table th:hover .sort-icon { opacity: 0.8; }
         table.data-table th.asc .sort-icon, table.data-table th.desc .sort-icon { opacity: 1; font-weight: bold; color: #fff; }
 
-        /* ستايل جدول المتدرب الواحد */
         .single-trainee-selector { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background: #fafdfa; padding: 15px; border-radius: 8px; border: 1px solid #cbe6e3; }
         .single-trainee-selector select { padding: 8px; border-radius: 4px; border: 1px solid #008e7e; font-family: inherit; font-size: 14px; min-width: 250px; outline: none; }
         
@@ -96,24 +90,29 @@
         .day-row { display: flex; align-items: stretch; background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
         .day-label { width: 100px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 16px; flex-shrink: 0; }
         .day-courses { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex-grow: 1; min-height: 60px; align-items: center; }
-        .course-card { background: #eef7f6; border-right: 4px solid #8dc63f; padding: 10px 15px; border-radius: 4px; font-size: 13px; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;}
-        .crn-badge { background: #008e7e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; }
         
-        /* ستايل المقررات المتبقية (عمودي) */
+        .course-card { background: #eef7f6; border-right: 4px solid #8dc63f; padding: 10px 15px; border-radius: 4px; font-size: 13px; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-width: 140px; }
+        .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 8px; border-bottom: 1px dashed #b2d8d3; padding-bottom: 4px;}
+        .course-card-details { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+        .crn-badge { background: #006d60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600;}
+        
         .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
         .u-code { font-weight: 800; color: #c62828; font-size: 15px; }
         .u-reason { color: #555; font-size: 14px; }
-        .u-crns { background: #fff; border: 1px dashed #ffcdd2; padding: 6px 10px; border-radius: 4px; font-size: 13px; color: #d32f2f; margin-top: 4px; line-height: 1.5; }
         
+        .u-crns { background: #fff; border: 1px dashed #ffcdd2; padding: 10px; border-radius: 4px; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .crn-item { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; border: 1px solid #ddd; }
+        .crn-perfect { background-color: #d4edda; color: #155724; border-color: #c3e6cb; } /* أخضر: متوافق ومتاح */
+        .crn-potential { background-color: #fff3cd; color: #856404; border-color: #ffeeba; } /* برتقالي: متوافق لكن ممتلئ */
+        .crn-conflict { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; opacity: 0.7; } /* أحمر: يتعارض */
+
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<!-- شاشة الإعدادات ورفع الملفات -->
 <div id="setup-page">
      <a href="https://youtu.be/QFdv2EOVYDc" target="_blank" class="youtube-btn" title="لمشاهدة الشرح">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
@@ -142,7 +141,7 @@
                     <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
                     <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
                     <div><label>عمود المتبقي (السعة)</label><input type="text" id="col_rem" value="متبقي"></div>
-                    <div><label>عمود المدرب</label><input type="text" id="col_instructor" value="المدرب الأساسي"></div>
+                    <div><label>عمود المدرب</label><input type="text" id="col_instructor" value="اسم المدرب"></div>
                 </div>
             </div>
             <div class="inner-group">
@@ -190,7 +189,6 @@
     </div>
 </div>
 
-<!-- شاشة النتائج والتبويبات -->
 <div id="results-page">
     <div class="header-actions">
         <div class="search-box">
@@ -202,17 +200,11 @@
         </div>
     </div>
     
-    <div class="tabs" id="tabs-container">
-        <!-- سيتم توليد أزرار التبويبات برمجياً هنا -->
-    </div>
-    
-    <div id="tab-contents-container">
-        <!-- سيتم توليد محتوى التبويبات هنا -->
-    </div>
+    <div class="tabs" id="tabs-container"></div>
+    <div id="tab-contents-container"></div>
 </div>
 
 <script>
-    // --- متغيرات النظام العامة ---
     let globalSheetsData = []; 
     let globalTraineesSchedules = {}; 
 
@@ -368,7 +360,6 @@
         return (daysUsed.size * WEIGHT_DAYS) + (totalGaps * WEIGHT_GAPS) + maxEndTime - (minRemaining * WEIGHT_REM);
     }
 
-    // --- دوال القراءة ---
     function readMatrixFile(file, idHeader, nameHeader, courseHeaderTitle) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -515,7 +506,6 @@
         });
     }
 
-    // --- المعالجة الرئيسية ---
     async function startProcessing() {
         const traineesFile = document.getElementById('traineesFile').files[0];
         const ss01File = document.getElementById('ss01File').files[0];
@@ -628,7 +618,6 @@
                 courseOriginalCapacity[code] = minCap;
             }
 
-            // --- خوارزمية الترتيب MRV (الأولوية للأصعب جدولاً) ---
             let structuredTrainees = traineesRaw.map(tRow => {
                 let req = [];
                 let rarityScore = 0; 
@@ -763,7 +752,7 @@
                     if (!finalCodes.includes(code)) {
                         courseStats[code].unregistered++;
                         let reason = "";
-                        let suggestedCrnsText = "";
+                        let suggestedCrnsHTML = "";
                         
                         if (!courseMap[code]) { 
                             reason = "غير مطروح في تقرير جداول الوحدة التدريبية"; 
@@ -773,23 +762,41 @@
                             let typesCount = Object.keys(availableTypes).length;
                             let validOptions = {}, emptyTypes = [];
                             
-                            // جمع الأرقام المرجعية لعرضها في حال عدم الإسناد
-                            let crnsList = [];
+                            let crnsListHTML = [];
 
                             for (let type in availableTypes) {
                                 let availableSections = availableTypes[type].filter(s => s.remaining > 0);
                                 validOptions[type] = availableSections;
                                 if (availableSections.length === 0) emptyTypes.push(type);
 
-                                // تسجيل حالة الأرقام المرجعية للمقرر
+                                // تقييم كل رقم مرجعي للمقرر وعرض حالته وتعارضه مع جدول المتدرب
                                 availableTypes[type].forEach(sec => {
-                                    let status = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
-                                    crnsList.push(`${sec.crn} (${status})`);
+                                    let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
+                                    
+                                    let hasConflict = false;
+                                    for (let existSec of finalSchedule) {
+                                        if (getConflictDetail(sec, existSec) !== null) {
+                                            hasConflict = true; break;
+                                        }
+                                    }
+
+                                    let fitStatusText = hasConflict ? 'يتعارض زمنياً' : 'متوافق زمنياً';
+                                    let cssClass = '';
+                                    
+                                    if (!hasConflict && sec.remaining > 0) {
+                                        cssClass = 'crn-perfect'; // أخضر
+                                    } else if (!hasConflict && sec.remaining <= 0) {
+                                        cssClass = 'crn-potential'; // برتقالي
+                                    } else {
+                                        cssClass = 'crn-conflict'; // أحمر باهت
+                                    }
+
+                                    crnsListHTML.push(`<span class="crn-item ${cssClass}">${sec.crn} (${statusText} - ${fitStatusText})</span>`);
                                 });
                             }
                             
-                            if (crnsList.length > 0) {
-                                suggestedCrnsText = crnsList.join(' ، ');
+                            if (crnsListHTML.length > 0) {
+                                suggestedCrnsHTML = crnsListHTML.join('');
                             }
 
                             if (emptyTypes.length === typesCount) reason = "لا توجد مقاعد شاغرة (ممتلئ تماماً)";
@@ -821,7 +828,7 @@
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                         
-                        traineeUnassignedList.push({ code: code, reason: reason, suggestedCrns: suggestedCrnsText });
+                        traineeUnassignedList.push({ code: code, reason: reason, suggestedCrnsHTML: suggestedCrnsHTML });
                     }
                 });
 
@@ -899,7 +906,6 @@
         }
     }
 
-    // --- واجهة الويب وعرض النتائج ---
     function showSetupPage() {
         document.getElementById('setup-page').style.display = 'block';
         document.getElementById('results-page').style.display = 'none';
@@ -910,21 +916,18 @@
         document.getElementById('results-page').style.display = 'block';
     }
 
-    // دالة ترتيب الجداول
     function sortTable(table, colIndex, thElement) {
         const tbody = table.tBodies[0];
         const rows = Array.from(tbody.querySelectorAll('tr'));
         const isAscending = thElement.classList.contains('asc');
         const direction = isAscending ? -1 : 1;
 
-        // تصفير الأسهم في كل العناوين
         table.querySelectorAll('th').forEach(th => {
             th.classList.remove('asc', 'desc');
             const icon = th.querySelector('.sort-icon');
             if (icon) icon.innerText = '↕';
         });
 
-        // تعيين الاتجاه الجديد
         thElement.classList.add(isAscending ? 'desc' : 'asc');
         thElement.querySelector('.sort-icon').innerText = isAscending ? '▼' : '▲';
 
@@ -985,8 +988,6 @@
             contentDiv.className = 'tab-content';
             
             if (sheet.data && sheet.data.length > 0) {
-                
-                // إضافة شريط التلميح لترتيب البيانات
                 let helperDiv = document.createElement('div');
                 helperDiv.className = 'sort-helper-alert';
                 helperDiv.innerHTML = '💡 تلميح: يمكنك الضغط على عناوين الأعمدة لترتيب البيانات تصاعدياً أو تنازلياً.';
@@ -1003,7 +1004,6 @@
                 let headerRow = document.createElement('tr');
                 headers.forEach((h, colIndex) => {
                     let th = document.createElement('th');
-                    // إضافة أيقونة الترتيب الافتراضية ↕
                     th.innerHTML = `${h} <span class="sort-icon">↕</span>`;
                     th.title = "اضغط لترتيب البيانات";
                     th.onclick = () => sortTable(table, colIndex, th);
@@ -1039,7 +1039,6 @@
         btnElement.classList.add('active');
         document.getElementById(tabId).classList.add('active');
 
-        // مسح مربع البحث وإلغاء الفلترة عند الانتقال لتبويبة جديدة
         let searchBox = document.getElementById('global-search');
         if (searchBox.value !== '') {
             searchBox.value = '';
@@ -1094,10 +1093,14 @@
                                     <div class="day-courses">`;
                     
                     classesToday.forEach(cls => {
+                        // تعديل شكل البطاقة ليكون الرقم المرجعي أمام الوقت
                         gridHTML += `
                             <div class="course-card">
-                                <strong>${cls.code} (${cls.type}) <span class="crn-badge">${cls.crn}</span></strong>
-                                <span class="time">🕒 ${cls.textTime}</span>
+                                <strong>${cls.code} (${cls.type})</strong>
+                                <div class="course-card-details">
+                                    <span class="time">🕒 ${cls.textTime}</span>
+                                    <span class="crn-badge">${cls.crn}</span>
+                                </div>
                             </div>
                         `;
                     });
@@ -1118,15 +1121,22 @@
         }
 
         if (traineeData.unassigned && traineeData.unassigned.length > 0) {
-            detailsHTML += '<h3 style="color:#dc3545; border-bottom:2px solid #dc3545; padding-bottom:5px; margin-top:30px;">المقررات المتبقية وأسباب عدم الإسناد</h3>';
-            detailsHTML += '<div class="unassigned-cards-container">';
+            detailsHTML += `
+            <h3 style="color:#dc3545; border-bottom:2px solid #dc3545; padding-bottom:5px; margin-top:30px;">المقررات المتبقية وأسباب عدم الإسناد</h3>
+            <div style="font-size:12.5px; margin-bottom:10px; display:flex; gap:15px; flex-wrap:wrap; background:#f9f9f9; padding:10px; border-radius:6px; border:1px solid #ddd;">
+                <strong>دليل الألوان للأرقام المرجعية للمقرر المتبقي:</strong>
+                <span style="color:#155724;">🟢 متوافق زمنياً مع الجدول (لكن به خلل آخر كالارتباط)</span>
+                <span style="color:#856404;">🟠 متوافق زمنياً لكنه ممتلئ (يناسب لو تم رفع السعة)</span>
+                <span style="color:#721c24;">🔴 يتعارض زمنياً مع جدول المتدرب الحالي</span>
+            </div>
+            <div class="unassigned-cards-container">`;
             
             traineeData.unassigned.forEach(item => {
                 detailsHTML += `
                 <div class="unassigned-card">
                     <span class="u-code">📌 ${item.code}</span>
                     <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
-                    ${item.suggestedCrns ? `<div class="u-crns"><strong>الأرقام المرجعية للمقرر:</strong><br> ${item.suggestedCrns}</div>` : ''}
+                    ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:4px; color:#333; font-weight:bold;">حالة الأرقام المرجعية للمقرر:</div> ${item.suggestedCrnsHTML}</div>` : ''}
                 </div>`;
             });
             
