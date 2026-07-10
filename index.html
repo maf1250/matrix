@@ -217,7 +217,8 @@
 <script>
     let globalSheetsData = []; 
     let globalTraineesSchedules = {}; 
-
+    let globalCollegeStartTime = Infinity;
+    
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
     const WEIGHT_REM = 20;
@@ -549,6 +550,7 @@
         statusDiv.innerHTML = '';
         globalTraineesSchedules = {}; 
         document.getElementById('global-search').value = ''; 
+        globalCollegeStartTime = Infinity;
 
         try {
             let [traineesRaw, ss01Raw, sf33Raw] = await Promise.all([
@@ -593,7 +595,9 @@
                 let timeData = parseTimeRange(row[C_TIME]);
 
                 if (days.length === 0 || !timeData) return; 
-
+if (timeData.start < globalCollegeStartTime) {
+    globalCollegeStartTime = timeData.start;
+}
                 if (allSectionsRef[crn]) {
                     allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
                 } else {
@@ -1111,8 +1115,33 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                                     <div class="day-label">${daysArray[i]}</div>
                                     <div class="day-courses">`;
                     
-                    for (let j = 0; j < classesToday.length; j++) {
-                        let cls = classesToday[j];
+                for (let j = 0; j < classesToday.length; j++) {
+    let cls = classesToday[j];
+    
+    // ======== [ إزاحة المحاضرة الأولى لتتوافق مع خط الزمن بناءً على دوام الكلية الفعلي ] ========
+    if (j === 0) {
+        // إذا لم يتم العثور على وقت، نضع 8:00 صباحاً كاحتياط (480 دقيقة)
+        let baseStartTime = (globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 480; 
+        
+        let delayMinutes = cls.start - baseStartTime;
+        
+        // إذا تأخرت أول محاضرة أكثر من 20 دقيقة عن وقت بداية الدوام الفعلي للكلية
+        if (delayMinutes > 20) {
+            let h = Math.floor(delayMinutes / 60);
+            let m = delayMinutes % 60;
+            let gapText = [];
+            if (h > 0) gapText.push(h === 1 ? 'ساعة' : h === 2 ? 'ساعتان' : h <= 10 ? h + ' ساعات' : h + ' ساعة');
+            if (m > 0) gapText.push(m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتان' : m <= 10 ? m + ' دقائق' : m + ' دقيقة');
+            
+            // معادلة الإزاحة البصرية (كل دقيقة تعطي مساحة لليسار لدفع البطاقة)
+            let pushSpace = delayMinutes * 1.5; 
+            if (pushSpace > 300) pushSpace = 300; // حد أقصى لمنع تشوه العرض في الجوال
+            
+            gridHTML += `<div class="time-gap-indicator" style="background:#fff3cd; color:#856404; border-color:#ffeeba; margin-right: ${pushSpace}px;" title="يبدأ اليوم متأخراً">
+                            🛌 تأخر بداية الدوام: ${gapText.join(' و ')}
+                         </div>`;
+        }
+    }
                         
                         if (j > 0) {
                             let prevCls = classesToday[j - 1];
