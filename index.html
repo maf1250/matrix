@@ -837,7 +837,14 @@
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                         
-                        traineeUnassignedList.push({ code: code, reason: reason, suggestedCrnsHTML: suggestedCrnsHTML });
+let cName = '';
+if (courseMap[code]) {
+    let firstType = Object.keys(courseMap[code])[0];
+    if (firstType && courseMap[code][firstType].length > 0) {
+        cName = courseMap[code][firstType][0].courseName;
+    }
+}
+traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, suggestedCrnsHTML: suggestedCrnsHTML });
                     }
                 });
 
@@ -1143,8 +1150,8 @@
             traineeData.unassigned.forEach(item => {
                 detailsHTML += `
                 <div class="unassigned-card">
-                    <span class="u-code">📌 ${item.code}</span>
-                    <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
+<span class="u-code">📌 ${item.code} ${item.courseName ? ' &bull; ' + item.courseName : ''}</span>
+<span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
                     ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:4px; color:#333; font-weight:bold;">حالة الأرقام المرجعية للمقرر:</div> ${item.suggestedCrnsHTML}</div>` : ''}
                 </div>`;
             });
