@@ -48,11 +48,16 @@
         .btn-process:hover, .btn-action:hover { background-color: #006d60; }
         .btn-process:disabled { background-color: #a0c9c4; cursor: not-allowed; }
         
-        .header-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+        /* أزرار وشريط البحث في صفحة النتائج */
+        .header-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: space-between; background: #fafdfa; padding: 15px; border-radius: 8px; border: 1px solid #cbe6e3; }
+        .action-buttons { display: flex; gap: 10px; }
         .header-actions .btn-action { width: auto; padding: 10px 20px; font-size: 14px; }
         .btn-back { background-color: #6c757d; }
         .btn-back:hover { background-color: #5a6268; }
-        
+        .search-box { display: flex; align-items: center; gap: 10px; flex-grow: 1; max-width: 400px; }
+        .search-box input { width: 100%; padding: 10px 15px; border-radius: 8px; border: 1px solid #008e7e; font-family: inherit; font-size: 14px; outline: none; transition: 0.3s; }
+        .search-box input:focus { box-shadow: 0 0 8px rgba(0, 142, 126, 0.3); }
+
         .status-msg { text-align: center; margin-top: 15px; font-weight: 600; color: #006d60; }
         .error { color: #dc3545; }
         .loader { display: none; width: 24px; height: 24px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
@@ -62,13 +67,13 @@
         .tab-btn { background: #eef7f6; border: 1px solid #cbe6e3; border-bottom: none; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; color: #006d60; transition: 0.3s; }
         .tab-btn:hover { background: #d8f0ed; }
         .tab-btn.active { background: #008e7e; color: #fff; }
-        .tab-content { display: none; overflow-x: auto; }
+        .tab-content { display: none; overflow-x: auto; max-height: 70vh;}
         .tab-content.active { display: block; }
         
         /* الجداول */
         table.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
         table.data-table th, table.data-table td { border: 1px solid #e0e0e0; padding: 10px; text-align: center; }
-        table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; }
+        table.data-table th { background-color: #008e7e; color: #fff; position: sticky; top: 0; z-index: 1;}
         table.data-table tr:nth-child(even) { background-color: #f9f9f9; }
         table.data-table tr:hover { background-color: #f1f1f1; }
 
@@ -164,8 +169,13 @@
 <!-- شاشة النتائج والتبويبات -->
 <div id="results-page">
     <div class="header-actions">
-        <button class="btn-action" onclick="downloadExcelFile()">📥 تحميل التقرير كملف Excel</button>
-        <button class="btn-action btn-back" onclick="showSetupPage()">🔄 تعديل الملفات والعودة</button>
+        <div class="search-box">
+            <input type="text" id="global-search" placeholder="🔍 ابحث برقم المتدرب للوصول السريع..." onkeyup="handleGlobalSearch()">
+        </div>
+        <div class="action-buttons">
+            <button class="btn-action" onclick="downloadExcelFile()">📥 تحميل التقرير (Excel)</button>
+            <button class="btn-action btn-back" onclick="showSetupPage()">🔄 العودة للإعدادات</button>
+        </div>
     </div>
     
     <div class="tabs" id="tabs-container">
@@ -179,8 +189,8 @@
 
 <script>
     // --- متغيرات النظام العامة ---
-    let globalSheetsData = []; // لتخزين الجداول للإكسل والعرض
-    let globalTraineesSchedules = {}; // لتخزين جداول كل متدرب للعرض المرئي
+    let globalSheetsData = []; 
+    let globalTraineesSchedules = {}; 
 
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -511,7 +521,8 @@
         loader.style.display = 'inline-block';
         btnText.innerText = 'جار التهيئة...';
         statusDiv.innerHTML = '';
-        globalTraineesSchedules = {}; // تصفير الجداول المرئية
+        globalTraineesSchedules = {}; 
+        document.getElementById('global-search').value = ''; // تصفير حقل البحث
 
         try {
             let [traineesRaw, ss01Raw, sf33Raw] = await Promise.all([
@@ -883,7 +894,7 @@
         singleTabContent.innerHTML = selectHTML + '<div id="visual-schedule-container"></div>';
         contentsContainer.appendChild(singleTabContent);
 
-        // إنشاء التبويبات لبقية الجداول (التي تصدر للإكسل)
+        // إنشاء التبويبات لبقية الجداول
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
             
@@ -901,10 +912,14 @@
                 let table = document.createElement('table');
                 table.className = 'data-table';
                 
+                // الحل الجذري لمشكلة الأعمدة الناقصة: جمع كل المفاتيح من كل الصفوف
+                let allKeys = new Set();
+                sheet.data.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
+                let headers = Array.from(allKeys);
+                
                 // الرأس
                 let thead = document.createElement('thead');
                 let headerRow = document.createElement('tr');
-                let headers = Object.keys(sheet.data[0]);
                 headers.forEach(h => {
                     let th = document.createElement('th');
                     th.innerText = h;
@@ -953,14 +968,13 @@
         const traineeData = globalTraineesSchedules[traineeId];
         const schedule = traineeData.schedule;
         
-        // بناء الشكل المرئي الأنيق
         let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
 
         schedule.forEach(sec => {
             sec.schedules.forEach(sched => {
                 sched.days.forEach(dayIndex => {
-                    if (dayIndex <= 4) { // من الأحد للخميس فقط
+                    if (dayIndex <= 4) { 
                         daySchedules[dayIndex].push({
                             code: sec.code,
                             type: sec.type,
@@ -977,7 +991,6 @@
         for (let i = 0; i <= 4; i++) {
             let classesToday = daySchedules[i];
             if (classesToday.length > 0) {
-                // ترتيب حصص اليوم حسب وقت البداية
                 classesToday.sort((a, b) => a.start - b.start);
                 
                 gridHTML += `<div class="day-row">
@@ -998,7 +1011,6 @@
         }
         gridHTML += '</div>';
 
-        // إضافة جدول تفاصيل الأرقام المرجعية أسفل الرسم البياني
         let detailsHTML = '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
         detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th></tr></thead><tbody>';
         
@@ -1008,6 +1020,36 @@
         detailsHTML += '</tbody></table>';
 
         container.innerHTML = gridHTML + detailsHTML;
+    }
+
+    // --- دالة البحث الذكي ---
+    function handleGlobalSearch() {
+        const searchTerm = document.getElementById('global-search').value.trim();
+        
+        // 1. فلترة جميع الجداول (الصفوف التي لا تحتوي على النص سيتم إخفاؤها)
+        const allTables = document.querySelectorAll('.data-table');
+        allTables.forEach(table => {
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                if (row.innerText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // 2. التحديد التلقائي في تبويبة "جدول متدرب" إذا كان البحث يطابق رقم متدرب
+        if (searchTerm !== "") {
+            const dropdown = document.getElementById('trainee-dropdown');
+            // البحث عن متدرب يحتوي رقمه على ما تم كتابته
+            let matchedId = Object.keys(globalTraineesSchedules).find(id => id.includes(searchTerm));
+            
+            if (matchedId && dropdown.value !== matchedId) {
+                dropdown.value = matchedId;
+                renderSingleTraineeSchedule();
+            }
+        }
     }
 
     // --- تصدير الإكسل ---
