@@ -103,6 +103,8 @@
         .crn-badge { background: #006d60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600;}
         
+        .time-gap-indicator { background: #fdfdfd; border: 1px dashed #b2d8d3; color: #006d60; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; white-space: nowrap; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
+
         /* ستايل المقررات المتبقية (عمودي) */
         .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
@@ -1109,7 +1111,23 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                                     <div class="day-label">${daysArray[i]}</div>
                                     <div class="day-courses">`;
                     
-                    classesToday.forEach(cls => {
+                    for (let j = 0; j < classesToday.length; j++) {
+                        let cls = classesToday[j];
+                        
+                        if (j > 0) {
+                            let prevCls = classesToday[j - 1];
+                            let gapMinutes = cls.start - prevCls.end;
+                            if (gapMinutes > 10) {
+                                let h = Math.floor(gapMinutes / 60);
+                                let m = gapMinutes % 60;
+                                let gapText = [];
+                                if (h > 0) gapText.push(h === 1 ? 'ساعة' : h === 2 ? 'ساعتان' : h <= 10 ? h + ' ساعات' : h + ' ساعة');
+                                if (m > 0) gapText.push(m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتان' : m <= 10 ? m + ' دقائق' : m + ' دقيقة');
+                                
+                                gridHTML += `<div class="time-gap-indicator" title="يوجد فراغ زمني بين المحاضرتين">⏳ فراغ: ${gapText.join(' و ')}</div>`;
+                            }
+                        }
+                        
                         gridHTML += `
                             <div class="course-card">
                                 <strong>${cls.code} (${cls.type})</strong>
@@ -1119,7 +1137,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                                 </div>
                             </div>
                         `;
-                    });
+                    }
                     gridHTML += `</div></div>`;
                 }
             }
