@@ -89,6 +89,12 @@
         .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 5px; }
         .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; }
         
+        /* ستايل المقررات المتبقية (عمودي) */
+        .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
+        .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
+        .u-code { font-weight: 800; color: #c62828; font-size: 15px; }
+        .u-reason { color: #555; font-size: 14px; }
+        
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -708,15 +714,6 @@
                 finalSchedule.forEach(sec => { sec.remaining -= 1; studentCrns.push(sec.crn); });
                 finalCodes.forEach(code => { courseTotalCapacity[code] -= 1; courseStats[code].registered++; });
 
-                // حفظ الجدول للعرض المرئي في المتصفح
-                if (finalSchedule.length > 0) {
-                    globalTraineesSchedules[traineeId] = {
-                        name: traineeName,
-                        id: traineeId,
-                        schedule: finalSchedule
-                    };
-                }
-
                 if (finalCodes.length > 0 && i < structuredTrainees.length - 1) {
                     let remainingTrainees = structuredTrainees.slice(i + 1);
                     remainingTrainees.forEach(t => {
@@ -737,6 +734,9 @@
                 
                 let unassignedRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
                 let missingCount = 0;
+                
+                // قائمة للاحتفاظ بالمقررات غير المسندة لعرضها في الويب بشكل عمودي
+                let traineeUnassignedList = [];
 
                 requiredCourses.forEach(code => {
                     if (!finalCodes.includes(code)) {
@@ -782,8 +782,18 @@
                         missingCount++;
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
+                        
+                        traineeUnassignedList.push({ code: code, reason: reason });
                     }
                 });
+
+                // حفظ بيانات المتدرب للعرض (حتى لو لم يُسند له شيء)
+                globalTraineesSchedules[traineeId] = {
+                    name: traineeName,
+                    id: traineeId,
+                    schedule: finalSchedule,
+                    unassigned: traineeUnassignedList
+                };
 
                 if (missingCount > 0) unassignedCodesData.push(unassignedRow);
                 
@@ -827,7 +837,6 @@
                 { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
             ];
 
-            // حفظ الجداول بشكل عام للاستخدام في واجهة الويب والإكسل
             globalSheetsData = [
                 { name: "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
@@ -840,7 +849,6 @@
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
 
-            // الانتقال إلى شاشة النتائج الويب
             buildResultsUI();
             showResultsPage();
 
@@ -883,7 +891,6 @@
         singleTabContent.id = 'tab-single';
         singleTabContent.className = 'tab-content active';
         
-        // بناء محتوى تبويبة جدول المتدرب
         let selectHTML = '<div class="single-trainee-selector"><label>اختر المتدرب:</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">';
         selectHTML += '<option value="">-- اختر متدرباً --</option>';
         for (let id in globalTraineesSchedules) {
@@ -894,7 +901,7 @@
         singleTabContent.innerHTML = selectHTML + '<div id="visual-schedule-container"></div>';
         contentsContainer.appendChild(singleTabContent);
 
-        // إنشاء التبويبات لبقية الجداول
+        // إنشاء التبويبات لبقية الجداول (إضافة كلاس report-table للبحث)
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
             
@@ -909,15 +916,14 @@
             contentDiv.className = 'tab-content';
             
             if (sheet.data && sheet.data.length > 0) {
+                // لاحظ إضافة الكلاس report-table لتمييزه عن جداول تبويبة المتدرب
                 let table = document.createElement('table');
-                table.className = 'data-table';
+                table.className = 'data-table report-table';
                 
-                // الحل الجذري لمشكلة الأعمدة الناقصة: جمع كل المفاتيح من كل الصفوف
                 let allKeys = new Set();
                 sheet.data.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
                 let headers = Array.from(allKeys);
                 
-                // الرأس
                 let thead = document.createElement('thead');
                 let headerRow = document.createElement('tr');
                 headers.forEach(h => {
@@ -928,7 +934,6 @@
                 thead.appendChild(headerRow);
                 table.appendChild(thead);
 
-                // البيانات
                 let tbody = document.createElement('tbody');
                 sheet.data.forEach(row => {
                     let tr = document.createElement('tr');
@@ -968,56 +973,80 @@
         const traineeData = globalTraineesSchedules[traineeId];
         const schedule = traineeData.schedule;
         
-        let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-        let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
+        let gridHTML = '';
+        let detailsHTML = '';
 
-        schedule.forEach(sec => {
-            sec.schedules.forEach(sched => {
-                sched.days.forEach(dayIndex => {
-                    if (dayIndex <= 4) { 
-                        daySchedules[dayIndex].push({
-                            code: sec.code,
-                            type: sec.type,
-                            start: sched.timeData.start,
-                            end: sched.timeData.end,
-                            textTime: sched.timeData.originalText
-                        });
-                    }
+        // بناء الجدول المرئي (فقط إذا كان مسند له مقررات)
+        if (schedule.length > 0) {
+            let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+            let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
+
+            schedule.forEach(sec => {
+                sec.schedules.forEach(sched => {
+                    sched.days.forEach(dayIndex => {
+                        if (dayIndex <= 4) { 
+                            daySchedules[dayIndex].push({
+                                code: sec.code,
+                                type: sec.type,
+                                start: sched.timeData.start,
+                                end: sched.timeData.end,
+                                textTime: sched.timeData.originalText
+                            });
+                        }
+                    });
                 });
             });
-        });
 
-        let gridHTML = '<div class="schedule-grid">';
-        for (let i = 0; i <= 4; i++) {
-            let classesToday = daySchedules[i];
-            if (classesToday.length > 0) {
-                classesToday.sort((a, b) => a.start - b.start);
-                
-                gridHTML += `<div class="day-row">
-                                <div class="day-label">${daysArray[i]}</div>
-                                <div class="day-courses">`;
-                
-                classesToday.forEach(cls => {
-                    gridHTML += `
-                        <div class="course-card">
-                            <strong>${cls.code} (${cls.type})</strong>
-                            <span class="time">🕒 ${cls.textTime}</span>
-                        </div>
-                    `;
-                });
-                
-                gridHTML += `</div></div>`;
+            gridHTML += '<div class="schedule-grid">';
+            for (let i = 0; i <= 4; i++) {
+                let classesToday = daySchedules[i];
+                if (classesToday.length > 0) {
+                    classesToday.sort((a, b) => a.start - b.start);
+                    
+                    gridHTML += `<div class="day-row">
+                                    <div class="day-label">${daysArray[i]}</div>
+                                    <div class="day-courses">`;
+                    
+                    classesToday.forEach(cls => {
+                        gridHTML += `
+                            <div class="course-card">
+                                <strong>${cls.code} (${cls.type})</strong>
+                                <span class="time">🕒 ${cls.textTime}</span>
+                            </div>
+                        `;
+                    });
+                    gridHTML += `</div></div>`;
+                }
             }
-        }
-        gridHTML += '</div>';
+            gridHTML += '</div>';
 
-        let detailsHTML = '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
-        detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th></tr></thead><tbody>';
-        
-        schedule.forEach(sec => {
-            detailsHTML += `<tr><td>${sec.code}</td><td style="font-weight:bold;">${sec.crn}</td><td>${sec.type}</td></tr>`;
-        });
-        detailsHTML += '</tbody></table>';
+            detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
+            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>الرقم المرجعي</th><th>النوع</th></tr></thead><tbody>';
+            schedule.forEach(sec => {
+                detailsHTML += `<tr><td>${sec.code}</td><td style="font-weight:bold;">${sec.crn}</td><td>${sec.type}</td></tr>`;
+            });
+            detailsHTML += '</tbody></table>';
+
+        } else {
+            // حالة عدم إسناد أي مقرر نهائياً
+            gridHTML = '<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر لهذا المتدرب! يرجى مراجعة أسباب عدم الإسناد بالأسفل.</div>';
+        }
+
+        // بناء بطاقات المقررات المتبقية بشكل عمودي (إن وجدت)
+        if (traineeData.unassigned && traineeData.unassigned.length > 0) {
+            detailsHTML += '<h3 style="color:#dc3545; border-bottom:2px solid #dc3545; padding-bottom:5px; margin-top:30px;">المقررات المتبقية وأسباب عدم الإسناد</h3>';
+            detailsHTML += '<div class="unassigned-cards-container">';
+            
+            traineeData.unassigned.forEach(item => {
+                detailsHTML += `
+                <div class="unassigned-card">
+                    <span class="u-code">📌 ${item.code}</span>
+                    <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
+                </div>`;
+            });
+            
+            detailsHTML += '</div>';
+        }
 
         container.innerHTML = gridHTML + detailsHTML;
     }
@@ -1026,8 +1055,8 @@
     function handleGlobalSearch() {
         const searchTerm = document.getElementById('global-search').value.trim();
         
-        // 1. فلترة جميع الجداول (الصفوف التي لا تحتوي على النص سيتم إخفاؤها)
-        const allTables = document.querySelectorAll('.data-table');
+        // 1. فلترة الجداول الرئيسية فقط (بواسطة الكلاس report-table) لتجنب إخفاء تفاصيل المتدرب المفتوح
+        const allTables = document.querySelectorAll('.report-table');
         allTables.forEach(table => {
             const rows = table.querySelectorAll('tbody tr');
             rows.forEach(row => {
@@ -1042,7 +1071,6 @@
         // 2. التحديد التلقائي في تبويبة "جدول متدرب" إذا كان البحث يطابق رقم متدرب
         if (searchTerm !== "") {
             const dropdown = document.getElementById('trainee-dropdown');
-            // البحث عن متدرب يحتوي رقمه على ما تم كتابته
             let matchedId = Object.keys(globalTraineesSchedules).find(id => id.includes(searchTerm));
             
             if (matchedId && dropdown.value !== matchedId) {
