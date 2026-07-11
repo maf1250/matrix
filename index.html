@@ -1213,8 +1213,8 @@ if (schedule.length > 0) {
                 <div class="unassigned-card">
 <span class="u-code">📌 ${item.code} ${item.courseName ? ' &bull; ' + item.courseName : ''}</span>
 <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
-                    ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:4px; color:#333; font-weight:bold;">حالة الأرقام المرجعية للمقرر:</div> ${item.suggestedCrnsHTML}</div>` : ''}
-                </div>`;
+${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:8px; color:#333; font-weight:bold; display:flex; align-items:center; gap:10px;">حالة الأرقام المرجعية للمقرر: <span style="font-weight:normal; font-size:12px; background:#f0f0f0; padding:3px 8px; border-radius:4px; color:#555;">( 📘 = نظري &nbsp;|&nbsp; 🛠️ = عملي )</span></div> ${item.suggestedCrnsHTML}</div>` : ''}
+</div>`;
             });
             
             detailsHTML += '</div>';
