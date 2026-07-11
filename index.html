@@ -1177,7 +1177,7 @@ if (schedule.length > 0) {
                         let isShort = durationMinutes <= 50;
                         let titleSize = isShort ? '12px' : '14px';
                         let timeSize = isShort ? '10px' : '12px';
-                        let paddingStyle = isShort ? '8px 5px' : '10px 15px';
+                        let paddingStyle = isShort ? '10px 5px' : '10px 15px';
 
                        currentCursor = cls.end; // تحديث المؤشر
                         
@@ -1202,8 +1202,7 @@ if (schedule.length > 0) {
                         }
                         
                         gridHTML += `
-                            <div class="course-card" style="border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">
-                                <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
+    <div class="course-card" style="align-self: stretch; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
                                     <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cls.code}</span>
                                     <span style="flex-shrink: 0; font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
                                 </strong>
