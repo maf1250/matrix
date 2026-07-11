@@ -584,8 +584,10 @@
                 let code = row[C_COURSE];
                 let courseName = row[C_COURSE_NAME] ? String(row[C_COURSE_NAME]).trim() : '';
                 let crn = String(row[C_CRN]).trim();
-                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
-                let rem = parseInt(row[C_REM]) || 0;
+let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
+let baseType = type.includes('عملي') ? 'عملي' : 'نظري';
+
+let rem = parseInt(row[C_REM]) || 0;
                 let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
                 
                 if (!code || !crn) return;
@@ -607,10 +609,9 @@ if (timeData.start < globalCollegeStartTime) {
                         schedules: [{ days: days, timeData: timeData }]
                     };
                     allSectionsRef[crn] = section;
-                    if (!courseMap[code]) courseMap[code] = {};
-                    if (!courseMap[code][type]) courseMap[code][type] = [];
-                    courseMap[code][type].push(section);
-                }
+                   if (!courseMap[code]) courseMap[code] = {};
+if (!courseMap[code][baseType]) courseMap[code][baseType] = [];
+courseMap[code][baseType].push(section);                }
                 if (!courseStats[code]) courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} };
             });
 
