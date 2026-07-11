@@ -1148,7 +1148,8 @@ if (schedule.length > 0) {
                         let paddingStyle = isShort ? '8px 5px' : '10px 15px';
 
                         currentCursor = cls.end; // تحديث المؤشر
-
+                        let typeEmoji = cls.type.includes('عملي') ? '🛠️' : '📘';
+                        
                         if (gapMinutes > 0) {
                             let gapText = '';
                             if (gapMinutes >= 15) {
@@ -1163,9 +1164,9 @@ if (schedule.length > 0) {
                         }
                         
                         gridHTML += `
-                            <div class="course-card" style="width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0;">
-                                <strong style="font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${cls.code} (${cls.type})</strong>
-                                <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
+    <div class="course-card" style="width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0;">
+        <strong style="font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${typeEmoji} ${cls.code}</strong>
+                            <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
                                     <span class="time" style="font-size:${timeSize}; white-space:nowrap;">🕒 ${cls.textTime}</span>
                                     <span class="crn-badge" style="font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
                                 </div>
@@ -1189,9 +1190,10 @@ if (schedule.length > 0) {
                 }
             });
             
-            uniqueDetails.forEach(sec => {
-                detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${sec.type}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
-            });
+          uniqueDetails.forEach(sec => {
+    let secTypeEmoji = sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)'; // أو يمكنك ترك الإيموجي فقط '🛠️' 
+    detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${secTypeEmoji}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
+});
             detailsHTML += '</tbody></table>';
     
     } else {
