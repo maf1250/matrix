@@ -785,7 +785,7 @@ if (timeData.start < globalCollegeStartTime) {
                                 validOptions[type] = availableSections;
                                 if (availableSections.length === 0) emptyTypes.push(type);
 
-                                availableTypes[type].forEach(sec => {
+                           availableTypes[type].forEach(sec => {
                                     let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
                                     
                                     let hasConflict = false;
@@ -805,10 +805,11 @@ if (timeData.start < globalCollegeStartTime) {
                                     } else {
                                         cssClass = 'crn-conflict'; 
                                     }
-
-                                    crnsListHTML.push(`<span class="crn-item ${cssClass}">${sec.crn} (${statusText} - ${fitStatusText})</span>`);
-                                });
-                            }
+                                    
+let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+crnsListHTML.push(`<span class="crn-item ${cssClass}">${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
+                           });
+                                 }
                             
                             if (crnsListHTML.length > 0) {
                                 suggestedCrnsHTML = crnsListHTML.join('');
