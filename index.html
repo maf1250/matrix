@@ -1082,7 +1082,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
         let gridHTML = '';
         let detailsHTML = '';
 
-        if (schedule.length > 0) {
+if (schedule.length > 0) {
             let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
 
@@ -1091,13 +1091,8 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                     sched.days.forEach(dayIndex => {
                         if (dayIndex <= 4) { 
                             daySchedules[dayIndex].push({
-                                code: sec.code,
-                                courseName: sec.courseName,
-                                type: sec.type,
-                                crn: sec.crn,
-                                instructor: sec.instructor,
-                                start: sched.timeData.start,
-                                end: sched.timeData.end,
+                                code: sec.code, courseName: sec.courseName, type: sec.type, crn: sec.crn,
+                                instructor: sec.instructor, start: sched.timeData.start, end: sched.timeData.end,
                                 textTime: sched.timeData.originalText
                             });
                         }
@@ -1105,64 +1100,72 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                 });
             });
 
-            gridHTML += '<div class="schedule-grid">';
+            // ======== [ التحديث 1: تنظيف التكرارات التي قد تأتي من SS01 ] ========
+            for (let i = 0; i <= 4; i++) {
+                let uniqueClasses = [];
+                let seen = new Set();
+                daySchedules[i].forEach(cls => {
+                    let key = `${cls.crn}-${cls.start}`; // تحديد البصمة للرقم المرجعي والوقت
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueClasses.push(cls);
+                    }
+                });
+                daySchedules[i] = uniqueClasses;
+            }
+
+            const PX_PER_MIN = 2.2;
+            let baseStartTime = (typeof globalCollegeStartTime !== 'undefined' && globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 450; // الافتراضي 07:30
+
+            gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
             for (let i = 0; i <= 4; i++) {
                 let classesToday = daySchedules[i];
                 if (classesToday.length > 0) {
                     classesToday.sort((a, b) => a.start - b.start);
                     
-                    gridHTML += `<div class="day-row">
-                                    <div class="day-label">${daysArray[i]}</div>
-                                    <div class="day-courses">`;
+                    gridHTML += `<div class="day-row" style="min-width: max-content; margin-bottom: 5px;">
+                                    <div class="day-label" style="position: sticky; right: 0; z-index: 2; border-left: 2px solid #fff;">${daysArray[i]}</div>
+                                    <div class="day-courses" style="flex-wrap: nowrap; gap: 0; padding: 10px; flex-grow: 0;">`;
                     
-                for (let j = 0; j < classesToday.length; j++) {
-    let cls = classesToday[j];
-    
-    // ======== [ إزاحة المحاضرة الأولى لتتوافق مع خط الزمن بناءً على دوام الكلية الفعلي ] ========
-    if (j === 0) {
-        // إذا لم يتم العثور على وقت، نضع 8:00 صباحاً كاحتياط (480 دقيقة)
-        let baseStartTime = (globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 480; 
-        
-        let delayMinutes = cls.start - baseStartTime;
-        
-        // إذا تأخرت أول محاضرة أكثر من 20 دقيقة عن وقت بداية الدوام الفعلي للكلية
-        if (delayMinutes > 20) {
-            let h = Math.floor(delayMinutes / 60);
-            let m = delayMinutes % 60;
-            let gapText = [];
-            if (h > 0) gapText.push(h === 1 ? 'ساعة' : h === 2 ? 'ساعتان' : h <= 10 ? h + ' ساعات' : h + ' ساعة');
-            if (m > 0) gapText.push(m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتان' : m <= 10 ? m + ' دقائق' : m + ' دقيقة');
-            
-            // معادلة الإزاحة البصرية (كل دقيقة تعطي مساحة لليسار لدفع البطاقة)
-            let pushSpace = delayMinutes * 1.5; 
-            if (pushSpace > 300) pushSpace = 300; // حد أقصى لمنع تشوه العرض في الجوال
-            
-            gridHTML += `<div class="time-gap-indicator" style="background:#fff3cd; color:#856404; border-color:#ffeeba; margin-right: ${pushSpace}px;" title="يبدأ اليوم متأخراً">
-                            🛌 تأخر بداية الدوام: ${gapText.join(' و ')}
-                         </div>`;
-        }
-    }
+                    let currentCursor = baseStartTime;
+                    for (let j = 0; j < classesToday.length; j++) {
+                        let cls = classesToday[j];
                         
-                        if (j > 0) {
-                            let prevCls = classesToday[j - 1];
-                            let gapMinutes = cls.start - prevCls.end;
-                            if (gapMinutes > 10) {
+                        let gapMinutes = cls.start - currentCursor;
+                        if (gapMinutes < 0) gapMinutes = 0; 
+                        
+                        let durationMinutes = cls.end - cls.start;
+                        if (durationMinutes <= 0) durationMinutes = 50; 
+                        
+                        let gapPixels = gapMinutes * PX_PER_MIN;
+                        let cardPixels = durationMinutes * PX_PER_MIN;
+
+                        let isShort = durationMinutes <= 50;
+                        let titleSize = isShort ? '12px' : '14px';
+                        let timeSize = isShort ? '10px' : '12px';
+                        let paddingStyle = isShort ? '8px 5px' : '10px 15px';
+
+                        currentCursor = cls.end; // تحديث المؤشر
+
+                        if (gapMinutes > 0) {
+                            let gapText = '';
+                            if (gapMinutes >= 15) {
                                 let h = Math.floor(gapMinutes / 60);
                                 let m = gapMinutes % 60;
-                                let gapText = [];
-                                if (h > 0) gapText.push(h === 1 ? 'ساعة' : h === 2 ? 'ساعتان' : h <= 10 ? h + ' ساعات' : h + ' ساعة');
-                                if (m > 0) gapText.push(m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتان' : m <= 10 ? m + ' دقائق' : m + ' دقيقة');
-                                
-                                gridHTML += `<div class="time-gap-indicator" title="يوجد فراغ زمني بين المحاضرتين">⏳ فراغ: ${gapText.join(' و ')}</div>`;
+                                let textArr = [];
+                                if (h > 0) textArr.push(h + 'س');
+                                if (m > 0) textArr.push(m + 'د');
+                                gapText = textArr.join('');
                             }
+                            gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">${gapText}</div>`;
                         }
                         
                         gridHTML += `
-                            <div class="course-card">
-                                <strong>${cls.code} (${cls.type})</strong>
-                                <div class="course-card-details">
-                                    <span class="time">🕒 ${cls.textTime}</span>
-                                    <span class="crn-badge">${cls.crn}</span>
+                            <div class="course-card" style="width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0;">
+                                <strong style="font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${cls.code} (${cls.type})</strong>
+                                <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
+                                    <span class="time" style="font-size:${timeSize}; white-space:nowrap;">🕒 ${cls.textTime}</span>
+                                    <span class="crn-badge" style="font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
                                 </div>
                             </div>
                         `;
@@ -1174,12 +1177,24 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
 
             detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
             detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
+            
+            let uniqueDetails = [];
+            let seenDetails = new Set();
             schedule.forEach(sec => {
+                if(!seenDetails.has(sec.crn)) {
+                    seenDetails.add(sec.crn);
+                    uniqueDetails.push(sec);
+                }
+            });
+            
+            uniqueDetails.forEach(sec => {
                 detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${sec.type}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
             });
             detailsHTML += '</tbody></table>';
 
-        } else {
+        }
+    
+    } else {
             gridHTML = '<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر لهذا المتدرب! يرجى مراجعة أسباب عدم الإسناد بالأسفل.</div>';
         }
 
