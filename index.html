@@ -15,10 +15,8 @@
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
         body { background-color: #f4f9f8; color: #333; margin: 0; padding: 40px 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;}
         
-        /* الواجهة الرئيسية للإعدادات */
         #setup-page { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 800px; width: 100%; position: relative; }
         
-        /* واجهة النتائج والتبويبات */
         #results-page { display: none; background-color: #fff; padding: 20px 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 1200px; width: 100%; }
         
         h1 { text-align: center; color: #008e7e; font-size: 24px; margin-bottom: 20px; }
@@ -117,6 +115,40 @@
         .crn-potential { background-color: #fff3cd; color: #856404; border-color: #ffeeba; } /* برتقالي: متوافق لكن ممتلئ */
         .crn-conflict { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; opacity: 0.7; } /* أحمر: يتعارض */
 
+        #scrollToTopBtn {
+            position: fixed;
+            bottom: 30px;
+            left: 30px; /* وضعناه يساراً لأن الواجهة عربية */
+            width: 48px;
+            height: 48px;
+            background-color: #008e7e; /* لون المؤسسة الأساسي */
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 9999;
+        }
+        #scrollToTopBtn:hover {
+            background-color: #006d60; /* تغميق اللون عند مرور الماوس */
+            transform: scale(1.1) translateY(0); /* تأثير تكبير بسيط */
+        }
+        #scrollToTopBtn svg {
+            width: 24px;
+            height: 24px;
+        }
+        #scrollToTopBtn.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -1311,7 +1343,29 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(blob, "تقرير_إسناد_الجدولة.xlsx");
     }
-</script>
+    // إظهار أو إخفاء زر العودة للأعلى بناءً على التمرير
+    window.addEventListener('scroll', function() {
+        const scrollBtn = document.getElementById('scrollToTopBtn');
+        // إذا نزل المستخدم أكثر من 300 بكسل يظهر الزر
+        if (window.scrollY > 300) {
+            scrollBtn.classList.add('show');
+        } else {
+            scrollBtn.classList.remove('show');
+        }
+    });
 
+    // دالة الصعود للأعلى بنعومة
+    function scrollToTop() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth' // صعود انسيابي
+        });
+    }
+</script>
+    <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+    </button>
 </body>
 </html>
