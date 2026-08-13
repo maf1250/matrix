@@ -984,7 +984,7 @@
 
                 if (studentCrnsPre.length > 0) {
                     let preRegRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
-                    studentCrnsPre.forEach((crn, idx) => preRegRow[`الرقم المرجعي (مسجل مسبقاً) ${idx + 1}`] = crn);
+                    studentCrnsPre.forEach((crn, idx) => preRegRow[`الرقم المرجعي ${idx + 1}`] = crn);
                     preRegisteredData.push(preRegRow);
                 }
                 assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': newlyAssignedCodes.length > 0 ? newlyAssignedCodes.join(' ، ') : 'لم يتم تعيين أي مقرر', 'مسجل مسبقاً': preRegCodes.length > 0 ? preRegCodes.join(' ، ') : 'لا يوجد' });
