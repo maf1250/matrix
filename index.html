@@ -737,7 +737,7 @@
                 return scoreB - scoreA; 
             });
 
-            let mainSheetData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [];
+            let mainSheetData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             for (let i = 0; i < structuredTrainees.length; i++) {
@@ -982,10 +982,14 @@
                 else { stats.failed++; notAssignedData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId }); }
 
                 let mainRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
-                studentCrnsPre.forEach((crn, idx) => mainRow[`مرجعي (مسجل مسبقاً) ${idx + 1}`] = crn);
                 studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي (جديد) ${idx + 1}`] = crn);
-                
                 mainSheetData.push(mainRow);
+
+                if (studentCrnsPre.length > 0) {
+                    let preRegRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
+                    studentCrnsPre.forEach((crn, idx) => preRegRow[`مرجعي (مسجل مسبقاً) ${idx + 1}`] = crn);
+                    preRegisteredData.push(preRegRow);
+                }
                 assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة (جديدة)': newlyAssignedCodes.length > 0 ? newlyAssignedCodes.join(' ، ') : 'لم يتم تعيين أي مقرر جديد', 'مسجل مسبقاً': preRegCodes.length > 0 ? preRegCodes.join(' ، ') : 'لا يوجد' });
             }
             
@@ -1019,9 +1023,10 @@
                 { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
             ];
 
-            globalSheetsData = [
+                globalSheetsData = [
                 { name: "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "مسجل مسبقا", data: preRegisteredData },
                 { name: "المقررات المتبقية", data: unassignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
