@@ -1264,14 +1264,14 @@
                         
                         let isPre = cls.isPreRegistered;
                         let isPractical = cls.type.includes('عملي');
-                        let typeEmoji = isPre ? '📌' : (isPractical ? '🛠️' : '📘');
+                        let typeEmoji = isPractical ? '🛠️' : '📘';
                         
                         // تخصيص الألوان بناءً على حالة المقرر
                         let borderColor = isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e'); 
                         let titleColor = isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e'); 
                         let badgeColor = isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60');
                         let bgCard = isPre ? '#f8f9fa' : '#eef7f6';
-                        let preTag = isPre ? '<span style="font-size:10px; color:#888;"> (مسجل مسبقاً)</span>' : '';
+                        let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
 
                         if (gapMinutes > 0) {
                             let gapText = '';
@@ -1317,7 +1317,8 @@
             });
             
             uniqueDetails.forEach(sec => {
-                let secTypeEmoji = sec.isPreRegistered ? '📌 (مسجل مسبقاً)' : (sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)'); 
+                let baseEmoji = sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)';
+                let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
                 let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
                 
                 detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td><span style="${badgeStyle}">${sec.crn}</span></td><td>${secTypeEmoji}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
