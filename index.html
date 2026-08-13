@@ -554,7 +554,6 @@
         });
     }
 
-    // الدالة الجديدة لقراءة ملف SF01 الخاص بالمقررات المسجلة مسبقاً
     function readSF01File(file, idHeader, crnHeader) {
         if (!file) return Promise.resolve({});
         return new Promise((resolve, reject) => {
@@ -833,7 +832,6 @@
                     findBestSchedule(cIndex + 1, currentSched, currentCodes);
                 }
 
-                // نبدأ الخوارزمية مع المقررات المسجلة مسبقاً (preRegSections) كجدول مبدئي
                 findBestSchedule(0, preRegSections, preRegCodes);
 
                 let finalCodes = [];
@@ -843,7 +841,6 @@
                     finalCodes = [...new Set(finalSchedule.map(s => s.code))];
                 }
 
-                // التمييز بين المقررات القديمة والجديدة لخصم المقاعد وحساب الإحصائيات فقط للجديدة
                 let newlyAssignedCodes = finalCodes.filter(code => !preRegCodes.includes(code));
                 
                 finalSchedule.forEach(sec => { 
@@ -982,15 +979,15 @@
                 else { stats.failed++; notAssignedData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId }); }
 
                 let mainRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
-                studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي (جديد) ${idx + 1}`] = crn);
+                studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
 
                 if (studentCrnsPre.length > 0) {
                     let preRegRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
-                    studentCrnsPre.forEach((crn, idx) => preRegRow[`مرجعي (مسجل مسبقاً) ${idx + 1}`] = crn);
+                    studentCrnsPre.forEach((crn, idx) => preRegRow[`الرقم المرجعي (مسجل مسبقاً) ${idx + 1}`] = crn);
                     preRegisteredData.push(preRegRow);
                 }
-                assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة (جديدة)': newlyAssignedCodes.length > 0 ? newlyAssignedCodes.join(' ، ') : 'لم يتم تعيين أي مقرر جديد', 'مسجل مسبقاً': preRegCodes.length > 0 ? preRegCodes.join(' ، ') : 'لا يوجد' });
+                assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': newlyAssignedCodes.length > 0 ? newlyAssignedCodes.join(' ، ') : 'لم يتم تعيين أي مقرر', 'مسجل مسبقاً': preRegCodes.length > 0 ? preRegCodes.join(' ، ') : 'لا يوجد' });
             }
             
             let capacityData = [];
@@ -1005,7 +1002,7 @@
                 let d = courseStats[code];
                 if (d.requested > 0) {
                     let topReason = Object.keys(d.reasons).length > 0 ? Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b) : "لا يوجد";
-                    courseStatsData.push({ 'رمز المقرر': code, 'عدد المتوقع (جديد)': d.requested, 'تم التعيين': d.registered, 'لم يتم التعيين': d.unregistered, 'أبرز سبب لعدم التعيين': topReason });
+                    courseStatsData.push({ 'رمز المقرر': code, 'عدد المتوقع': d.requested, 'تم التعيين': d.registered, 'لم يتم التعيين': d.unregistered, 'أبرز سبب لعدم التعيين': topReason });
                 }
             }
 
