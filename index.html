@@ -468,7 +468,8 @@
                                 hasRequests = true;
                             }
                         }
-                        if (hasRequests) dataRows.push(rowObj);
+                       // if (hasRequests) dataRows.push(rowObj);
+                        dataRows.push(rowObj);
                     }
                     resolve(dataRows);
                 } catch (err) { reject(err); }
