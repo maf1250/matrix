@@ -278,6 +278,7 @@
     let globalSheetsData = []; 
     let globalTraineesSchedules = {}; 
     let globalCollegeStartTime = Infinity;
+    let isFemaleCampus = false;
     
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -512,6 +513,14 @@
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                     
+                    isFemaleCampus = false; // إعادة تعيين
+                    for (let i = 0; i < Math.min(jsonArray.length, 20); i++) {
+                        if (jsonArray[i].join(" ").includes("بنات")) {
+                            isFemaleCampus = true;
+                            break;
+                        }
+                    }
+                                    
                     let headerRowIndex = -1;
                     for (let i = 0; i < jsonArray.length; i++) {
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
@@ -633,8 +642,8 @@
             statusDiv.innerHTML = '<span class="error">نأمل إرفاق الملفات الأساسية (1 و 2) أولاً!</span>'; return;
         }
 
-        const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
-        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
+        let  C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
+        let  C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE_HEADER = document.getElementById('col_course_header').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_COURSE_NAME = document.getElementById('col_course_name').value.trim();
@@ -658,12 +667,20 @@
         globalCollegeStartTime = Infinity;
 
         try {
-            let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
+let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
                 readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME, C_COURSE_HEADER), 
                 readSS01File(ss01File, C_COURSE),
                 readSF33File(sf33File, C_SF33_CRN1, C_SF33_CRN2),
                 readSF01File(sf01File, C_SF01_ID, C_SF01_CRN)
             ]);
+
+            if (isFemaleCampus) {
+                C_TRAINEE_NAME = C_TRAINEE_NAME.replace("المتدرب", "المتدربة");
+                C_TRAINEE_ID = C_TRAINEE_ID.replace("المتدرب", "المتدربة");
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدربة للوصول السريع...";
+            } else {
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدرب للوصول السريع...";
+            }
 
             if (ss01Raw.length > 0) {
                 let firstRow = ss01Raw[0];
@@ -1037,16 +1054,16 @@
                 }
             }
 
-                let globalStatsData = [
-                { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
+               let globalStatsData = [
+                { 'البيان': isFemaleCampus ? 'إجمالي المتدربات المعالجات' : 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
                 { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
                 { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
-                { 'البيان': 'لم يتم الإسناد لهم', 'العدد': stats.failed },
-                { 'البيان': 'مسجل مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length }
+                { 'البيان': 'مسجل مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length },
+                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
             ];
 
-                globalSheetsData = [
-                { name: "جدول المتدربين", data: mainSheetData },
+            globalSheetsData = [
+                { name: isFemaleCampus ? "جدول المتدربات" : "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
                 { name: "مسجل مسبقا", data: preRegisteredData },
                 { name: "المقررات المتبقية", data: unassignedCodesData },
@@ -1057,7 +1074,7 @@
                 { name: "إحصائيات لكل مقرر", data: courseStatsData },
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
-
+            
             buildResultsUI();
             showResultsPage();
 
@@ -1112,7 +1129,7 @@
         tbody.append(...rows);
     }
 
-    function buildResultsUI() {
+  function buildResultsUI() {
         const tabsContainer = document.getElementById('tabs-container');
         const contentsContainer = document.getElementById('tab-contents-container');
         
@@ -1121,7 +1138,7 @@
 
         let singleTabBtn = document.createElement('button');
         singleTabBtn.className = 'tab-btn active';
-        singleTabBtn.innerText = 'عرض جدول متدرب';
+        singleTabBtn.innerText = isFemaleCampus ? 'عرض جدول متدربة' : 'عرض جدول متدرب';
         singleTabBtn.onclick = () => switchTab('tab-single', singleTabBtn);
         tabsContainer.appendChild(singleTabBtn);
 
@@ -1129,8 +1146,8 @@
         singleTabContent.id = 'tab-single';
         singleTabContent.className = 'tab-content active';
         
-        let selectHTML = '<div class="single-trainee-selector"><label>اختر المتدرب:</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">';
-        selectHTML += '<option value="">-- اختر متدرباً --</option>';
+        let selectHTML = `<div class="single-trainee-selector"><label>${isFemaleCampus ? 'اختر المتدربة:' : 'اختر المتدرب:'}</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">`;
+        selectHTML += `<option value="">-- ${isFemaleCampus ? 'اختر متدربة' : 'اختر متدرباً'} --</option>`;
         for (let id in globalTraineesSchedules) {
             selectHTML += `<option value="${id}">${globalTraineesSchedules[id].name} (${id})</option>`;
         }
@@ -1141,7 +1158,6 @@
 
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
-            
             let btn = document.createElement('button');
             btn.className = 'tab-btn';
             btn.innerText = sheet.name;
@@ -1177,7 +1193,7 @@
                 thead.appendChild(headerRow);
                 table.appendChild(thead);
 
-               let tbody = document.createElement('tbody');
+                let tbody = document.createElement('tbody');
                 sheet.data.forEach(row => {
                     let tr = document.createElement('tr');
                     headers.forEach(h => {
@@ -1186,14 +1202,14 @@
                         
                         let matchedId = null;
                         if (globalTraineesSchedules[cellValue]) {
-                            matchedId = cellValue; // إذا كانت الخلية تحتوي على رقم المتدرب
+                            matchedId = cellValue;
                         } else {
                             let matchedTrainee = Object.values(globalTraineesSchedules).find(t => t.name === cellValue);
-                            if (matchedTrainee) matchedId = matchedTrainee.id; // إذا كانت الخلية تحتوي على اسم المتدرب
+                            if (matchedTrainee) matchedId = matchedTrainee.id; 
                         }
 
                         if (matchedId) {
-                            td.innerHTML = `<span class="clickable-trainee" onclick="openTraineeModal('${matchedId}')" title="اضغط لعرض جدول المتدرب">${cellValue}</span>`;
+                            td.innerHTML = `<span class="clickable-trainee" onclick="openTraineeModal('${matchedId}')" title="اضغط لعرض جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}">${cellValue}</span>`;
                         } else {
                             td.innerText = cellValue;
                         }
@@ -1206,7 +1222,6 @@
             } else {
                 contentDiv.innerHTML = '<p style="text-align:center; padding:20px;">لا توجد بيانات لعرضها في هذا الجدول.</p>';
             }
-            
             contentsContainer.appendChild(contentDiv);
         });
     }
@@ -1315,7 +1330,6 @@
                         let isPractical = cls.type.includes('عملي');
                         let typeEmoji = isPractical ? '🛠️' : '📘';
                         
-                        // تخصيص الألوان بناءً على حالة المقرر
                         let borderColor = isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e'); 
                         let titleColor = isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e'); 
                         let badgeColor = isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60');
@@ -1353,8 +1367,8 @@
             }
             gridHTML += '</div>';
 
-            detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية الموجودة في جدول المتدرب</h3>';
-            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
+            detailsHTML += `<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية الموجودة في جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}</h3>`;
+            detailsHTML += `<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم ${isFemaleCampus ? 'المدربة' : 'المدرب'}</th></tr></thead><tbody>`;
             
             let uniqueDetails = [];
             let seenDetails = new Set();
@@ -1375,7 +1389,7 @@
             detailsHTML += '</tbody></table>';
     
         } else {
-            gridHTML = '<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر لهذا المتدرب! نأمل مراجعة أسباب عدم الإسناد بالأسفل.</div>';
+            gridHTML = `<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر ل${isFemaleCampus ? 'هذه المتدربة' : 'هذا المتدرب'}! نأمل مراجعة أسباب عدم الإسناد بالأسفل.</div>`;
         }
 
         if (traineeData.unassigned && traineeData.unassigned.length > 0) {
@@ -1385,7 +1399,7 @@
                 <strong>دليل الألوان للأرقام المرجعية للمقرر المتبقي:</strong>
                 <span style="color:#155724;">🟢 متوافق زمنياً مع الجدول (لكن به خلل آخر كالارتباط)</span>
                 <span style="color:#856404;">🟠 متوافق زمنياً لكنه ممتلئ (يناسب لو تم رفع السعة)</span>
-                <span style="color:#721c24;">🔴 يتعارض زمنياً مع جدول المتدرب الحالي</span>
+                <span style="color:#721c24;">🔴 يتعارض زمنياً مع جدول ${isFemaleCampus ? 'المتدربة الحالي' : 'المتدرب الحالي'}</span>
             </div>
             <div class="unassigned-cards-container">`;
             
@@ -1402,6 +1416,32 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
 
         container.innerHTML = gridHTML + detailsHTML;
+    }
+
+    function openTraineeModal(traineeId) {
+        const modal = document.getElementById('trainee-modal');
+        const modalContent = document.getElementById('modal-content-area');
+        
+        const dropdown = document.getElementById('trainee-dropdown');
+        if (dropdown) dropdown.value = traineeId;
+        renderSingleTraineeSchedule(); 
+        
+        const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
+        const traineeName = globalTraineesSchedules[traineeId].name;
+        
+        modalContent.innerHTML = `
+            <h2 style="text-align:center; color:#006d60; margin-top:0; border-bottom: 2px dashed #b2d8d3; padding-bottom: 10px;">جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}: ${traineeName} (${traineeId})</h2>
+            ${scheduleHTML}
+        `;
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTraineeModal(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('trainee-modal').style.display = 'none';
+        document.body.style.overflow = ''; 
     }
 
     function handleGlobalSearch() {
@@ -1430,35 +1470,6 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
     }
 
-function openTraineeModal(traineeId) {
-        const modal = document.getElementById('trainee-modal');
-        const modalContent = document.getElementById('modal-content-area');
-        
-        // تغيير القائمة المنسدلة للرقم المطلوب واستدعاء دالة الرسم الأصلية خفيةً
-        const dropdown = document.getElementById('trainee-dropdown');
-        if (dropdown) dropdown.value = traineeId;
-        renderSingleTraineeSchedule(); 
-        
-        // أخذ نسخة من الجدول المرسوم ووضعه في النافذة المنبثقة
-        const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
-        const traineeName = globalTraineesSchedules[traineeId].name;
-        
-        modalContent.innerHTML = `
-            <h2 style="text-align:center; color:#006d60; margin-top:0; border-bottom: 2px dashed #b2d8d3; padding-bottom: 10px;">جدول المتدرب: ${traineeName} (${traineeId})</h2>
-            ${scheduleHTML}
-        `;
-        
-        // إظهار النافذة ومنع التمرير في الخلفية
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeTraineeModal(event) {
-        if (event) event.stopPropagation();
-        document.getElementById('trainee-modal').style.display = 'none';
-        document.body.style.overflow = ''; // إعادة التمرير للصفحة
-    }
-    
     async function downloadExcelFile() {
         if (!globalSheetsData || globalSheetsData.length === 0) return;
         
