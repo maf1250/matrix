@@ -212,17 +212,17 @@
 
     <div class="upload-group">
         <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
-        <input type="file" id="ss01File" accept=".xlsx, .xls, .csv">
+        <input type="file" id="ss01File" accept=".csv">
     </div>
 
     <div class="upload-group">
         <label>3. تقرير الشعب والشعب المرتبطة (SF33)</label>
-        <input type="file" id="sf33File" accept=".xlsx, .xls, .csv">
+        <input type="file" id="sf33File" accept=".csv">
     </div>
 
     <div class="upload-group">
         <label>4. تقرير المتدربين المسجلين في شعبة تدريبية (SF01) - اختياري (ينصح به بعد بدء التسجيل)</label>
-        <input type="file" id="sf01File" accept=".xlsx, .xls, .csv">
+        <input type="file" id="sf01File" accept=".csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
@@ -1013,11 +1013,12 @@
                 }
             }
 
-            let globalStatsData = [
+                let globalStatsData = [
                 { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
                 { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
                 { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
-                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
+                { 'البيان': 'مسجل مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length }
+                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed },
             ];
 
                 globalSheetsData = [
