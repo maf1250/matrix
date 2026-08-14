@@ -1054,12 +1054,13 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
                 }
             }
 
-               let globalStatsData = [
-                { 'البيان': isFemaleCampus ? 'إجمالي المتدربات المعالجات' : 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
-                { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
-                { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
-                { 'البيان': 'مسجل مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length },
-                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
+            let globalStatsData = [
+                   {'البيان': isFemaleCampus ? 'إجمالي المتدربات المعالجات' : 'إجمالي المتدربين المعالجين', 'العدد': stats.total},
+                   {'البيان': isFemaleCampus ? 'مسند لهن بالكامل بنجاح' : 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess},
+                   {'البيان': isFemaleCampus ? 'مسند لهن جزئياً (بقي لهن مقررات)' : 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess},
+                   {'البيان': isFemaleCampus ? 'مسجلن مسبقاً (لديهن مقررات سابقة)' : 'مسجلون مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length},
+                   {'البيان': isFemaleCampus ? 'لم يتم الإسناد لهن' : 'لم يتم الإسناد لهم', 'العدد': stats.failed}
+
             ];
 
             globalSheetsData = [
