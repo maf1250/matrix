@@ -103,6 +103,29 @@
         
         .time-gap-indicator { background: #fdfdfd; border: 1px dashed #b2d8d3; color: #006d60; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; white-space: nowrap; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
 
+        /* تصميم النافذة المنبثقة  */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6); z-index: 100000;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: #f4f9f8; border-radius: 12px; padding: 25px;
+            max-width: 950px; width: 95%; max-height: 90vh; overflow-y: auto;
+            position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #008e7e;
+        }
+        .modal-close {
+            position: absolute; top: 15px; left: 15px; background: #dc3545;
+            color: white; border: none; width: 32px; height: 32px; border-radius: 50%;
+            font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 16px;
+        }
+        .modal-close:hover { background: #c82333; transform: scale(1.1); }
+        .clickable-trainee {
+            color: #008e7e; cursor: pointer; font-weight: bold; text-decoration: underline; transition: 0.3s;
+        }
+        .clickable-trainee:hover { color: #8dc63f; }
+        
         /* ستايل المقررات المتبقية (عمودي) */
         .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
@@ -1154,12 +1177,26 @@
                 thead.appendChild(headerRow);
                 table.appendChild(thead);
 
-                let tbody = document.createElement('tbody');
+               let tbody = document.createElement('tbody');
                 sheet.data.forEach(row => {
                     let tr = document.createElement('tr');
                     headers.forEach(h => {
                         let td = document.createElement('td');
-                        td.innerText = row[h] !== undefined ? row[h] : '';
+                        let cellValue = row[h] !== undefined ? String(row[h]) : '';
+                        
+                        let matchedId = null;
+                        if (globalTraineesSchedules[cellValue]) {
+                            matchedId = cellValue; // إذا كانت الخلية تحتوي على رقم المتدرب
+                        } else {
+                            let matchedTrainee = Object.values(globalTraineesSchedules).find(t => t.name === cellValue);
+                            if (matchedTrainee) matchedId = matchedTrainee.id; // إذا كانت الخلية تحتوي على اسم المتدرب
+                        }
+
+                        if (matchedId) {
+                            td.innerHTML = `<span class="clickable-trainee" onclick="openTraineeModal('${matchedId}')" title="اضغط لعرض جدول المتدرب">${cellValue}</span>`;
+                        } else {
+                            td.innerText = cellValue;
+                        }
                         tr.appendChild(td);
                     });
                     tbody.appendChild(tr);
@@ -1393,6 +1430,35 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
     }
 
+function openTraineeModal(traineeId) {
+        const modal = document.getElementById('trainee-modal');
+        const modalContent = document.getElementById('modal-content-area');
+        
+        // تغيير القائمة المنسدلة للرقم المطلوب واستدعاء دالة الرسم الأصلية خفيةً
+        const dropdown = document.getElementById('trainee-dropdown');
+        if (dropdown) dropdown.value = traineeId;
+        renderSingleTraineeSchedule(); 
+        
+        // أخذ نسخة من الجدول المرسوم ووضعه في النافذة المنبثقة
+        const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
+        const traineeName = globalTraineesSchedules[traineeId].name;
+        
+        modalContent.innerHTML = `
+            <h2 style="text-align:center; color:#006d60; margin-top:0; border-bottom: 2px dashed #b2d8d3; padding-bottom: 10px;">جدول المتدرب: ${traineeName} (${traineeId})</h2>
+            ${scheduleHTML}
+        `;
+        
+        // إظهار النافذة ومنع التمرير في الخلفية
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTraineeModal(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('trainee-modal').style.display = 'none';
+        document.body.style.overflow = ''; // إعادة التمرير للصفحة
+    }
+    
     async function downloadExcelFile() {
         if (!globalSheetsData || globalSheetsData.length === 0) return;
         
@@ -1465,5 +1531,12 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
     </button>
+    <!-- هيكل النافذة المنبثقة -->
+<div id="trainee-modal" class="modal-overlay" onclick="closeTraineeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeTraineeModal(event)">✖</button>
+        <div id="modal-content-area"></div>
+    </div>
+</div>
 </body>
 </html>
