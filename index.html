@@ -1210,7 +1210,19 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
             contentDiv.id = tabId;
             contentDiv.className = 'tab-content';
             
-            if (sheet.data && sheet.data.length > 0) {
+           if (sheet.data && sheet.data.length > 0) {
+                
+                if (index === 0) {
+                    let copyAllBtnContainer = document.createElement('div');
+                    copyAllBtnContainer.style.marginBottom = '15px';
+                    copyAllBtnContainer.innerHTML = `
+                        <button class="btn-copy-rayat" onclick="copyAllToRayatAuto()" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px; background-color: #008e7e;">
+                            📋 نسخ بيانات الجميع لرايات أوتو
+                        </button>
+                    `;
+                    contentDiv.appendChild(copyAllBtnContainer);
+                }
+
                 let helperDiv = document.createElement('div');
                 helperDiv.className = 'sort-helper-alert';
                 helperDiv.innerHTML = '💡 تلميح: يمكنك الضغط على عناوين الأعمدة لترتيب البيانات تصاعدياً أو تنازلياً.';
@@ -1608,6 +1620,44 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
         navigator.clipboard.writeText(textToCopy).then(() => {
             showToast('✅ تم النسخ بنجاح!');
+        }).catch(err => {
+            console.error('فشل النسخ: ', err);
+            showToast('❌ حدث خطأ أثناء النسخ');
+        });
+    }
+
+    // دالة نسخ الجميع لرايات أوتو
+    function copyAllToRayatAuto() {
+        let fullText = "";
+        let count = 0;
+
+        for (let traineeId in globalTraineesSchedules) {
+            const traineeData = globalTraineesSchedules[traineeId];
+            let crns = [];
+            let seenDetails = new Set();
+            
+            traineeData.schedule.forEach(sec => {
+                if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
+                    seenDetails.add(sec.crn);
+                    crns.push(sec.crn);
+                }
+            });
+
+            if (crns.length > 0) {
+                fullText += traineeId + '\t' + crns.join('\t') + '\n';
+                count++;
+            }
+        }
+
+        if (count === 0) {
+            showToast('لا توجد بيانات لنسخها!');
+            return;
+        }
+
+        fullText = fullText.trimEnd();
+
+        navigator.clipboard.writeText(fullText).then(() => {
+            showToast(`✅ تم نسخ الجداول ${count} بنجاح!`);
         }).catch(err => {
             console.error('فشل النسخ: ', err);
             showToast('❌ حدث خطأ أثناء النسخ');
