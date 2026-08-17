@@ -713,7 +713,16 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
                 readSS01File(ss01File, C_COURSE),
                 readSF33File(sf33File, C_SF33_CRN1, C_SF33_CRN2),
                 readSF01File(sf01File, C_SF01_ID, C_SF01_CRN)
-            ]);
+                ]);
+
+let validMatrixCourses = new Set();
+traineesRaw.forEach(row => {
+    Object.keys(row).forEach(key => {
+        if (key !== C_TRAINEE_ID && key !== C_TRAINEE_NAME) {
+            validMatrixCourses.add(key);
+        }
+    });
+});
 
             if (isFemaleCampus) {
                 C_TRAINEE_NAME = C_TRAINEE_NAME.replace("المتدرب", "المتدربة");
@@ -1074,6 +1083,7 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
             
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
+                if (!validMatrixCourses.has(code)) continue;
                 let orig = courseOriginalCapacity[code];
                 let rem = courseTotalCapacity[code];
                 capacityData.push({ 'رمز المقرر': code, 'السعة الأصلية': orig, 'عدد المعين لهم': orig - rem, 'المقاعد المتبقية': rem });
@@ -1081,6 +1091,7 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
 
             let courseStatsData = [];
             for (let code in courseStats) {
+                if (!validMatrixCourses.has(code)) continue;
                 let d = courseStats[code];
                 if (d.requested > 0) {
                     let topReason = Object.keys(d.reasons).length > 0 ? Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b) : "لا يوجد";
@@ -1089,11 +1100,14 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
             }
 
             let fullSectionsData = [];
-            for (let crn in allSectionsRef) {
-                if (allSectionsRef[crn].remaining === 0) {
-                    fullSectionsData.push({ 'رمز المقرر': allSectionsRef[crn].code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
-                }
-            }
+for (let crn in allSectionsRef) {
+    let code = allSectionsRef[crn].code;
+    if (!validMatrixCourses.has(code)) continue; // فلترة المقررات الخارجة عن التخصص
+    
+    if (allSectionsRef[crn].remaining === 0) {
+        fullSectionsData.push({ 'رمز المقرر': code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
+    }
+}
 
             let globalStatsData = [
                    {'البيان': isFemaleCampus ? 'إجمالي المتدربات المعالجات' : 'إجمالي المتدربين المعالجين', 'العدد': stats.total},
