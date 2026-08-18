@@ -207,6 +207,80 @@
         #scrollToTopBtn svg { width: 24px; height: 24px; }
         #scrollToTopBtn.show { opacity: 1; visibility: visible; transform: translateY(0); }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+          .ad-banner-matrix {
+            background-color: #f0f7ff;
+            border: 2px dashed #1565c0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .ad-banner-matrix::before {
+            content: "أداة جديدة";
+            position: absolute;
+            top: 15px;
+            right: -35px;
+            background: #ff5252;
+            color: white;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .ad-banner-matrix strong {
+            display: block;
+            color: #1565c0;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .ad-banner-matrix p {
+            color: #444;
+            font-size: 14px;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+        .btn-matrix {
+            background-color: #1565c0;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.3s;
+        }
+        .btn-matrix:hover {
+            background-color: #0d47a1;
+            transform: scale(1.05);
+        }
+        /* زر إخفاء الإعلان */
+        .close-ad-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .close-ad-btn:hover {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+
     </style>
 </head>
 <body>
@@ -229,6 +303,18 @@
                     <div><label>عمود اسم المتدرب</label><input type="text" id="col_trainee_name" value="الاسم"></div>
                     <div><label>عنوان رموز المقررات</label><input type="text" id="col_course_header" value="رمز"></div>
                 </div>
+                    <!-- بداية الإعلان -->
+     <div class="ad-banner-matrix" id="matrixAd">
+                <button class="close-ad-btn" onclick="hideAd()" title="إخفاء">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+         <strong>هل جربت أداة منظومة الإسناد الآلي للمستجدين؟</strong>
+                        <p>اكتشف الآن منظومة الإسناد الذكية لبناء رزم المستجدين بضغطة زر واحدة!</p>
+                         <a href="https://maf1250.github.io/freshmen/" target="_blank" class="btn-matrix">
+                    انتقل للأداة الآن <i data-lucide="external-link"></i>
+                </a>
+            </div>              
+            <!-- نهاية الإعلان -->
             </div>
             <div class="inner-group">
                 <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
@@ -1689,6 +1775,13 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         toast.className = "show";
         setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
     }
+     // دالة إخفاء الإعلان
+        function hideAd() {
+            const ad = document.getElementById('matrixAd');
+            if (ad) {
+                ad.style.display = 'none';
+            }
+        }
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
