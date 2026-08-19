@@ -100,7 +100,7 @@
         .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 8px; border-bottom: 1px dashed #b2d8d3; padding-bottom: 4px; display: flex; align-items: center; gap: 5px;}
         .course-card-details { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         .crn-badge { background: #006d60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600;}
+        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600; direction: ltr;}
         
         .time-gap-indicator { background: #fdfdfd; border: 1px dashed #b2d8d3; color: #006d60; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; white-space: nowrap; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
 
@@ -1518,7 +1518,7 @@ for (let crn in allSectionsRef) {
                                     <span style="flex-shrink: 0; font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
                                 </strong>
                                 <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
-                                    <span class="time" style="font-size:${timeSize}; white-space:nowrap;">${cls.textTime}</span>
+                                    <span class="time" dir="ltr" style="font-size:${timeSize}; white-space:nowrap;">${cls.textTime}</span>
                                     <span class="crn-badge" style="background-color: ${badgeColor}; font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
                                 </div>
                             </div>
