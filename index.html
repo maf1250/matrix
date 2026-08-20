@@ -1830,15 +1830,21 @@ async function submitContactForm(e) {
     const status = document.getElementById('contact_status');
     
     btn.disabled = true;
-    btn.innerHTML = 'جار الإرسال... <div class="loader" style="display:inline-block; width:14px; height:14px; margin-right:8px; border-width:2px;"></div>';
+    btn.innerHTML = 'جار الإرسال... <div class="loader" style="display:inline-block; width:14px; height:14px; margin-right:8px; border-width:2px; vertical-align: middle;"></div>';
     status.innerText = '';
 
     const formData = new FormData(form);
+    const object = Object.fromEntries(formData);
+    const json = JSON.stringify(object);
     
     try {
         const response = await fetch('https://api.web3forms.com/submit', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json', // تحديد نوع البيانات
+                'Accept': 'application/json'
+            },
+            body: json
         });
         
         const result = await response.json();
@@ -1853,7 +1859,7 @@ async function submitContactForm(e) {
         }
     } catch (error) {
         status.style.color = '#dc3545';
-        status.innerText = 'تعذر الإرسال. نامل التحقق من اتصالك بالإنترنت.';
+        status.innerText = 'تعذر الإرسال. نأمل التحقق من اتصالك بالإنترنت.';
     } finally {
         // إعادة الزر لشكله الطبيعي
         btn.disabled = false;
@@ -1881,7 +1887,7 @@ async function submitContactForm(e) {
         
         <form id="contactForm" onsubmit="submitContactForm(event)">
             <input type="hidden" name="access_key" value="54190f55-c3e4-41b4-b772-9a62ae475b49">
-            <input type="hidden" name="subject" value="رسالة جديدة من أدوات رايات">
+            <input type="hidden" name="subject" value="رسالة جديدة من منظومة إسناد المستمرين">
             
             <div class="contact-form-group">
                 <label>جهة العمل</label>
