@@ -1188,13 +1188,14 @@ traineesRaw.forEach(row => {
                 studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
 
-                // --- حساب التقاطعات الزمنية ---
+               // --- حساب التقاطعات الزمنية ---
                 let dayTimings = {0:[], 1:[], 2:[], 3:[], 4:[]};
                 finalSchedule.forEach(sec => {
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(d => {
                             if (d <= 4) {
-                                dayTimings[d].push({ code: sec.code, start: sched.timeData.start, end: sched.timeData.end });
+                                // أضفنا الرقم المرجعي (crn) هنا
+                                dayTimings[d].push({ code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end });
                             }
                         });
                     });
@@ -1207,7 +1208,8 @@ traineesRaw.forEach(row => {
                         for(let k=0; k < dayTimings[d].length - 1; k++) {
                             if (dayTimings[d][k].end === dayTimings[d][k+1].start) {
                                 let dayName = reverseDaysMap[d];
-                                intersectionDetails.push(`يوم ${dayName}: (${dayTimings[d][k].code} مع ${dayTimings[d][k+1].code})`);
+                                // تم تحديث النص ليظهر الرقم المرجعي بين قوسين
+                                intersectionDetails.push(`يوم ${dayName}: (${dayTimings[d][k].code} [${dayTimings[d][k].crn}] مع ${dayTimings[d][k+1].code} [${dayTimings[d][k+1].crn}])`);
                             }
                         }
                     }
