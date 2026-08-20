@@ -942,7 +942,7 @@ traineesRaw.forEach(row => {
                 return scoreB - scoreA; 
             });
 
-            let mainSheetData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [];
+            let mainSheetData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             for (let i = 0; i < structuredTrainees.length; i++) {
@@ -1188,6 +1188,38 @@ traineesRaw.forEach(row => {
                 studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
 
+                // --- حساب التقاطعات الزمنية ---
+                let dayTimings = {0:[], 1:[], 2:[], 3:[], 4:[]};
+                finalSchedule.forEach(sec => {
+                    sec.schedules.forEach(sched => {
+                        sched.days.forEach(d => {
+                            if (d <= 4) {
+                                dayTimings[d].push({ code: sec.code, start: sched.timeData.start, end: sched.timeData.end });
+                            }
+                        });
+                    });
+                });
+                
+                let intersectionDetails = [];
+                for(let d=0; d<=4; d++) {
+                    if (dayTimings[d].length > 1) {
+                        dayTimings[d].sort((a,b) => a.start - b.start);
+                        for(let k=0; k < dayTimings[d].length - 1; k++) {
+                            if (dayTimings[d][k].end === dayTimings[d][k+1].start) {
+                                let dayName = reverseDaysMap[d];
+                                intersectionDetails.push(`يوم ${dayName}: (${dayTimings[d][k].code} مع ${dayTimings[d][k+1].code})`);
+                            }
+                        }
+                    }
+                }
+                if (intersectionDetails.length > 0) {
+                    intersectionsData.push({
+                        [C_TRAINEE_NAME]: traineeName, 
+                        [C_TRAINEE_ID]: traineeId, 
+                        'تفاصيل التقاطعات': [...new Set(intersectionDetails)].join(' | ')
+                    });
+                }
+
                 if (studentCrnsPre.length > 0) {
                     let preRegRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
                     studentCrnsPre.forEach((crn, idx) => preRegRow[`الرقم المرجعي ${idx + 1}`] = crn);
@@ -1236,6 +1268,7 @@ for (let crn in allSectionsRef) {
             globalSheetsData = [
                 { name: isFemaleCampus ? "جدول المتدربات" : "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "التقاطعات", data: intersectionsData },
                 { name: "مسجل مسبقا", data: preRegisteredData },
                 { name: "المقررات المتبقية", data: unassignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
@@ -1356,6 +1389,16 @@ for (let crn in allSectionsRef) {
                 helperDiv.className = 'sort-helper-alert';
                 helperDiv.innerHTML = '💡 تلميح: يمكنك الضغط على عناوين الأعمدة لترتيب البيانات تصاعدياً أو تنازلياً.';
                 contentDiv.appendChild(helperDiv);
+
+               if (sheet.name === "التقاطعات") {
+                    let noteDiv = document.createElement('div');
+                    noteDiv.className = 'sort-helper-alert';
+                    noteDiv.style.borderRightColor = '#ff9800';
+                    noteDiv.style.color = '#856404';
+                    noteDiv.style.backgroundColor = '#fff3cd';
+                    noteDiv.innerHTML = '⚠️ <strong>ملاحظة هامة:</strong> التقاطع يعني وجود محاضرتين متتاليتين (تنتهي الأولى وتبدأ الثانية في نفس الدقيقة)، وهذا الترابط الزمني المباشر يعتبره نظام رايات تعارضًا ويتطلب التعديل قبل التسجيل.';
+                    contentDiv.appendChild(noteDiv);
+                }
 
                 let table = document.createElement('table');
                 table.className = 'data-table report-table';
@@ -1478,7 +1521,8 @@ for (let crn in allSectionsRef) {
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #008e7e; padding:3px 8px; border-radius:3px; color:#008e7e; font-weight:bold;">📘 نظري</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
-    </div>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
+    </div>    </div>
     <button class="btn-copy-rayat" onclick="copyToRayatAuto('${traineeId}')">
         📋 نسخ إلى رايات أوتو
     </button>
@@ -1489,6 +1533,14 @@ for (let crn in allSectionsRef) {
                 let classesToday = daySchedules[i];
                 if (classesToday.length > 0) {
                     classesToday.sort((a, b) => a.start - b.start);
+
+                    // تحديد التقاطعات الزمنية للمقررات
+                    for (let j = 0; j < classesToday.length - 1; j++) {
+                        if (classesToday[j].end === classesToday[j+1].start) {
+                            classesToday[j].hasIntersection = true;
+                            classesToday[j+1].hasIntersection = true;
+                        }
+                    }
                     
                     gridHTML += `<div class="day-row" style="min-width: max-content; margin-bottom: 5px;">
                                     <div class="day-label" style="position: sticky; right: 0; z-index: 2; border-left: 2px solid #fff;">${daysArray[i]}</div>
@@ -1516,13 +1568,15 @@ for (let crn in allSectionsRef) {
                         
                         let isPre = cls.isPreRegistered;
                         let isPractical = cls.type.includes('عملي');
+                        let isIntersecting = cls.hasIntersection;
                         let typeEmoji = isPractical ? '🛠️' : '📘';
                         
-                        let borderColor = isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e'); 
-                        let titleColor = isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e'); 
-                        let badgeColor = isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60');
-                        let bgCard = isPre ? '#f8f9fa' : '#eef7f6';
+                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e')); 
+                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e')); 
+                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60'));
+                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : '#eef7f6');
                         let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
+                        let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
 
                         if (gapMinutes > 0) {
                             let gapText = '';
@@ -1540,7 +1594,7 @@ for (let crn in allSectionsRef) {
                         gridHTML += `
                             <div class="course-card" style="align-self: stretch; background:${bgCard}; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                
                                 <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
-                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cls.code}${preTag}</span>
+                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${intersectTag}${cls.code}${preTag}</span>
                                     <span style="flex-shrink: 0; font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
                                 </strong>
                                 <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
