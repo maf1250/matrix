@@ -1892,13 +1892,24 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
     
    // --- دوال التعديل اليدوي (النسخة المتصلة بنواة النظام) ---
 
-    // 1. دالة لتوليد أزرار الشعب المتاحة بناءً على التعارض
+    // 1. دالة لتوليد أزرار الشعب المتاحة بناءً على التعارض والشقوق الناقصة
     window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         let traineeData = globalTraineesSchedules[traineeId];
+        
+        // معرفة الشقوق التي تمت إضافتها مسبقاً (نظري أو عملي) لإخفائها من المقترحات
+        let addedBaseTypes = traineeData.schedule
+            .filter(s => s.code === courseCode)
+            .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
+
         let crnsListHTML = [];
         for (let crn in allSectionsRef) {
             let sec = allSectionsRef[crn];
             if (sec.code === courseCode) {
+                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                
+                // إذا تم إضافة هذا الشق مسبقاً للجدول، لا تعرض خياراته مجدداً
+                if (addedBaseTypes.includes(baseType)) continue;
+                
                 let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
                 let hasConflict = false;
                 for (let existSec of traineeData.schedule) {
@@ -1983,8 +1994,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             `;
         }
     };
-
-    // 3. دالة الحذف
+// 3. دالة الحذف
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
         
@@ -1996,17 +2006,27 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             allSectionsRef[crn].remaining += 1;
         }
 
-        // إرجاع المقرر لقائمة المتبقية بالأسفل
-        let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
-        traineeData.unassigned.push({ 
-            code: courseCode, 
-            courseName: courseName, 
-            reason: "أُزيل يدوياً من الجدول (بإمكانك إضافته مجدداً)",
-            suggestedCrnsHTML: generateSuggestedCrnsHTML(traineeId, courseCode)
+        // التأكد من وجود المقرر في قائمة المتبقيات لتتمكن من إضافته مجدداً
+        let uItem = traineeData.unassigned.find(u => u.code === courseCode);
+        if (!uItem) {
+            let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
+            traineeData.unassigned.push({ 
+                code: courseCode, 
+                courseName: courseName, 
+                reason: "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص أو إضافته من جديد)",
+                suggestedCrnsHTML: "" 
+            });
+        } else {
+            uItem.reason = "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص)";
+        }
+        
+        // تحديث أزرار الأرقام المرجعية لجميع المقررات المتبقية
+        traineeData.unassigned.forEach(u => {
+            u.suggestedCrnsHTML = generateSuggestedCrnsHTML(traineeId, u.code);
         });
         
         syncGlobalDataAfterEdit(traineeId);
-        showToast('تمت الإزالة بنجاح وإرجاعه للمقررات المتبقية!');
+        showToast('تمت الإزالة بنجاح!');
     };
 
     // 4. نافذة الإضافة عبر الفراغات
@@ -2022,7 +2042,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         addCrnToTrainee(traineeId, crn);
     };
 
-    // 5. دالة الإضافة للجدول
+   // 5. دالة الإضافة للجدول
     window.addCrnToTrainee = function(traineeId, crn) {
         let sec = allSectionsRef[crn];
         let traineeData = globalTraineesSchedules[traineeId];
@@ -2042,16 +2062,34 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         traineeData.schedule.push(secCopy);
         sec.remaining -= 1;
         
-        // مسح المقرر من المتبقيات
-        traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== sec.code);
+        // --- التحقق من اكتمال الشقين (نظري + عملي) ---
+        let code = sec.code;
+        let requiredTypes = Object.keys(courseMap[code] || {}); 
+        let addedBaseTypes = traineeData.schedule
+            .filter(s => s.code === code)
+            .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
+            
+        // هل تمت إضافة جميع الشقوق المطلوبة للمقرر؟
+        let isFullyAssigned = requiredTypes.every(reqType => addedBaseTypes.includes(reqType));
         
-        // تحديث أزرار الإضافة لباقي المقررات (لتلوينها بالأحمر إن تعارضت مع المقرر الجديد)
+        if (isFullyAssigned) {
+            // مسح المقرر من المتبقيات لأنه اكتمل تماماً
+            traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== code);
+        } else {
+            // تحديث السبب ليخبرك بضرورة اختيار الشق الآخر
+            let uItem = traineeData.unassigned.find(u => u.code === code);
+            if (uItem) {
+                uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (الرجاء اختيار الشق الآخر لاكتمال المقرر)";
+            }
+        }
+        
+        // تحديث الأزرار (سيختفي الشق الذي اخترته للتو ويبقى الشق الناقص فقط)
         traineeData.unassigned.forEach(u => {
             u.suggestedCrnsHTML = generateSuggestedCrnsHTML(traineeId, u.code);
         });
 
         syncGlobalDataAfterEdit(traineeId);
-        showToast('✅ تم إضافة الشعبة للجدول وتحديث الإكسل بنجاح!');
+        showToast('✅ تمت إضافة الشعبة للجدول بنجاح!');
     };
     
      // دالة إخفاء الإعلان
