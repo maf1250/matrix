@@ -1832,6 +1832,23 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         const traineeData = globalTraineesSchedules[traineeId];
         if (!traineeData || !traineeData.schedule) return;
 
+        // --- فحص وجود مقررات بشق واحد فقط قبل النسخ ---
+        let hasMissingComponent = false;
+        if (traineeData.unassigned) {
+            for (let uItem of traineeData.unassigned) {
+                if (uItem.reason && uItem.reason.includes("شق واحد فقط")) {
+                    hasMissingComponent = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasMissingComponent) {
+            alert("⚠️ تنبيه هام: لا يمكن النسخ!\n\nيوجد مقرر تمت إضافة شق واحد له فقط (إما نظري أو عملي).\nنأمل استكمال الشق الآخر أو إزالة الشق الفردي قبل النسخ لرايات.");
+            return; // إيقاف عملية النسخ
+        }
+        // ------------------------------------------------
+
         let crnsToCopy = [];
         let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
 
@@ -1872,6 +1889,25 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
     function copyAllToRayatAuto() {
         let fullText = "";
         let count = 0;
+        let errorTrainees = []; // مصفوفة لجمع المتدربين الذين لديهم نواقص
+
+        // --- فحص جميع المتدربين أولاً للتأكد من خلوهم من خطأ الشق الواحد ---
+        for (let traineeId in globalTraineesSchedules) {
+            let traineeData = globalTraineesSchedules[traineeId];
+            if (traineeData.unassigned) {
+                let missing = traineeData.unassigned.some(u => u.reason && u.reason.includes("شق واحد فقط"));
+                if (missing) {
+                    errorTrainees.push(traineeData.name + " (" + traineeId + ")");
+                }
+            }
+        }
+
+        // إذا كان هناك أي متدرب لديه شق ناقص، يتم إيقاف النسخ للجميع وإظهار رسالة بأسماء/أرقام المتدربين
+        if (errorTrainees.length > 0) {
+            alert("⚠️ لا يمكن نسخ بيانات الجميع!\n\nيوجد متدربين لديهم مقررات بشق واحد فقط (غير مكتملة).\nنأمل استكمال جداولهم أو إزالة الشق الفردي قبل النسخ:\n\n" + errorTrainees.join("\n"));
+            return; // إيقاف العملية
+        }
+        // -------------------------------------------------------------------
 
         for (let traineeId in globalTraineesSchedules) {
             const traineeData = globalTraineesSchedules[traineeId];
