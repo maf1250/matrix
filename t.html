@@ -664,9 +664,10 @@
                         let hasRequests = false;
 
                         for (let c = courseStartCol; c < courseHeaders.length; c++) {
-                            if (courseHeaders[c] && String(jsonArray[r][c]).trim() === "1") {
-                                rowObj[courseHeaders[c]] = "1";
-                                hasRequests = true;
+                            let cellVal = String(jsonArray[r][c]).trim();
+                            if (courseHeaders[c] && cellVal !== "") {
+                                rowObj[courseHeaders[c]] = cellVal; // تخزين القيمة سواء كانت 1 أو ✓
+                                if (cellVal === "1") hasRequests = true;
                             }
                         }
                        // if (hasRequests) dataRows.push(rowObj);
@@ -962,14 +963,19 @@ traineesRaw.forEach(row => {
 
             let structuredTrainees = traineesRaw.map(tRow => {
                 let req = [];
+                let passed = []; // مصفوفة لتخزين المقررات المجتازة
                 let rarityScore = 0; 
                 for (let key in tRow) { 
-                    if (key !== C_TRAINEE_ID && tRow[key] === "1") {
-                        req.push(key);
-                        rarityScore += (1 / (courseTotalCapacity[key] || 1));
+                    if (key !== C_TRAINEE_ID && key !== C_TRAINEE_NAME) {
+                        if (tRow[key] === "1") {
+                            req.push(key);
+                            rarityScore += (1 / (courseTotalCapacity[key] || 1));
+                        } else if (tRow[key] === "✓" || tRow[key] === "✔") { // التحقق من علامة الصح
+                            passed.push(key);
+                        }
                     }
                 }
-                return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, mrvScore: rarityScore };
+                return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, passedCourses: passed, mrvScore: rarityScore };
             });
 
             structuredTrainees.sort((a, b) => {
@@ -1216,7 +1222,8 @@ crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-h
                     id: traineeId,
                     schedule: finalSchedule,
                     unassigned: traineeUnassignedList,
-                    originalPreRegistered: sf01Raw[traineeId] || [] // حفظ النسخة الأصلية لمعرفة ما تم حذفه
+                    originalPreRegistered: sf01Raw[traineeId] || [], // حفظ النسخة الأصلية لمعرفة ما تم حذفه
+                    passedCourses: trainee.passedCourses // حفظ المقررات المجتازة
                 };
 
                 if (missingCount > 0) unassignedCodesData.push(unassignedRow);
@@ -2232,7 +2239,6 @@ async function submitContactForm(e) {
 }
     // --- نافذة الإضافة الذكية (القوائم المنسدلة) ---
     window.openAddCrnModal = function(traineeId) {
-        // إذا لم يكن هيكل النافذة موجوداً، نقوم بإنشائه في الصفحة
         if (!document.getElementById('add-crn-modal')) {
             const modalHTML = `
             <div id="add-crn-modal" class="modal-overlay">
@@ -2242,7 +2248,7 @@ async function submitContactForm(e) {
                     <input type="hidden" id="add-crn-trainee-id">
                     
                     <div class="contact-form-group">
-                        <label>1. اختر المقرر المراد إضافته</label>
+                        <label>1. اختر المقرر المراد إضافته (تم إخفاء المقررات المجتازة تلقائياً)</label>
                         <select id="add-crn-course-select" onchange="updateCrnDropdown()">
                             <option value="">-- اختر المقرر --</option>
                         </select>
@@ -2265,9 +2271,17 @@ async function submitContactForm(e) {
         let courseSelect = document.getElementById('add-crn-course-select');
         courseSelect.innerHTML = '<option value="">-- اختر المقرر --</option>';
 
-       // تعبئة قائمة المقررات (للمقررات المرتبطة بالتخصص فقط)
+        // جلب المقررات المجتازة لهذا المتدرب
+        let traineeData = globalTraineesSchedules[traineeId];
+        let passedCourses = traineeData.passedCourses || [];
+
         let uniqueCourses = Object.keys(courseMap).filter(code => validMatrixCourses.has(code)).sort();
         uniqueCourses.forEach(code => {
+            
+            // --- السطر الذهبي: تخطي المقرر إذا كان مجتازاً ---
+            if (passedCourses.includes(code)) return; 
+            // ---------------------------------------------
+
             let cName = "";
             for(let type in courseMap[code]) {
                 if(courseMap[code][type].length > 0) { cName = courseMap[code][type][0].courseName; break; }
