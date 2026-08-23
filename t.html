@@ -454,6 +454,7 @@
     let globalCollegeStartTime = Infinity;
     let isFemaleCampus = false;
     let allSectionsRef = {};
+    let courseMap = {};
     
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -880,7 +881,7 @@ traineesRaw.forEach(row => {
                 }
             }
             
-            let courseMap = {};
+            courseMap = {};
             allSectionsRef = {};
             let courseTotalCapacity = {};
             let courseOriginalCapacity = {}; 
