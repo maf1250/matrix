@@ -1994,19 +1994,25 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             `;
         }
     };
-// 3. دالة الحذف
+// 3. دالة الحذف (تحافظ على حالة المسجل مسبقاً)
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
         
         let traineeData = globalTraineesSchedules[traineeId];
+        
+        // البحث عن المقرر قبل حذفه لمعرفة هل هو مسجل مسبقاً أم لا
+        let secToRemove = traineeData.schedule.find(s => String(s.crn) === String(crn));
+        let wasPreRegistered = secToRemove ? secToRemove.isPreRegistered : false;
+        
+        // الحذف الفعلي من الجدول
         traineeData.schedule = traineeData.schedule.filter(sec => String(sec.crn) !== String(crn));
         
-        // إعادة المقعد الشاغر لقاعدة البيانات المركزية
-        if (allSectionsRef[crn] && !allSectionsRef[crn].isPreRegistered) {
+        // إرجاع المقعد الشاغر (فقط إذا كان المقرر جديداً ولم يكن مسجلاً مسبقاً)
+        if (!wasPreRegistered && allSectionsRef[crn]) {
             allSectionsRef[crn].remaining += 1;
         }
 
-        // التأكد من وجود المقرر في قائمة المتبقيات لتتمكن من إضافته مجدداً
+        // إرجاع المقرر للمتبقيات مع حفظ حالته
         let uItem = traineeData.unassigned.find(u => u.code === courseCode);
         if (!uItem) {
             let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
@@ -2014,13 +2020,15 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
                 code: courseCode, 
                 courseName: courseName, 
                 reason: "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص أو إضافته من جديد)",
-                suggestedCrnsHTML: "" 
+                suggestedCrnsHTML: "",
+                wasPre: wasPreRegistered // <--- حفظنا حالة المقرر هنا ليتذكرها النظام
             });
         } else {
             uItem.reason = "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص)";
+            if (wasPreRegistered) uItem.wasPre = true; 
         }
         
-        // تحديث أزرار الأرقام المرجعية لجميع المقررات المتبقية
+        // تحديث الأزرار
         traineeData.unassigned.forEach(u => {
             u.suggestedCrnsHTML = generateSuggestedCrnsHTML(traineeId, u.code);
         });
@@ -2042,7 +2050,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         addCrnToTrainee(traineeId, crn);
     };
 
-   // 5. دالة الإضافة للجدول
+  // 5. دالة الإضافة للجدول (تستعيد حالة المسجل مسبقاً)
     window.addCrnToTrainee = function(traineeId, crn) {
         let sec = allSectionsRef[crn];
         let traineeData = globalTraineesSchedules[traineeId];
@@ -2056,11 +2064,19 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
         
-        // إضافة للجدول وخصم المقعد
+        // التحقق مما إذا كان هذا المقرر مسجلاً مسبقاً قبل حذفه
+        let uItem = traineeData.unassigned.find(u => u.code === sec.code);
+        let isOriginallyPre = uItem ? uItem.wasPre : false; 
+        
+        // الإضافة للجدول
         let secCopy = JSON.parse(JSON.stringify(sec));
-        secCopy.isPreRegistered = false; 
+        secCopy.isPreRegistered = isOriginallyPre ? true : false; // استعادة اللون الرمادي وخصائصه إن كان مسجلاً مسبقاً
         traineeData.schedule.push(secCopy);
-        sec.remaining -= 1;
+        
+        // خصم المقعد (فقط إذا كان جديداً وليس مسجلاً مسبقاً)
+        if (!isOriginallyPre) {
+            sec.remaining -= 1;
+        }
         
         // --- التحقق من اكتمال الشقين (نظري + عملي) ---
         let code = sec.code;
@@ -2069,21 +2085,14 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             .filter(s => s.code === code)
             .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
             
-        // هل تمت إضافة جميع الشقوق المطلوبة للمقرر؟
         let isFullyAssigned = requiredTypes.every(reqType => addedBaseTypes.includes(reqType));
         
         if (isFullyAssigned) {
-            // مسح المقرر من المتبقيات لأنه اكتمل تماماً
             traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== code);
         } else {
-            // تحديث السبب ليخبرك بضرورة اختيار الشق الآخر
-            let uItem = traineeData.unassigned.find(u => u.code === code);
-            if (uItem) {
-                uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (الرجاء اختيار الشق الآخر لاكتمال المقرر)";
-            }
+            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (الرجاء اختيار الشق الآخر)";
         }
         
-        // تحديث الأزرار (سيختفي الشق الذي اخترته للتو ويبقى الشق الناقص فقط)
         traineeData.unassigned.forEach(u => {
             u.suggestedCrnsHTML = generateSuggestedCrnsHTML(traineeId, u.code);
         });
