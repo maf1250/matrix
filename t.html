@@ -1929,14 +1929,14 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         return crnsListHTML.join('');
     };
 
-    // 2. دالة مزامنة التعديل مع جميع التقارير وملف الإكسل
+    // 2. دالة مزامنة التعديل (النسخة السريعة والآمنة التي لا تعيد بناء الواجهة بالكامل)
     window.syncGlobalDataAfterEdit = function(traineeId) {
         let tData = globalTraineesSchedules[traineeId];
         let tName = tData.name;
         let C_ID = document.getElementById('col_trainee_id').value.trim();
         let C_NAME = document.getElementById('col_trainee_name').value.trim();
 
-        // تحديث جدول الإكسل الرئيسي
+        // تحديث صامت لجدول الإكسل الرئيسي في الخلفية
         if (globalSheetsData[0] && globalSheetsData[0].data) {
             let mainSheet = globalSheetsData[0].data;
             let idx = mainSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
@@ -1948,7 +1948,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
 
-        // تحديث جدول المقررات المتبقية
+        // تحديث صامت لجدول المقررات المتبقية في الخلفية
         if (globalSheetsData[4] && globalSheetsData[4].data) {
             let unassSheet = globalSheetsData[4].data;
             let idx = unassSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
@@ -1969,22 +1969,10 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
 
-        // إعادة بناء التبويبات بالبيانات الجديدة
-        buildResultsUI(); 
-        
-        // استعادة العرض على المتدرب الحالي
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        let tabs = document.querySelectorAll('.tab-btn');
-        if(tabs.length > 0) tabs[0].classList.add('active');
-        let singleContent = document.getElementById('tab-single');
-        if(singleContent) singleContent.classList.add('active');
-
-        let dropdown = document.getElementById('trainee-dropdown');
-        if (dropdown) dropdown.value = traineeId;
+        // تحديث جدول المتدرب الحالي فوراً بدون المساس بباقي الصفحة!
         renderSingleTraineeSchedule();
 
-        // تحديث النافذة المنبثقة إذا كانت مفتوحة لعدم الإزعاج
+        // تحديث محتوى النافذة المنبثقة مباشرة (بدون الحاجة لإغلاقها)
         const modal = document.getElementById('trainee-modal');
         if (modal && modal.style.display === 'flex') {
             const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
@@ -1994,6 +1982,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             `;
         }
     };
+    
 // 3. دالة الحذف (تحافظ على حالة المسجل مسبقاً)
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
