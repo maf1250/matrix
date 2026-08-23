@@ -1211,7 +1211,8 @@ crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-h
                     name: traineeName,
                     id: traineeId,
                     schedule: finalSchedule,
-                    unassigned: traineeUnassignedList
+                    unassigned: traineeUnassignedList,
+                    originalPreRegistered: sf01Raw[traineeId] || [] // حفظ النسخة الأصلية لمعرفة ما تم حذفه
                 };
 
                 if (missingCount > 0) unassignedCodesData.push(unassignedRow);
@@ -1561,9 +1562,14 @@ for (let crn in allSectionsRef) {
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
     </div>    </div>
-    <button class="btn-copy-rayat" onclick="copyToRayatAuto('${traineeId}')">
-        📋 نسخ إلى رايات أوتو
-    </button>
+  <div style="display: flex; gap: 10px;">
+        <button class="btn-copy-rayat" style="background-color: #008e7e;" onclick="openAddCrnModal('${traineeId}')">
+            ➕ إضافة مقرر يدوياً
+        </button>
+        <button class="btn-copy-rayat" onclick="copyToRayatAuto('${traineeId}')">
+            📋 نسخ إلى رايات أوتو
+        </button>
+    </div>
 </div>`;
             
             gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
@@ -1626,10 +1632,7 @@ for (let crn in allSectionsRef) {
         if (m > 0) textArr.push(m + 'د');
         gapText = textArr.join('');
     }
-    gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">
-        <span>${gapText}</span>
-        <button class="add-crn-btn-gap" onclick="promptAddCrn('${traineeId}')" title="إضافة رقم مرجعي في هذا الوقت">+</button>
-    </div>`;
+    gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">${gapText}</div>`;
 }
                         
                         gridHTML += `
@@ -1823,27 +1826,38 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     
-    // دالة النسخ لرايات أوتو
+    // دالة النسخ لرايات أوتو (متدرب واحد)
     function copyToRayatAuto(traineeId) {
         const traineeData = globalTraineesSchedules[traineeId];
         if (!traineeData || !traineeData.schedule) return;
 
-        let crns = [];
+        let crnsToCopy = [];
+        let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
+
+        // 1. جلب المقررات الجديدة (المضافة للجدول وليست مسجلة مسبقاً)
         let seenDetails = new Set();
-        
         traineeData.schedule.forEach(sec => {
             if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
                 seenDetails.add(sec.crn);
-                crns.push(sec.crn);
+                crnsToCopy.push(sec.crn);
             }
         });
 
-        if (crns.length === 0) {
-            showToast('لا توجد أرقام مرجعية جديدة لنسخها!');
+        // 2. جلب المقررات المسجلة مسبقاً التي تم حذفها يدوياً (مسبوقة بـ سالب)
+        if (traineeData.originalPreRegistered) {
+            traineeData.originalPreRegistered.forEach(crn => {
+                if (!currentScheduleCRNs.has(String(crn))) {
+                    crnsToCopy.push("-" + crn); // إضافة علامة السالب
+                }
+            });
+        }
+
+        if (crnsToCopy.length === 0) {
+            showToast('لا توجد أرقام مرجعية جديدة أو محذوفة لنسخها!');
             return;
         }
 
-        let textToCopy = traineeId + '\t' + crns.join('\t');
+        let textToCopy = traineeId + '\t' + crnsToCopy.join('\t');
 
         navigator.clipboard.writeText(textToCopy).then(() => {
             showToast('✅ تم النسخ بنجاح!');
@@ -1860,18 +1874,29 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
         for (let traineeId in globalTraineesSchedules) {
             const traineeData = globalTraineesSchedules[traineeId];
-            let crns = [];
-            let seenDetails = new Set();
+            let crnsToCopy = [];
+            let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
             
+            // 1. جلب المقررات الجديدة
+            let seenDetails = new Set();
             traineeData.schedule.forEach(sec => {
                 if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
                     seenDetails.add(sec.crn);
-                    crns.push(sec.crn);
+                    crnsToCopy.push(sec.crn);
                 }
             });
 
-            if (crns.length > 0) {
-                fullText += traineeId + '\t' + crns.join('\t') + '\n';
+            // 2. جلب المقررات المسجلة مسبقاً التي تم حذفها
+            if (traineeData.originalPreRegistered) {
+                traineeData.originalPreRegistered.forEach(crn => {
+                    if (!currentScheduleCRNs.has(String(crn))) {
+                        crnsToCopy.push("-" + crn);
+                    }
+                });
+            }
+
+            if (crnsToCopy.length > 0) {
+                fullText += traineeId + '\t' + crnsToCopy.join('\t') + '\n';
                 count++;
             }
         }
@@ -2021,12 +2046,12 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             traineeData.unassigned.push({ 
                 code: courseCode, 
                 courseName: courseName, 
-                reason: "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص أو إضافته من جديد)",
+                reason: "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص أو إضافته من جديد)",
                 suggestedCrnsHTML: "",
                 wasPre: wasPreRegistered // <--- حفظنا حالة المقرر هنا ليتذكرها النظام
             });
         } else {
-            uItem.reason = "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص)";
+            uItem.reason = "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص)";
             if (wasPreRegistered) uItem.wasPre = true; 
         }
         
@@ -2165,6 +2190,120 @@ async function submitContactForm(e) {
         btn.innerText = 'إرسال الرسالة';
     }
 }
+    // --- نافذة الإضافة الذكية (القوائم المنسدلة) ---
+    window.openAddCrnModal = function(traineeId) {
+        // إذا لم يكن هيكل النافذة موجوداً، نقوم بإنشائه في الصفحة
+        if (!document.getElementById('add-crn-modal')) {
+            const modalHTML = `
+            <div id="add-crn-modal" class="modal-overlay">
+                <div class="modal-box" style="max-width: 550px;">
+                    <button class="modal-close" onclick="closeAddCrnModal()">×</button>
+                    <h2 style="text-align:center; color:#008e7e; margin-bottom:20px; margin-top:0;">إضافة مقرر للجدول</h2>
+                    <input type="hidden" id="add-crn-trainee-id">
+                    
+                    <div class="contact-form-group">
+                        <label>1. اختر المقرر المراد إضافته</label>
+                        <select id="add-crn-course-select" onchange="updateCrnDropdown()">
+                            <option value="">-- اختر المقرر --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="contact-form-group">
+                        <label>2. اختر الشعبة المتاحة (يتم إخفاء المتعارض تلقائياً)</label>
+                        <select id="add-crn-select">
+                            <option value="">-- نأمل اختيار المقرر أولاً --</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn-process" onclick="confirmAddCrn()">✅ إضافة للجدول</button>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        document.getElementById('add-crn-trainee-id').value = traineeId;
+        let courseSelect = document.getElementById('add-crn-course-select');
+        courseSelect.innerHTML = '<option value="">-- اختر المقرر --</option>';
+
+        // تعبئة قائمة المقررات
+        let uniqueCourses = Object.keys(courseMap).sort();
+        uniqueCourses.forEach(code => {
+            let cName = "";
+            for(let type in courseMap[code]) {
+                if(courseMap[code][type].length > 0) { cName = courseMap[code][type][0].courseName; break; }
+            }
+            let option = document.createElement('option');
+            option.value = code;
+            option.innerText = code + (cName ? ` - ${cName}` : '');
+            courseSelect.appendChild(option);
+        });
+
+        document.getElementById('add-crn-select').innerHTML = '<option value="">-- نأمل اختيار المقرر أولاً --</option>';
+        document.getElementById('add-crn-modal').style.display = 'flex';
+    };
+
+    window.closeAddCrnModal = function() {
+        document.getElementById('add-crn-modal').style.display = 'none';
+    };
+
+    window.updateCrnDropdown = function() {
+        let traineeId = document.getElementById('add-crn-trainee-id').value;
+        let courseCode = document.getElementById('add-crn-course-select').value;
+        let crnSelect = document.getElementById('add-crn-select');
+        crnSelect.innerHTML = '<option value="">-- اختر الشعبة --</option>';
+
+        if (!courseCode) return;
+
+        let traineeData = globalTraineesSchedules[traineeId];
+        let availableCrns = [];
+
+        for (let crn in allSectionsRef) {
+            let sec = allSectionsRef[crn];
+            if (sec.code === courseCode) {
+                // التأكد من عدم وجود تعارض
+                let conflict = false;
+                for (let existSec of traineeData.schedule) {
+                    if (getConflictDetail(sec, existSec) !== null) { conflict = true; break; }
+                }
+                
+                if (!conflict) {
+                    let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
+                    let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                    let capText = sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`;
+                    
+                    availableCrns.push({
+                        crn: sec.crn,
+                        text: `${typeEmoji} ${sec.crn} | ${schedulesText} ${capText}`
+                    });
+                }
+            }
+        }
+
+        if (availableCrns.length === 0) {
+            crnSelect.innerHTML = '<option value="">❌ لا توجد شعب، أو جميعها تتعارض مع الجدول الحالي</option>';
+        } else {
+            availableCrns.forEach(item => {
+                let opt = document.createElement('option');
+                opt.value = item.crn;
+                opt.innerText = item.text;
+                crnSelect.appendChild(opt);
+            });
+        }
+    };
+
+    window.confirmAddCrn = function() {
+        let traineeId = document.getElementById('add-crn-trainee-id').value;
+        let crn = document.getElementById('add-crn-select').value;
+        
+        if (!crn) {
+            alert("نأمل اختيار شعبة أولاً!");
+            return;
+        }
+        
+        // استدعاء دالة الإضافة السابقة
+        addCrnToTrainee(traineeId, crn);
+        closeAddCrnModal();
+    };
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
