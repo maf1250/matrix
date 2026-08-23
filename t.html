@@ -2021,13 +2021,12 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
     };
     
-// 3. دالة الحذف (تحافظ على حالة المسجل مسبقاً)
+// 3. دالة الحذف (المحدثة)
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
         
         let traineeData = globalTraineesSchedules[traineeId];
         
-        // البحث عن المقرر قبل حذفه لمعرفة هل هو مسجل مسبقاً أم لا
         let secToRemove = traineeData.schedule.find(s => String(s.crn) === String(crn));
         let wasPreRegistered = secToRemove ? secToRemove.isPreRegistered : false;
         
@@ -2039,20 +2038,18 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             allSectionsRef[crn].remaining += 1;
         }
 
-        // إرجاع المقرر للمتبقيات مع حفظ حالته
+        // إرجاع المقرر للمتبقيات
         let uItem = traineeData.unassigned.find(u => u.code === courseCode);
         if (!uItem) {
             let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
             traineeData.unassigned.push({ 
                 code: courseCode, 
                 courseName: courseName, 
-                reason: "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص أو إضافته من جديد)",
-                suggestedCrnsHTML: "",
-                wasPre: wasPreRegistered // <--- حفظنا حالة المقرر هنا ليتذكرها النظام
+                reason: "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص أو إضافته من جديد)",
+                suggestedCrnsHTML: ""
             });
         } else {
-            uItem.reason = "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص)";
-            if (wasPreRegistered) uItem.wasPre = true; 
+            uItem.reason = "أُزيلت إحدى الشعب يدوياً (يرجى إكمال الشق الناقص)";
         }
         
         // تحديث الأزرار
@@ -2077,7 +2074,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         addCrnToTrainee(traineeId, crn);
     };
 
-  // 5. دالة الإضافة للجدول (تستعيد حالة المسجل مسبقاً)
+    // 5. دالة الإضافة للجدول (التي تميز بين الشعبة الجديدة والقديمة بدقة)
     window.addCrnToTrainee = function(traineeId, crn) {
         let sec = allSectionsRef[crn];
         let traineeData = globalTraineesSchedules[traineeId];
@@ -2091,21 +2088,21 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
         
-        // التحقق مما إذا كان هذا المقرر مسجلاً مسبقاً قبل حذفه
-        let uItem = traineeData.unassigned.find(u => u.code === sec.code);
-        let isOriginallyPre = uItem ? uItem.wasPre : false; 
+        // --- التعديل الجوهري هنا ---
+        // نتحقق مما إذا كان هذا الرقم المرجعي (CRN) بعينه مسجلاً مسبقاً في القائمة الأصلية
+        let isOriginallyPre = (traineeData.originalPreRegistered && traineeData.originalPreRegistered.includes(String(crn)));
         
         // الإضافة للجدول
         let secCopy = JSON.parse(JSON.stringify(sec));
-        secCopy.isPreRegistered = isOriginallyPre ? true : false; // استعادة اللون الرمادي وخصائصه إن كان مسجلاً مسبقاً
+        secCopy.isPreRegistered = isOriginallyPre; // سيأخذ علامة (📌) فقط إذا كان هو نفسه مسجلاً مسبقاً
         traineeData.schedule.push(secCopy);
         
-        // خصم المقعد (فقط إذا كان جديداً وليس مسجلاً مسبقاً)
+        // خصم المقعد (فقط إذا كانت الشعبة جديدة حقاً)
         if (!isOriginallyPre) {
             sec.remaining -= 1;
         }
         
-        // --- التحقق من اكتمال الشقين (نظري + عملي) ---
+        // --- التحقق من اكتمال الشقين ---
         let code = sec.code;
         let requiredTypes = Object.keys(courseMap[code] || {}); 
         let addedBaseTypes = traineeData.schedule
@@ -2113,11 +2110,12 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
             
         let isFullyAssigned = requiredTypes.every(reqType => addedBaseTypes.includes(reqType));
+        let uItem = traineeData.unassigned.find(u => u.code === code);
         
         if (isFullyAssigned) {
             traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== code);
         } else {
-            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (نأمل اختيار الشق الآخر)";
+            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (الرجاء اختيار الشق الآخر)";
         }
         
         traineeData.unassigned.forEach(u => {
