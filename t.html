@@ -2117,7 +2117,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         if (isFullyAssigned) {
             traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== code);
         } else {
-            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (الرجاء اختيار الشق الآخر)";
+            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (نأمل اختيار الشق الآخر)";
         }
         
         traineeData.unassigned.forEach(u => {
