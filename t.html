@@ -453,6 +453,7 @@
     let globalTraineesSchedules = {}; 
     let globalCollegeStartTime = Infinity;
     let isFemaleCampus = false;
+    let allSectionsRef = {};
     
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -880,7 +881,7 @@ traineesRaw.forEach(row => {
             }
             
             let courseMap = {};
-            let allSectionsRef = {};
+            allSectionsRef = {};
             let courseTotalCapacity = {};
             let courseOriginalCapacity = {}; 
             let courseStats = {}; 
@@ -1889,45 +1890,139 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
     }
     
-    // --- دوال التعديل اليدوي على الجدول ---
-    
-    // 1. دالة حذف شعبة من الجدول
+   // --- دوال التعديل اليدوي (النسخة المتصلة بنواة النظام) ---
+
+    // 1. دالة لتوليد أزرار الشعب المتاحة بناءً على التعارض
+    window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
+        let traineeData = globalTraineesSchedules[traineeId];
+        let crnsListHTML = [];
+        for (let crn in allSectionsRef) {
+            let sec = allSectionsRef[crn];
+            if (sec.code === courseCode) {
+                let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
+                let hasConflict = false;
+                for (let existSec of traineeData.schedule) {
+                    if (getConflictDetail(sec, existSec) !== null) {
+                        hasConflict = true; break;
+                    }
+                }
+                
+                let fitStatusText = hasConflict ? 'يتعارض زمنياً' : 'متوافق زمنياً';
+                let cssClass = (!hasConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
+                let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                let clickAction = !hasConflict ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
+                
+                crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
+            }
+        }
+        return crnsListHTML.join('');
+    };
+
+    // 2. دالة مزامنة التعديل مع جميع التقارير وملف الإكسل
+    window.syncGlobalDataAfterEdit = function(traineeId) {
+        let tData = globalTraineesSchedules[traineeId];
+        let tName = tData.name;
+        let C_ID = document.getElementById('col_trainee_id').value.trim();
+        let C_NAME = document.getElementById('col_trainee_name').value.trim();
+
+        // تحديث جدول الإكسل الرئيسي
+        if (globalSheetsData[0] && globalSheetsData[0].data) {
+            let mainSheet = globalSheetsData[0].data;
+            let idx = mainSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
+            if (idx > -1) {
+                let newRow = { [C_NAME]: tName, [C_ID]: traineeId };
+                let newCrns = tData.schedule.filter(s => !s.isPreRegistered).map(s => s.crn);
+                newCrns.forEach((crn, i) => newRow[`الرقم المرجعي ${i + 1}`] = crn);
+                mainSheet[idx] = newRow;
+            }
+        }
+
+        // تحديث جدول المقررات المتبقية
+        if (globalSheetsData[4] && globalSheetsData[4].data) {
+            let unassSheet = globalSheetsData[4].data;
+            let idx = unassSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
+            
+            let unassignedRow = { [C_NAME]: tName, [C_ID]: traineeId };
+            let missingCount = 0;
+            tData.unassigned.forEach(u => {
+                missingCount++;
+                unassignedRow[`المقرر المتبقي ${missingCount}`] = u.code;
+                unassignedRow[`سبب عدم الإسناد ${missingCount}`] = u.reason;
+            });
+            
+            if (missingCount > 0) {
+                if (idx > -1) unassSheet[idx] = unassignedRow;
+                else unassSheet.push(unassignedRow);
+            } else {
+                if (idx > -1) unassSheet.splice(idx, 1);
+            }
+        }
+
+        // إعادة بناء التبويبات بالبيانات الجديدة
+        buildResultsUI(); 
+        
+        // استعادة العرض على المتدرب الحالي
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        let tabs = document.querySelectorAll('.tab-btn');
+        if(tabs.length > 0) tabs[0].classList.add('active');
+        let singleContent = document.getElementById('tab-single');
+        if(singleContent) singleContent.classList.add('active');
+
+        let dropdown = document.getElementById('trainee-dropdown');
+        if (dropdown) dropdown.value = traineeId;
+        renderSingleTraineeSchedule();
+
+        // تحديث النافذة المنبثقة إذا كانت مفتوحة لعدم الإزعاج
+        const modal = document.getElementById('trainee-modal');
+        if (modal && modal.style.display === 'flex') {
+            const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
+            document.getElementById('modal-content-area').innerHTML = `
+                <h2 style="text-align:center; color:#006d60; margin-top:0; border-bottom: 2px dashed #b2d8d3; padding-bottom: 10px;">جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}: ${tName} (${traineeId})</h2>
+                ${scheduleHTML}
+            `;
+        }
+    };
+
+    // 3. دالة الحذف
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
         
         let traineeData = globalTraineesSchedules[traineeId];
-        // إزالة الشعبة من الجدول
         traineeData.schedule = traineeData.schedule.filter(sec => String(sec.crn) !== String(crn));
         
-        // إعادتها لقائمة المقررات المتبقية (بشكل مبسط)
+        // إعادة المقعد الشاغر لقاعدة البيانات المركزية
+        if (allSectionsRef[crn] && !allSectionsRef[crn].isPreRegistered) {
+            allSectionsRef[crn].remaining += 1;
+        }
+
+        // إرجاع المقرر لقائمة المتبقية بالأسفل
         let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
         traineeData.unassigned.push({ 
             code: courseCode, 
             courseName: courseName, 
-            reason: "تم إزالته يدوياً من الجدول",
-            suggestedCrnsHTML: `<span style="color:#dc3545; font-size:12px;">تم الحذف يدوياً، يمكنك إضافته مجدداً عبر زر (+) في الفراغات.</span>`
+            reason: "أُزيل يدوياً من الجدول (بإمكانك إضافته مجدداً)",
+            suggestedCrnsHTML: generateSuggestedCrnsHTML(traineeId, courseCode)
         });
         
-        // إعادة رسم الجدول
-        renderSingleTraineeSchedule();
-        showToast('تمت الإزالة بنجاح!');
+        syncGlobalDataAfterEdit(traineeId);
+        showToast('تمت الإزالة بنجاح وإرجاعه للمقررات المتبقية!');
     };
 
-    // 2. دالة إضافة شعبة عبر إدخال الرقم المرجعي في الفراغ
+    // 4. نافذة الإضافة عبر الفراغات
     window.promptAddCrn = function(traineeId) {
-        let crn = prompt("أدخل الرقم المرجعي (CRN) المراد إضافته في هذا الفراغ:");
+        let crn = prompt("أدخل الرقم المرجعي (CRN) المراد إضافته في هذا الوقت:");
         if (!crn) return;
         
         crn = crn.trim();
         if (!allSectionsRef[crn]) {
-            alert("الرقم المرجعي غير موجود في تقرير الشعب (SS01)!");
+            alert("❌ الرقم المرجعي غير موجود في تقرير الشعب!");
             return;
         }
-        
         addCrnToTrainee(traineeId, crn);
     };
 
-    // 3. دالة معالجة إضافة الشعبة للجدول والتأكد من عدم التعارض
+    // 5. دالة الإضافة للجدول
     window.addCrnToTrainee = function(traineeId, crn) {
         let sec = allSectionsRef[crn];
         let traineeData = globalTraineesSchedules[traineeId];
@@ -1936,23 +2031,29 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         for (let existSec of traineeData.schedule) {
             let conflict = getConflictDetail(sec, existSec);
             if (conflict) {
-                alert("لا يمكن الإضافة! " + conflict);
+                alert("⚠️ لا يمكن الإضافة! " + conflict);
                 return;
             }
         }
         
-        // إضافة الشعبة للجدول
+        // إضافة للجدول وخصم المقعد
         let secCopy = JSON.parse(JSON.stringify(sec));
         secCopy.isPreRegistered = false; 
         traineeData.schedule.push(secCopy);
+        sec.remaining -= 1;
         
-        // إزالتها من قائمة المقررات غير المسندة إن وجدت
+        // مسح المقرر من المتبقيات
         traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== sec.code);
         
-        // إعادة رسم الجدول
-        renderSingleTraineeSchedule();
-        showToast('تم إضافة الشعبة للجدول بنجاح!');
+        // تحديث أزرار الإضافة لباقي المقررات (لتلوينها بالأحمر إن تعارضت مع المقرر الجديد)
+        traineeData.unassigned.forEach(u => {
+            u.suggestedCrnsHTML = generateSuggestedCrnsHTML(traineeId, u.code);
+        });
+
+        syncGlobalDataAfterEdit(traineeId);
+        showToast('✅ تم إضافة الشعبة للجدول وتحديث الإكسل بنجاح!');
     };
+    
      // دالة إخفاء الإعلان
         function hideAd() {
             const ad = document.getElementById('matrixAd');
