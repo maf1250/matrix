@@ -455,6 +455,7 @@
     let isFemaleCampus = false;
     let allSectionsRef = {};
     let courseMap = {};
+    let validMatrixCourses = new Set();
     
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -862,7 +863,7 @@ let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
                 readSF01File(sf01File, C_SF01_ID, C_SF01_CRN)
                 ]);
 
-let validMatrixCourses = new Set();
+ validMatrixCourses = new Set();
 traineesRaw.forEach(row => {
     Object.keys(row).forEach(key => {
         if (key !== C_TRAINEE_ID && key !== C_TRAINEE_NAME) {
@@ -2223,8 +2224,8 @@ async function submitContactForm(e) {
         let courseSelect = document.getElementById('add-crn-course-select');
         courseSelect.innerHTML = '<option value="">-- اختر المقرر --</option>';
 
-        // تعبئة قائمة المقررات
-        let uniqueCourses = Object.keys(courseMap).sort();
+       // تعبئة قائمة المقررات (للمقررات المرتبطة بالتخصص فقط)
+        let uniqueCourses = Object.keys(courseMap).filter(code => validMatrixCourses.has(code)).sort();
         uniqueCourses.forEach(code => {
             let cName = "";
             for(let type in courseMap[code]) {
