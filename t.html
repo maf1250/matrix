@@ -10,6 +10,7 @@
     <!-- ExcelJS و FileSaver لتصدير الملف بتنسيق (RTL) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
@@ -17,7 +18,7 @@
         
         #setup-page { background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 800px; width: 100%; position: relative; }
         
-        #results-page { display: none; background-color: #fff; padding: 20px 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 1200px; width: 100%; }
+        #results-page { display: none; background-color: #fff; padding: 20px 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-width: 1300px; width: 100%; }
         
         h1 { text-align: center; color: #008e7e; font-size: 24px; margin-bottom: 20px; }
         .link { text-align: center; font-size: 18px; margin-bottom: 10px;}
@@ -99,10 +100,112 @@
         .course-card strong { color: #008e7e; font-size: 14px; margin-bottom: 8px; border-bottom: 1px dashed #b2d8d3; padding-bottom: 4px; display: flex; align-items: center; gap: 5px;}
         .course-card-details { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         .crn-badge { background: #006d60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600;}
+        .course-card .time { color: #555; font-size: 12px; display: flex; gap: 5px; align-items: center; font-weight: 600; direction: ltr;}
         
         .time-gap-indicator { background: #fdfdfd; border: 1px dashed #b2d8d3; color: #006d60; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; white-space: nowrap; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
 
+        /* ستايل زر النسخ لرايات أوتو */
+        .btn-copy-rayat {
+            background-color: #8dc63f;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-copy-rayat:hover { background-color: #74a629; }
+
+        /* ستايل إشعار التوست (تم النسخ) */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes fadeout { from { bottom: 30px; opacity: 1; } to { bottom: 0; opacity: 0; } }
+
+        /* زر المراسلة */
+.contact-btn {
+    position: absolute; top: 15px; right: 15px; width: 50px; height: 50px;
+    background: #008e7e; border-radius: 50%; display: flex; justify-content: center;
+    align-items: center; text-decoration: none; box-shadow: 0 4px 10px rgba(0,0,0,.2);
+    transition: all .25s ease; cursor: pointer; border: none; color: white;
+}
+.contact-btn:hover { transform: scale(1.1); background: #006d60; }
+
+/* تنسيقات نموذج المراسلة */
+.contact-form-group { margin-bottom: 15px; text-align: right; }
+.contact-form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #006d60; }
+.contact-form-group input, .contact-form-group select, .contact-form-group textarea {
+    width: 100%; padding: 10px; border: 1px solid #cbe6e3; border-radius: 6px;
+    font-family: inherit; font-size: 14px; outline: none; transition: 0.3s;
+}
+.contact-form-group input:focus, .contact-form-group select:focus, .contact-form-group textarea:focus {
+    box-shadow: 0 0 8px rgba(0, 142, 126, 0.3); border-color: #008e7e;
+}
+        
+        /* تصميم النافذة المنبثقة  */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6); z-index: 100000;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: #f4f9f8; border-radius: 12px; padding: 25px;
+            max-width: 1250px; width: 98%; max-height: 90vh; overflow-y: auto;
+            position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 2px solid #008e7e;
+        }
+        .modal-close {
+            position: absolute; top: 15px; left: 15px; background: #dc3545;
+            color: white; border: none; width: 32px; height: 32px; border-radius: 50%;
+            font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 16px;
+        }
+        .modal-close:hover { background: #c82333; transform: scale(1.1); }
+        .clickable-trainee {
+            color: #008e7e; cursor: pointer; font-weight: bold; text-decoration: underline; transition: 0.3s;
+        }
+        .clickable-trainee:hover { color: #8dc63f; }
+
+        /* أزرار الحذف والإضافة في الجدول */
+.delete-crn-btn {
+    background: #dc3545; color: white; border: none; border-radius: 50%;
+    width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex;
+    justify-content: center; align-items: center; transition: 0.2s;
+}
+.delete-crn-btn:hover { background: #c82333; transform: scale(1.1); }
+
+.add-crn-btn-gap {
+    background: #8dc63f; color: white; border: none; border-radius: 4px;
+    width: 22px; height: 22px; font-size: 14px; cursor: pointer; margin-top: 5px;
+    display: flex; justify-content: center; align-items: center; transition: 0.2s;
+}
+.add-crn-btn-gap:hover { background: #74a629; transform: scale(1.1); }
+
+.add-btn-hover:hover {
+    transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
         /* ستايل المقررات المتبقية (عمودي) */
         .unassigned-cards-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; margin-bottom: 30px; }
         .unassigned-card { background: #fff5f5; border: 1px solid #ffcdd2; padding: 12px 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
@@ -111,17 +214,17 @@
         
         .u-crns { background: #fff; border: 1px dashed #ffcdd2; padding: 10px; border-radius: 4px; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         .crn-item { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; border: 1px solid #ddd; }
-        .crn-perfect { background-color: #d4edda; color: #155724; border-color: #c3e6cb; } /* أخضر: متوافق ومتاح */
-        .crn-potential { background-color: #fff3cd; color: #856404; border-color: #ffeeba; } /* برتقالي: متوافق لكن ممتلئ */
-        .crn-conflict { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; opacity: 0.7; } /* أحمر: يتعارض */
+        .crn-perfect { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .crn-potential { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+        .crn-conflict { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; opacity: 0.7; }
 
         #scrollToTopBtn {
             position: fixed;
             bottom: 30px;
-            left: 30px; /* وضعناه يساراً لأن الواجهة عربية */
+            left: 30px; 
             width: 48px;
             height: 48px;
-            background-color: #008e7e; /* لون المؤسسة الأساسي */
+            background-color: #008e7e; 
             color: white;
             border: none;
             border-radius: 50%;
@@ -137,29 +240,102 @@
             z-index: 9999;
         }
         #scrollToTopBtn:hover {
-            background-color: #006d60; /* تغميق اللون عند مرور الماوس */
-            transform: scale(1.1) translateY(0); /* تأثير تكبير بسيط */
+            background-color: #006d60; 
+            transform: scale(1.1) translateY(0);
         }
-        #scrollToTopBtn svg {
-            width: 24px;
-            height: 24px;
-        }
-        #scrollToTopBtn.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
+        #scrollToTopBtn svg { width: 24px; height: 24px; }
+        #scrollToTopBtn.show { opacity: 1; visibility: visible; transform: translateY(0); }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+          .ad-banner-matrix {
+            background-color: #f0f7ff;
+            border: 2px dashed #1565c0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .ad-banner-matrix::before {
+            content: "أداة جديدة";
+            position: absolute;
+            top: 15px;
+            right: -35px;
+            background: #ff5252;
+            color: white;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .ad-banner-matrix strong {
+            display: block;
+            color: #1565c0;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .ad-banner-matrix p {
+            color: #444;
+            font-size: 14px;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+        .btn-matrix {
+            background-color: #1565c0;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.3s;
+        }
+        .btn-matrix:hover {
+            background-color: #0d47a1;
+            transform: scale(1.05);
+        }
+        /* زر إخفاء الإعلان */
+        .close-ad-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .close-ad-btn:hover {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+
     </style>
 </head>
 <body>
 
 <div id="setup-page">
-     <a href="https://youtu.be/QFdv2EOVYDc" target="_blank" class="youtube-btn" title="لمشاهدة الشرح">
+     <a href="https://youtu.be/qYxttfVi0YA" target="_blank" class="youtube-btn" title="لمشاهدة الشرح">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white">
             <path d="M23.5 6.2c-.3-1.2-1.2-2.1-2.4-2.4C19 3.2 12 3.2 12 3.2s-7 0-9.1.6C1.7 4.1.8 5 .5 6.2 0 8.3 0 12 0 12s0 3.7.5 5.8c.3 1.2 1.2 2.1 2.4 2.4C5 20.8 12 20.8 12 20.8s7 0 9.1-.6c1.2-.3 2.1-1.2 2.4-2.4.5-2.1.5-5.8.5-5.8s0-3.7-.5-5.8zM9.6 15.5V8.5L15.8 12l-6.2 3.5z"/>
         </svg>
     </a>
+    <!-- زر المراسلة -->
+    <button class="contact-btn" onclick="openContactModal()" title="تواصل معنا">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+    </button>
     <h1>الإسناد الآلي للشعب التدريبية</h1>
     <details class="advanced-settings">
         <summary>⚙️ تخصيص أسماء الأعمدة (تعدل فقط عند الحاجة)</summary>
@@ -172,6 +348,7 @@
                     <div><label>عمود اسم المتدرب</label><input type="text" id="col_trainee_name" value="الاسم"></div>
                     <div><label>عنوان رموز المقررات</label><input type="text" id="col_course_header" value="رمز"></div>
                 </div>
+    
             </div>
             <div class="inner-group">
                 <h3>إعدادات تقرير جداول الوحدة التدريبية طولي (SS01)</h3>
@@ -193,6 +370,13 @@
                     <div><label>عمود الشعبة المرتبطة</label><input type="text" id="col_sf33_crn2" value="الشعبة المرتبطة"></div>
                 </div>
             </div>
+            <div class="inner-group">
+                <h3>إعدادات المتدربين المسجلين في شعبة (SF01)</h3>
+                <div class="settings-row">
+                    <div><label>عمود رقم المتدرب</label><input type="text" id="col_sf01_id" value="رقم المتدرب"></div>
+                    <div><label>عمود الرقم المرجعي</label><input type="text" id="col_sf01_crn" value="الرقم المرجعي"></div>
+                </div>
+            </div>
         </div>
     </details>
     
@@ -200,10 +384,23 @@
         <summary>🧭 إرشادات لتحقيق أفضل النتائج</summary>
         <div class="settings-content">
             <div><label>1. عند وجود قيود على مقررات قسم الدراسات العامة للقسم المختار، يجب الإبقاء على الأرقام المرجعية الخاصة بالقسم المختار فقط، وحذف الأرقام المرجعية المخصصة لبقية الأقسام من تقرير SS01.</label></div>
-            <div><label>2. في أثناء عملية التسجيل، قد يقوم بعض المتدربين بالتسجيل ذاتيًا، ولكي يتم إسناد المقررات بشكل مثالي، ننصح بتحديث المصفوفة ليتم استبعاد المقررات التي تم تسجيلها ذاتيًا من منظومة الإسناد الآلي.</label></div>
+            <div><label>2. يفضل إرفاق تقرير المتدربين المسجلين في شعبة تدريبية (SF01) لكي يقوم النظام بفحص أوقاتها وتجنب التعارض الزمني مع المقررات المسجلة مسبقاً.</label></div>
             <div><label>3. لنتائج أكثر دقة وتجنباً لأخطاء التسجيل، يُوصى برفع تقرير "الشعب والشعب المرتبطة" للوحدات التدريبية التي تستخدم رموز ربط مختلفة لعدد من الشعب لنفس المقرر  (L1, L2, L3).</label></div>
         </div>
     </details>
+
+    <!-- بداية الإعلان -->
+     <div class="ad-banner-matrix" id="matrixAd">
+                <button class="close-ad-btn" onclick="hideAd()" title="إخفاء">
+                    <span style="font-size: 18px; font-weight: bold; line-height: 1;">✖</span>
+                </button>
+         <strong>هل جربت أداة منظومة الإسناد الآلي للمستجدين؟</strong>
+                        <p>اكتشف الآن منظومة الإسناد الذكية لبناء رزم المستجدين بضغطة زر واحدة!</p>
+                         <a href="https://maf1250.github.io/freshmen/" target="_blank" class="btn-matrix">
+                    انتقل للأداة الآن <i data-lucide="external-link"></i>
+                </a>
+            </div>              
+            <!-- نهاية الإعلان -->
     
     <div class="upload-group">
         <label>1. ملف مصفوفة التسجيل والمتوقع</label>
@@ -211,13 +408,18 @@
     </div>
 
     <div class="upload-group">
-        <label>2. تقرير جداول الوحدة التدريبية طولي (SS01)</label>
+        <label>2. تقرير جداول الوحدة التدريبية طولي (SS01) -  [كل التخصصات - يتم فرز التخصص تلقائيًا]</label>
         <input type="file" id="ss01File" accept=".csv">
     </div>
 
     <div class="upload-group">
         <label>3. تقرير الشعب والشعب المرتبطة (SF33)</label>
         <input type="file" id="sf33File" accept=".csv">
+    </div>
+
+    <div class="upload-group">
+        <label>4. تقرير المتدربين المسجلين في شعبة تدريبية (SF01) - اختياري [ينصح به بعد بدء التسجيل]</label>
+        <input type="file" id="sf01File" accept=".csv">
     </div>
 
     <button class="btn-process" id="processBtn" onclick="startProcessing()">
@@ -250,6 +452,7 @@
     let globalSheetsData = []; 
     let globalTraineesSchedules = {}; 
     let globalCollegeStartTime = Infinity;
+    let isFemaleCampus = false;
     
     const WEIGHT_DAYS = 5000;
     const WEIGHT_GAPS = 50;
@@ -463,7 +666,8 @@
                                 hasRequests = true;
                             }
                         }
-                        if (hasRequests) dataRows.push(rowObj);
+                       // if (hasRequests) dataRows.push(rowObj);
+                        dataRows.push(rowObj);
                     }
                     resolve(dataRows);
                 } catch (err) { reject(err); }
@@ -483,6 +687,14 @@
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                     
+                    isFemaleCampus = false; // إعادة تعيين
+                    for (let i = 0; i < Math.min(jsonArray.length, 20); i++) {
+                        if (jsonArray[i].join(" ").includes("بنات")) {
+                            isFemaleCampus = true;
+                            break;
+                        }
+                    }
+                                    
                     let headerRowIndex = -1;
                     for (let i = 0; i < jsonArray.length; i++) {
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
@@ -549,21 +761,63 @@
         });
     }
 
+    function readSF01File(file, idHeader, crnHeader) {
+        if (!file) return Promise.resolve({});
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+                    let headerRowIndex = -1, idCol = -1, crnCol = -1;
+                    for (let i = 0; i < jsonArray.length; i++) {
+                        let rowStrings = jsonArray[i].map(c => String(c).trim());
+                        if (rowStrings.includes(idHeader) && rowStrings.includes(crnHeader)) {
+                            headerRowIndex = i;
+                            idCol = rowStrings.indexOf(idHeader);
+                            crnCol = rowStrings.indexOf(crnHeader);
+                            break;
+                        }
+                    }
+                    if (headerRowIndex === -1) { resolve({}); return; }
+
+                    const sf01Data = {};
+                    for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
+                        let row = jsonArray[i];
+                        let tId = String(row[idCol]).trim();
+                        let crn = String(row[crnCol]).trim();
+                        if (tId && crn) {
+                            if (!sf01Data[tId]) sf01Data[tId] = [];
+                            sf01Data[tId].push(crn);
+                        }
+                    }
+                    resolve(sf01Data);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = () => reject(new Error("خطأ بقراءة تقرير SF01"));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
     async function startProcessing() {
         const traineesFile = document.getElementById('traineesFile').files[0];
         const ss01File = document.getElementById('ss01File').files[0];
         const sf33File = document.getElementById('sf33File').files[0];
+        const sf01File = document.getElementById('sf01File').files[0];
         const statusDiv = document.getElementById('status');
         const btn = document.getElementById('processBtn');
         const loader = document.getElementById('loader');
         const btnText = document.getElementById('btnText');
 
         if (!traineesFile || !ss01File) {
-            statusDiv.innerHTML = '<span class="error">نأمل إرفاق الملفات أولاً!</span>'; return;
+            statusDiv.innerHTML = '<span class="error">نأمل إرفاق الملفات الأساسية (1 و 2) أولاً!</span>'; return;
         }
 
-        const C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
-        const C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
+        let  C_TRAINEE_NAME = document.getElementById('col_trainee_name').value.trim();
+        let  C_TRAINEE_ID = document.getElementById('col_trainee_id').value.trim();
         const C_COURSE_HEADER = document.getElementById('col_course_header').value.trim();
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_COURSE_NAME = document.getElementById('col_course_name').value.trim();
@@ -575,6 +829,8 @@
         const C_INSTRUCTOR = document.getElementById('col_instructor').value.trim();
         const C_SF33_CRN1 = document.getElementById('col_sf33_crn1').value.trim();
         const C_SF33_CRN2 = document.getElementById('col_sf33_crn2').value.trim();
+        const C_SF01_ID = document.getElementById('col_sf01_id').value.trim();
+        const C_SF01_CRN = document.getElementById('col_sf01_crn').value.trim();
 
         btn.disabled = true;
         loader.style.display = 'inline-block';
@@ -585,11 +841,29 @@
         globalCollegeStartTime = Infinity;
 
         try {
-            let [traineesRaw, ss01Raw, sf33Raw] = await Promise.all([
+let [traineesRaw, ss01Raw, sf33Raw, sf01Raw] = await Promise.all([
                 readMatrixFile(traineesFile, C_TRAINEE_ID, C_TRAINEE_NAME, C_COURSE_HEADER), 
                 readSS01File(ss01File, C_COURSE),
-                readSF33File(sf33File, C_SF33_CRN1, C_SF33_CRN2)
-            ]);
+                readSF33File(sf33File, C_SF33_CRN1, C_SF33_CRN2),
+                readSF01File(sf01File, C_SF01_ID, C_SF01_CRN)
+                ]);
+
+let validMatrixCourses = new Set();
+traineesRaw.forEach(row => {
+    Object.keys(row).forEach(key => {
+        if (key !== C_TRAINEE_ID && key !== C_TRAINEE_NAME) {
+            validMatrixCourses.add(key);
+        }
+    });
+});
+
+            if (isFemaleCampus) {
+                C_TRAINEE_NAME = C_TRAINEE_NAME.replace("المتدرب", "المتدربة");
+                C_TRAINEE_ID = C_TRAINEE_ID.replace("المتدرب", "المتدربة");
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدربة للوصول السريع...";
+            } else {
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدرب للوصول السريع...";
+            }
 
             if (ss01Raw.length > 0) {
                 let firstRow = ss01Raw[0];
@@ -616,10 +890,10 @@
                 let code = row[C_COURSE];
                 let courseName = row[C_COURSE_NAME] ? String(row[C_COURSE_NAME]).trim() : '';
                 let crn = String(row[C_CRN]).trim();
-let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
-let baseType = type.includes('عملي') ? 'عملي' : 'نظري';
+                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
+                let baseType = type.includes('عملي') ? 'عملي' : 'نظري';
 
-let rem = parseInt(row[C_REM]) || 0;
+                let rem = parseInt(row[C_REM]) || 0;
                 let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
                 
                 if (!code || !crn) return;
@@ -629,9 +903,9 @@ let rem = parseInt(row[C_REM]) || 0;
                 let timeData = parseTimeRange(row[C_TIME]);
 
                 if (days.length === 0 || !timeData) return; 
-if (timeData.start < globalCollegeStartTime) {
-    globalCollegeStartTime = timeData.start;
-}
+                if (timeData.start < globalCollegeStartTime) {
+                    globalCollegeStartTime = timeData.start;
+                }
                 if (allSectionsRef[crn]) {
                     allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
                 } else {
@@ -642,8 +916,9 @@ if (timeData.start < globalCollegeStartTime) {
                     };
                     allSectionsRef[crn] = section;
                    if (!courseMap[code]) courseMap[code] = {};
-if (!courseMap[code][baseType]) courseMap[code][baseType] = [];
-courseMap[code][baseType].push(section);                }
+                   if (!courseMap[code][baseType]) courseMap[code][baseType] = [];
+                   courseMap[code][baseType].push(section);                
+                }
                 if (!courseStats[code]) courseStats[code] = { requested: 0, registered: 0, unregistered: 0, reasons: {} };
             });
 
@@ -685,12 +960,12 @@ courseMap[code][baseType].push(section);                }
                 return scoreB - scoreA; 
             });
 
-            let mainSheetData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [];
+            let mainSheetData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             for (let i = 0; i < structuredTrainees.length; i++) {
                 let trainee = structuredTrainees[i];
-                let finalSchedule = [], finalCodes = [], studentCrns = [];
+                let finalSchedule = [], studentCrnsNew = [], studentCrnsPre = [];
 
                 if (i % 10 === 0) {
                     await new Promise(resolve => setTimeout(resolve, 0));
@@ -702,6 +977,24 @@ courseMap[code][baseType].push(section);                }
                 let traineeName = trainee.name;
                 let requiredCourses = trainee.requiredCourses;
                 stats.total++;
+                
+                // --- استخراج المقررات المسجلة مسبقاً من SF01 ---
+                let preRegisteredCRNs = sf01Raw[traineeId] || [];
+                let preRegSections = [];
+                let preRegCodes = [];
+
+                preRegisteredCRNs.forEach(crn => {
+                    if (allSectionsRef[crn]) {
+                        // أخذ نسخة من بيانات الشعبة لتمييزها كمسجلة مسبقاً
+                        let secCopy = JSON.parse(JSON.stringify(allSectionsRef[crn]));
+                        secCopy.isPreRegistered = true;
+                        preRegSections.push(secCopy);
+                        preRegCodes.push(secCopy.code);
+                    }
+                });
+
+                // إزالة المقررات المسجلة مسبقاً من قائمة المقررات المطلوبة لتفادي تكرار إسنادها
+                requiredCourses = requiredCourses.filter(code => !preRegCodes.includes(code));
 
                 requiredCourses.sort((c1, c2) => (courseTotalCapacity[c1] || 0) - (courseTotalCapacity[c2] || 0));
 
@@ -763,18 +1056,29 @@ courseMap[code][baseType].push(section);                }
                     findBestSchedule(cIndex + 1, currentSched, currentCodes);
                 }
 
-                findBestSchedule(0, [], []);
+                findBestSchedule(0, preRegSections, preRegCodes);
 
+                let finalCodes = [];
                 if (bestSchedules.length > 0) {
                     bestSchedules.sort((a, b) => scoreSchedule(a) - scoreSchedule(b));
                     finalSchedule = bestSchedules[0];
                     finalCodes = [...new Set(finalSchedule.map(s => s.code))];
                 }
 
-                finalSchedule.forEach(sec => { sec.remaining -= 1; studentCrns.push(sec.crn); });
-                finalCodes.forEach(code => { courseTotalCapacity[code] -= 1; courseStats[code].registered++; });
+                let newlyAssignedCodes = finalCodes.filter(code => !preRegCodes.includes(code));
+                
+                finalSchedule.forEach(sec => { 
+                    if(sec.isPreRegistered) {
+                        studentCrnsPre.push(sec.crn);
+                    } else {
+                        if(allSectionsRef[sec.crn]) allSectionsRef[sec.crn].remaining -= 1; 
+                        studentCrnsNew.push(sec.crn); 
+                    }
+                });
 
-                if (finalCodes.length > 0 && i < structuredTrainees.length - 1) {
+                newlyAssignedCodes.forEach(code => { courseTotalCapacity[code] -= 1; courseStats[code].registered++; });
+
+                if (newlyAssignedCodes.length > 0 && i < structuredTrainees.length - 1) {
                     let remainingTrainees = structuredTrainees.slice(i + 1);
                     remainingTrainees.forEach(t => {
                         let newRarityScore = 0;
@@ -794,11 +1098,10 @@ courseMap[code][baseType].push(section);                }
                 
                 let unassignedRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
                 let missingCount = 0;
-                
                 let traineeUnassignedList = [];
 
                 requiredCourses.forEach(code => {
-                    if (!finalCodes.includes(code)) {
+                    if (!newlyAssignedCodes.includes(code)) {
                         courseStats[code].unregistered++;
                         let reason = "";
                         let suggestedCrnsHTML = "";
@@ -818,9 +1121,8 @@ courseMap[code][baseType].push(section);                }
                                 validOptions[type] = availableSections;
                                 if (availableSections.length === 0) emptyTypes.push(type);
 
-                           availableTypes[type].forEach(sec => {
+                                availableTypes[type].forEach(sec => {
                                     let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
-                                    
                                     let hasConflict = false;
                                     for (let existSec of finalSchedule) {
                                         if (getConflictDetail(sec, existSec) !== null) {
@@ -830,7 +1132,6 @@ courseMap[code][baseType].push(section);                }
 
                                     let fitStatusText = hasConflict ? 'يتعارض زمنياً' : 'متوافق زمنياً';
                                     let cssClass = '';
-                                    
                                     if (!hasConflict && sec.remaining > 0) {
                                         cssClass = 'crn-perfect'; 
                                     } else if (!hasConflict && sec.remaining <= 0) {
@@ -839,10 +1140,14 @@ courseMap[code][baseType].push(section);                }
                                         cssClass = 'crn-conflict'; 
                                     }
                                     
-let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
-crnsListHTML.push(`<span class="crn-item ${cssClass}">${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
-                           });
-                                 }
+                                    let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+let clickAction = "";
+if (!hasConflict) {
+    clickAction = `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"`;
+}
+crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
+                                });
+                            }
                             
                             if (crnsListHTML.length > 0) {
                                 suggestedCrnsHTML = crnsListHTML.join('');
@@ -877,14 +1182,14 @@ crnsListHTML.push(`<span class="crn-item ${cssClass}">${typeEmoji} ${sec.crn} ($
                         unassignedRow[`المقرر المتبقي ${missingCount}`] = code;
                         unassignedRow[`سبب عدم الإسناد ${missingCount}`] = reason;
                         
-let cName = '';
-if (courseMap[code]) {
-    let firstType = Object.keys(courseMap[code])[0];
-    if (firstType && courseMap[code][firstType].length > 0) {
-        cName = courseMap[code][firstType][0].courseName;
-    }
-}
-traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, suggestedCrnsHTML: suggestedCrnsHTML });
+                        let cName = '';
+                        if (courseMap[code]) {
+                            let firstType = Object.keys(courseMap[code])[0];
+                            if (firstType && courseMap[code][firstType].length > 0) {
+                                cName = courseMap[code][firstType][0].courseName;
+                            }
+                        }
+                        traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, suggestedCrnsHTML: suggestedCrnsHTML });
                     }
                 });
 
@@ -897,18 +1202,59 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
 
                 if (missingCount > 0) unassignedCodesData.push(unassignedRow);
                 
-                if (finalCodes.length === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
-                else if (finalCodes.length > 0) stats.partialSuccess++;
+                if (newlyAssignedCodes.length === requiredCourses.length && requiredCourses.length > 0) stats.fullSuccess++;
+                else if (newlyAssignedCodes.length > 0) stats.partialSuccess++;
                 else { stats.failed++; notAssignedData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId }); }
 
                 let mainRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
-                studentCrns.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
+                studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
-                assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': finalCodes.length > 0 ? finalCodes.join(' ، ') : 'لم يتم تعيين أي مقرر' });
+
+               // --- حساب التقاطعات الزمنية ---
+                let dayTimings = {0:[], 1:[], 2:[], 3:[], 4:[]};
+                finalSchedule.forEach(sec => {
+                    sec.schedules.forEach(sched => {
+                        sched.days.forEach(d => {
+                            if (d <= 4) {
+                                // أضفنا الرقم المرجعي (crn) هنا
+                                dayTimings[d].push({ code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end });
+                            }
+                        });
+                    });
+                });
+                
+                let intersectionDetails = [];
+                for(let d=0; d<=4; d++) {
+                    if (dayTimings[d].length > 1) {
+                        dayTimings[d].sort((a,b) => a.start - b.start);
+                        for(let k=0; k < dayTimings[d].length - 1; k++) {
+                            if (dayTimings[d][k].end === dayTimings[d][k+1].start) {
+                                let dayName = reverseDaysMap[d];
+                                // تم تحديث النص ليظهر الرقم المرجعي بين قوسين
+                                intersectionDetails.push(`يوم ${dayName}: (${dayTimings[d][k].code} [${dayTimings[d][k].crn}] مع ${dayTimings[d][k+1].code} [${dayTimings[d][k+1].crn}])`);
+                            }
+                        }
+                    }
+                }
+                if (intersectionDetails.length > 0) {
+                    intersectionsData.push({
+                        [C_TRAINEE_NAME]: traineeName, 
+                        [C_TRAINEE_ID]: traineeId, 
+                        'تفاصيل التقاطعات': [...new Set(intersectionDetails)].join(' | ')
+                    });
+                }
+
+                if (studentCrnsPre.length > 0) {
+                    let preRegRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
+                    studentCrnsPre.forEach((crn, idx) => preRegRow[`الرقم المرجعي ${idx + 1}`] = crn);
+                    preRegisteredData.push(preRegRow);
+                }
+                assignedCodesData.push({ [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, 'المقررات المعينة': newlyAssignedCodes.length > 0 ? newlyAssignedCodes.join(' ، ') : 'لم يتم تعيين أي مقرر', 'مسجل مسبقاً': preRegCodes.length > 0 ? preRegCodes.join(' ، ') : 'لا يوجد' });
             }
             
             let capacityData = [];
             for (let code in courseOriginalCapacity) {
+                if (!validMatrixCourses.has(code)) continue;
                 let orig = courseOriginalCapacity[code];
                 let rem = courseTotalCapacity[code];
                 capacityData.push({ 'رمز المقرر': code, 'السعة الأصلية': orig, 'عدد المعين لهم': orig - rem, 'المقاعد المتبقية': rem });
@@ -916,6 +1262,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
 
             let courseStatsData = [];
             for (let code in courseStats) {
+                if (!validMatrixCourses.has(code)) continue;
                 let d = courseStats[code];
                 if (d.requested > 0) {
                     let topReason = Object.keys(d.reasons).length > 0 ? Object.keys(d.reasons).reduce((a, b) => d.reasons[a] > d.reasons[b] ? a : b) : "لا يوجد";
@@ -924,22 +1271,29 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
             }
 
             let fullSectionsData = [];
-            for (let crn in allSectionsRef) {
-                if (allSectionsRef[crn].remaining === 0) {
-                    fullSectionsData.push({ 'رمز المقرر': allSectionsRef[crn].code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
-                }
-            }
+for (let crn in allSectionsRef) {
+    let code = allSectionsRef[crn].code;
+    if (!validMatrixCourses.has(code)) continue; // فلترة المقررات الخارجة عن التخصص
+    
+    if (allSectionsRef[crn].remaining === 0) {
+        fullSectionsData.push({ 'رمز المقرر': code, 'الرقم المرجعي': crn, 'النوع': allSectionsRef[crn].type, 'حالة الشعبة': 'ممتلئة تماماً' });
+    }
+}
 
             let globalStatsData = [
-                { 'البيان': 'إجمالي المتدربين المعالجين', 'العدد': stats.total },
-                { 'البيان': 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess },
-                { 'البيان': 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess },
-                { 'البيان': 'لم يتم الإسناد لهم مطلقاً', 'العدد': stats.failed }
+                   {'البيان': isFemaleCampus ? 'إجمالي المتدربات المعالجات' : 'إجمالي المتدربين المعالجين', 'العدد': stats.total},
+                   {'البيان': isFemaleCampus ? 'مسند لهن بالكامل بنجاح' : 'مسند لهم بالكامل بنجاح', 'العدد': stats.fullSuccess},
+                   {'البيان': isFemaleCampus ? 'مسند لهن جزئياً (بقي لهن مقررات)' : 'مسند لهم جزئياً (بقي لهم مقررات)', 'العدد': stats.partialSuccess},
+                   {'البيان': isFemaleCampus ? 'مسجلات مسبقاً (لديهن مقررات سابقة)' : 'مسجلون مسبقاً (لديهم مقررات سابقة)', 'العدد': preRegisteredData.length},
+                   {'البيان': isFemaleCampus ? 'لم يتم الإسناد لهن' : 'لم يتم الإسناد لهم', 'العدد': stats.failed}
+
             ];
 
             globalSheetsData = [
-                { name: "جدول المتدربين", data: mainSheetData },
+                { name: isFemaleCampus ? "جدول المتدربات" : "جدول المتدربين", data: mainSheetData },
                 { name: "المقررات المعينة", data: assignedCodesData },
+                { name: "التقاطعات", data: intersectionsData },
+                { name: "مسجل مسبقا", data: preRegisteredData },
                 { name: "المقررات المتبقية", data: unassignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
@@ -948,7 +1302,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                 { name: "إحصائيات لكل مقرر", data: courseStatsData },
                 { name: "الإحصاء العام", data: globalStatsData }
             ];
-
+            
             buildResultsUI();
             showResultsPage();
 
@@ -1003,7 +1357,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
         tbody.append(...rows);
     }
 
-    function buildResultsUI() {
+  function buildResultsUI() {
         const tabsContainer = document.getElementById('tabs-container');
         const contentsContainer = document.getElementById('tab-contents-container');
         
@@ -1012,7 +1366,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
 
         let singleTabBtn = document.createElement('button');
         singleTabBtn.className = 'tab-btn active';
-        singleTabBtn.innerText = 'عرض جدول متدرب';
+        singleTabBtn.innerText = isFemaleCampus ? 'عرض جدول متدربة' : 'عرض جدول متدرب';
         singleTabBtn.onclick = () => switchTab('tab-single', singleTabBtn);
         tabsContainer.appendChild(singleTabBtn);
 
@@ -1020,8 +1374,8 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
         singleTabContent.id = 'tab-single';
         singleTabContent.className = 'tab-content active';
         
-        let selectHTML = '<div class="single-trainee-selector"><label>اختر المتدرب:</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">';
-        selectHTML += '<option value="">-- اختر متدرباً --</option>';
+        let selectHTML = `<div class="single-trainee-selector"><label>${isFemaleCampus ? 'اختر المتدربة:' : 'اختر المتدرب:'}</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">`;
+        selectHTML += `<option value="">-- ${isFemaleCampus ? 'اختر متدربة' : 'اختر متدرباً'} --</option>`;
         for (let id in globalTraineesSchedules) {
             selectHTML += `<option value="${id}">${globalTraineesSchedules[id].name} (${id})</option>`;
         }
@@ -1032,7 +1386,6 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
 
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
-            
             let btn = document.createElement('button');
             btn.className = 'tab-btn';
             btn.innerText = sheet.name;
@@ -1043,11 +1396,33 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
             contentDiv.id = tabId;
             contentDiv.className = 'tab-content';
             
-            if (sheet.data && sheet.data.length > 0) {
+           if (sheet.data && sheet.data.length > 0) {
+                
+                if (index === 0) {
+                    let copyAllBtnContainer = document.createElement('div');
+                    copyAllBtnContainer.style.marginBottom = '15px';
+                    copyAllBtnContainer.innerHTML = `
+                        <button class="btn-copy-rayat" onclick="copyAllToRayatAuto()" >
+                            📋 نسخ بيانات الجميع لرايات أوتو
+                        </button>
+                    `;
+                    contentDiv.appendChild(copyAllBtnContainer);
+                }
+
                 let helperDiv = document.createElement('div');
                 helperDiv.className = 'sort-helper-alert';
                 helperDiv.innerHTML = '💡 تلميح: يمكنك الضغط على عناوين الأعمدة لترتيب البيانات تصاعدياً أو تنازلياً.';
                 contentDiv.appendChild(helperDiv);
+
+               if (sheet.name === "التقاطعات") {
+                    let noteDiv = document.createElement('div');
+                    noteDiv.className = 'sort-helper-alert';
+                    noteDiv.style.borderRightColor = '#ff9800';
+                    noteDiv.style.color = '#856404';
+                    noteDiv.style.backgroundColor = '#fff3cd';
+                    noteDiv.innerHTML = '⚠️ <strong>ملاحظة هامة:</strong> التقاطع يعني وجود محاضرتين متتاليتين (تنتهي الأولى وتبدأ الثانية في نفس الدقيقة)، وهذا الترابط الزمني المباشر يعتبره نظام رايات تعارضًا ويتطلب التعديل قبل التسجيل.';
+                    contentDiv.appendChild(noteDiv);
+                }
 
                 let table = document.createElement('table');
                 table.className = 'data-table report-table';
@@ -1073,7 +1448,21 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
                     let tr = document.createElement('tr');
                     headers.forEach(h => {
                         let td = document.createElement('td');
-                        td.innerText = row[h] !== undefined ? row[h] : '';
+                        let cellValue = row[h] !== undefined ? String(row[h]) : '';
+                        
+                        let matchedId = null;
+                        if (globalTraineesSchedules[cellValue]) {
+                            matchedId = cellValue;
+                        } else {
+                            let matchedTrainee = Object.values(globalTraineesSchedules).find(t => t.name === cellValue);
+                            if (matchedTrainee) matchedId = matchedTrainee.id; 
+                        }
+
+                        if (matchedId) {
+                            td.innerHTML = `<span class="clickable-trainee" onclick="openTraineeModal('${matchedId}')" title="اضغط لعرض جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}">${cellValue}</span>`;
+                        } else {
+                            td.innerText = cellValue;
+                        }
                         tr.appendChild(td);
                     });
                     tbody.appendChild(tr);
@@ -1083,7 +1472,6 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
             } else {
                 contentDiv.innerHTML = '<p style="text-align:center; padding:20px;">لا توجد بيانات لعرضها في هذا الجدول.</p>';
             }
-            
             contentsContainer.appendChild(contentDiv);
         });
     }
@@ -1116,7 +1504,7 @@ traineeUnassignedList.push({ code: code, courseName: cName, reason: reason, sugg
         let gridHTML = '';
         let detailsHTML = '';
 
-if (schedule.length > 0) {
+        if (schedule.length > 0) {
             let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
 
@@ -1127,19 +1515,18 @@ if (schedule.length > 0) {
                             daySchedules[dayIndex].push({
                                 code: sec.code, courseName: sec.courseName, type: sec.type, crn: sec.crn,
                                 instructor: sec.instructor, start: sched.timeData.start, end: sched.timeData.end,
-                                textTime: sched.timeData.originalText
+                                textTime: sched.timeData.originalText, isPreRegistered: sec.isPreRegistered
                             });
                         }
                     });
                 });
             });
 
-            // ======== [ التحديث 1: تنظيف التكرارات التي قد تأتي من SS01 ] ========
             for (let i = 0; i <= 4; i++) {
                 let uniqueClasses = [];
                 let seen = new Set();
                 daySchedules[i].forEach(cls => {
-                    let key = `${cls.crn}-${cls.start}`; // تحديد البصمة للرقم المرجعي والوقت
+                    let key = `${cls.crn}-${cls.start}`; 
                     if (!seen.has(key)) {
                         seen.add(key);
                         uniqueClasses.push(cls);
@@ -1149,13 +1536,35 @@ if (schedule.length > 0) {
             }
 
             const PX_PER_MIN = 2.2;
-            let baseStartTime = (typeof globalCollegeStartTime !== 'undefined' && globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 450; // الافتراضي 07:30
+            let baseStartTime = (typeof globalCollegeStartTime !== 'undefined' && globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 450; 
 
+           gridHTML += `
+<div style="margin-bottom: 15px; font-size: 13px; background: #fdfdfd; border: 1px solid #cbe6e3; padding: 10px; border-radius: 6px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+        <strong style="color: #006d60;">💡 دليل الجدولة:</strong>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #008e7e; padding:3px 8px; border-radius:3px; color:#008e7e; font-weight:bold;">📘 نظري</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
+    </div>    </div>
+    <button class="btn-copy-rayat" onclick="copyToRayatAuto('${traineeId}')">
+        📋 نسخ إلى رايات أوتو
+    </button>
+</div>`;
+            
             gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
             for (let i = 0; i <= 4; i++) {
                 let classesToday = daySchedules[i];
                 if (classesToday.length > 0) {
                     classesToday.sort((a, b) => a.start - b.start);
+
+                    // تحديد التقاطعات الزمنية للمقررات
+                    for (let j = 0; j < classesToday.length - 1; j++) {
+                        if (classesToday[j].end === classesToday[j+1].start) {
+                            classesToday[j].hasIntersection = true;
+                            classesToday[j+1].hasIntersection = true;
+                        }
+                    }
                     
                     gridHTML += `<div class="day-row" style="min-width: max-content; margin-bottom: 5px;">
                                     <div class="day-label" style="position: sticky; right: 0; z-index: 2; border-left: 2px solid #fff;">${daysArray[i]}</div>
@@ -1179,35 +1588,47 @@ if (schedule.length > 0) {
                         let timeSize = isShort ? '10px' : '12px';
                         let paddingStyle = isShort ? '10px 5px' : '10px 15px';
 
-                       currentCursor = cls.end; // تحديث المؤشر
+                        currentCursor = cls.end; 
                         
+                        let isPre = cls.isPreRegistered;
                         let isPractical = cls.type.includes('عملي');
+                        let isIntersecting = cls.hasIntersection;
                         let typeEmoji = isPractical ? '🛠️' : '📘';
                         
-                        let borderColor = isPractical ? '#8dc63f' : '#008e7e'; 
-                        let titleColor = isPractical ? '#5c8a24' : '#008e7e'; 
-                        let badgeColor = isPractical ? '#74a629' : '#006d60'; 
+                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e')); 
+                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e')); 
+                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60'));
+                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : '#eef7f6');
+                        let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
+                        let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
 
                         if (gapMinutes > 0) {
-                            let gapText = '';
-                            if (gapMinutes >= 15) {
-                                let h = Math.floor(gapMinutes / 60);
-                                let m = gapMinutes % 60;
-                                let textArr = [];
-                                if (h > 0) textArr.push(h + 'س');
-                                if (m > 0) textArr.push(m + 'د');
-                                gapText = textArr.join('');
-                            }
-                            gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">${gapText}</div>`;
-                        }
+    let gapText = '';
+    if (gapMinutes >= 15) {
+        let h = Math.floor(gapMinutes / 60);
+        let m = gapMinutes % 60;
+        let textArr = [];
+        if (h > 0) textArr.push(h + 'س');
+        if (m > 0) textArr.push(m + 'د');
+        gapText = textArr.join('');
+    }
+    gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">
+        <span>${gapText}</span>
+        <button class="add-crn-btn-gap" onclick="promptAddCrn('${traineeId}')" title="إضافة رقم مرجعي في هذا الوقت">+</button>
+    </div>`;
+}
                         
                         gridHTML += `
-    <div class="course-card" style="align-self: stretch; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
-                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cls.code}</span>
-                                    <span style="flex-shrink: 0; font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
-                                </strong>
+                            <div class="course-card" style="align-self: stretch; background:${bgCard}; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                
+                               <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
+    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cls.code}">${intersectTag}${cls.code}${preTag}</span>
+    <div style="display:flex; align-items:center; gap:5px; flex-shrink: 0;">
+        <span style="font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
+        <button class="delete-crn-btn" onclick="removeCrnFromTrainee('${traineeId}', '${cls.crn}', '${cls.code}')" title="حذف الشعبة من الجدول">✖</button>
+    </div>
+</strong>
                                 <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
-                                    <span class="time" style="font-size:${timeSize}; white-space:nowrap;">🕒 ${cls.textTime}</span>
+                                    <span class="time" dir="ltr" style="font-size:${timeSize}; white-space:nowrap;">${cls.textTime}</span>
                                     <span class="crn-badge" style="background-color: ${badgeColor}; font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
                                 </div>
                             </div>
@@ -1218,8 +1639,8 @@ if (schedule.length > 0) {
             }
             gridHTML += '</div>';
 
-            detailsHTML += '<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية المسندة للمتدرب</h3>';
-            detailsHTML += '<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم المدرب</th></tr></thead><tbody>';
+            detailsHTML += `<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية الموجودة في جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}</h3>`;
+            detailsHTML += `<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم ${isFemaleCampus ? 'المدربة' : 'المدرب'}</th></tr></thead><tbody>`;
             
             let uniqueDetails = [];
             let seenDetails = new Set();
@@ -1230,14 +1651,17 @@ if (schedule.length > 0) {
                 }
             });
             
-          uniqueDetails.forEach(sec => {
-    let secTypeEmoji = sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)'; // أو يمكنك ترك الإيموجي فقط '🛠️' 
-    detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td style="font-weight:bold; color:#008e7e;">${sec.crn}</td><td>${secTypeEmoji}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
-});
+            uniqueDetails.forEach(sec => {
+                let baseEmoji = sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)';
+                let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
+                let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
+                
+                detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td><span style="${badgeStyle}">${sec.crn}</span></td><td>${secTypeEmoji}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
+            });
             detailsHTML += '</tbody></table>';
     
-    } else {
-            gridHTML = '<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر لهذا المتدرب! نأمل مراجعة أسباب عدم الإسناد بالأسفل.</div>';
+        } else {
+            gridHTML = `<div style="background:#f8d7da; color:#721c24; padding:20px; border-radius:8px; text-align:center; font-weight:bold; margin-bottom:20px; font-size:16px;">لم يتم إسناد أي مقرر ل${isFemaleCampus ? 'هذه المتدربة' : 'هذا المتدرب'}! نأمل مراجعة أسباب عدم الإسناد بالأسفل.</div>`;
         }
 
         if (traineeData.unassigned && traineeData.unassigned.length > 0) {
@@ -1247,7 +1671,7 @@ if (schedule.length > 0) {
                 <strong>دليل الألوان للأرقام المرجعية للمقرر المتبقي:</strong>
                 <span style="color:#155724;">🟢 متوافق زمنياً مع الجدول (لكن به خلل آخر كالارتباط)</span>
                 <span style="color:#856404;">🟠 متوافق زمنياً لكنه ممتلئ (يناسب لو تم رفع السعة)</span>
-                <span style="color:#721c24;">🔴 يتعارض زمنياً مع جدول المتدرب الحالي</span>
+                <span style="color:#721c24;">🔴 يتعارض زمنياً مع جدول ${isFemaleCampus ? 'المتدربة الحالي' : 'المتدرب الحالي'}</span>
             </div>
             <div class="unassigned-cards-container">`;
             
@@ -1264,6 +1688,32 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
 
         container.innerHTML = gridHTML + detailsHTML;
+    }
+
+    function openTraineeModal(traineeId) {
+        const modal = document.getElementById('trainee-modal');
+        const modalContent = document.getElementById('modal-content-area');
+        
+        const dropdown = document.getElementById('trainee-dropdown');
+        if (dropdown) dropdown.value = traineeId;
+        renderSingleTraineeSchedule(); 
+        
+        const scheduleHTML = document.getElementById('visual-schedule-container').innerHTML;
+        const traineeName = globalTraineesSchedules[traineeId].name;
+        
+        modalContent.innerHTML = `
+            <h2 style="text-align:center; color:#006d60; margin-top:0; border-bottom: 2px dashed #b2d8d3; padding-bottom: 10px;">جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}: ${traineeName} (${traineeId})</h2>
+            ${scheduleHTML}
+        `;
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeTraineeModal(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('trainee-modal').style.display = 'none';
+        document.body.style.overflow = ''; 
     }
 
     function handleGlobalSearch() {
@@ -1345,10 +1795,9 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         saveAs(blob, "تقرير_إسناد_الجدولة.xlsx");
     }
-    // إظهار أو إخفاء زر العودة للأعلى بناءً على التمرير
+    
     window.addEventListener('scroll', function() {
         const scrollBtn = document.getElementById('scrollToTopBtn');
-        // إذا نزل المستخدم أكثر من 300 بكسل يظهر الزر
         if (window.scrollY > 300) {
             scrollBtn.classList.add('show');
         } else {
@@ -1356,18 +1805,268 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         }
     });
 
-    // دالة الصعود للأعلى بنعومة
     function scrollToTop() {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth' // صعود انسيابي
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    // دالة النسخ لرايات أوتو
+    function copyToRayatAuto(traineeId) {
+        const traineeData = globalTraineesSchedules[traineeId];
+        if (!traineeData || !traineeData.schedule) return;
+
+        let crns = [];
+        let seenDetails = new Set();
+        
+        traineeData.schedule.forEach(sec => {
+            if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
+                seenDetails.add(sec.crn);
+                crns.push(sec.crn);
+            }
+        });
+
+        if (crns.length === 0) {
+            showToast('لا توجد أرقام مرجعية جديدة لنسخها!');
+            return;
+        }
+
+        let textToCopy = traineeId + '\t' + crns.join('\t');
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            showToast('✅ تم النسخ بنجاح!');
+        }).catch(err => {
+            console.error('فشل النسخ: ', err);
+            showToast('❌ حدث خطأ أثناء النسخ');
         });
     }
+
+    // دالة نسخ الجميع لرايات أوتو
+    function copyAllToRayatAuto() {
+        let fullText = "";
+        let count = 0;
+
+        for (let traineeId in globalTraineesSchedules) {
+            const traineeData = globalTraineesSchedules[traineeId];
+            let crns = [];
+            let seenDetails = new Set();
+            
+            traineeData.schedule.forEach(sec => {
+                if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
+                    seenDetails.add(sec.crn);
+                    crns.push(sec.crn);
+                }
+            });
+
+            if (crns.length > 0) {
+                fullText += traineeId + '\t' + crns.join('\t') + '\n';
+                count++;
+            }
+        }
+
+        if (count === 0) {
+            showToast('لا توجد بيانات لنسخها!');
+            return;
+        }
+
+        fullText = fullText.trimEnd();
+
+        navigator.clipboard.writeText(fullText).then(() => {
+            showToast(`✅ تم نسخ الجداول ${count} بنجاح!`);
+        }).catch(err => {
+            console.error('فشل النسخ: ', err);
+            showToast('❌ حدث خطأ أثناء النسخ');
+        });
+    }
+
+    function showToast(message) {
+        let toast = document.getElementById("toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "toast";
+            document.body.appendChild(toast);
+        }
+        toast.innerText = message;
+        toast.className = "show";
+        setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+    }
+    
+    // --- دوال التعديل اليدوي على الجدول ---
+    
+    // 1. دالة حذف شعبة من الجدول
+    window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
+        if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
+        
+        let traineeData = globalTraineesSchedules[traineeId];
+        // إزالة الشعبة من الجدول
+        traineeData.schedule = traineeData.schedule.filter(sec => String(sec.crn) !== String(crn));
+        
+        // إعادتها لقائمة المقررات المتبقية (بشكل مبسط)
+        let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
+        traineeData.unassigned.push({ 
+            code: courseCode, 
+            courseName: courseName, 
+            reason: "تم إزالته يدوياً من الجدول",
+            suggestedCrnsHTML: `<span style="color:#dc3545; font-size:12px;">تم الحذف يدوياً، يمكنك إضافته مجدداً عبر زر (+) في الفراغات.</span>`
+        });
+        
+        // إعادة رسم الجدول
+        renderSingleTraineeSchedule();
+        showToast('تمت الإزالة بنجاح!');
+    };
+
+    // 2. دالة إضافة شعبة عبر إدخال الرقم المرجعي في الفراغ
+    window.promptAddCrn = function(traineeId) {
+        let crn = prompt("أدخل الرقم المرجعي (CRN) المراد إضافته في هذا الفراغ:");
+        if (!crn) return;
+        
+        crn = crn.trim();
+        if (!allSectionsRef[crn]) {
+            alert("الرقم المرجعي غير موجود في تقرير الشعب (SS01)!");
+            return;
+        }
+        
+        addCrnToTrainee(traineeId, crn);
+    };
+
+    // 3. دالة معالجة إضافة الشعبة للجدول والتأكد من عدم التعارض
+    window.addCrnToTrainee = function(traineeId, crn) {
+        let sec = allSectionsRef[crn];
+        let traineeData = globalTraineesSchedules[traineeId];
+        
+        // فحص التعارض الزمني
+        for (let existSec of traineeData.schedule) {
+            let conflict = getConflictDetail(sec, existSec);
+            if (conflict) {
+                alert("لا يمكن الإضافة! " + conflict);
+                return;
+            }
+        }
+        
+        // إضافة الشعبة للجدول
+        let secCopy = JSON.parse(JSON.stringify(sec));
+        secCopy.isPreRegistered = false; 
+        traineeData.schedule.push(secCopy);
+        
+        // إزالتها من قائمة المقررات غير المسندة إن وجدت
+        traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== sec.code);
+        
+        // إعادة رسم الجدول
+        renderSingleTraineeSchedule();
+        showToast('تم إضافة الشعبة للجدول بنجاح!');
+    };
+     // دالة إخفاء الإعلان
+        function hideAd() {
+            const ad = document.getElementById('matrixAd');
+            if (ad) {
+                ad.style.display = 'none';
+            }
+        }
+    // فتح نافذة المراسلة
+function openContactModal() {
+    document.getElementById('contact-modal').style.display = 'flex';
+}
+
+// إغلاق نافذة المراسلة
+function closeContactModal() {
+    document.getElementById('contact-modal').style.display = 'none';
+    document.getElementById('contact_status').innerText = ''; // تفريغ حالة الإرسال
+}
+
+// إرسال النموذج برمجياً
+async function submitContactForm(e) {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('contact_submit_btn');
+    const status = document.getElementById('contact_status');
+    
+    btn.disabled = true;
+    btn.innerHTML = 'جار الإرسال... <div class="loader" style="display:inline-block; width:14px; height:14px; margin-right:8px; border-width:2px; vertical-align: middle;"></div>';
+    status.innerText = '';
+
+    const formData = new FormData(form);
+    const object = Object.fromEntries(formData);
+    const json = JSON.stringify(object);
+    
+    try {
+        const response = await fetch('https://api.web3forms.com/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', // تحديد نوع البيانات
+                'Accept': 'application/json'
+            },
+            body: json
+        });
+        
+        const result = await response.json();
+        
+        if (response.status === 200) {
+            status.style.color = '#008e7e';
+            status.innerText = 'تم إرسال رسالتك بنجاح! شكراً لتواصلك.';
+            form.reset(); // تفريغ الحقول
+        } else {
+            status.style.color = '#dc3545';
+            status.innerText = 'حدث خطأ: ' + result.message;
+        }
+    } catch (error) {
+        status.style.color = '#dc3545';
+        status.innerText = 'تعذر الإرسال. نأمل التحقق من اتصالك بالإنترنت.';
+    } finally {
+        // إعادة الزر لشكله الطبيعي
+        btn.disabled = false;
+        btn.innerText = 'إرسال الرسالة';
+    }
+}
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
     </button>
+    <!-- هيكل النافذة المنبثقة -->
+<div id="trainee-modal" class="modal-overlay" onclick="closeTraineeModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeTraineeModal(event)">✖</button>
+        <div id="modal-content-area"></div>
+    </div>
+</div>
+    <!-- نافذة المراسلة المنبثقة -->
+<div id="contact-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 500px;">
+        <button class="modal-close" onclick="closeContactModal()">×</button>
+        <h2 style="text-align:center; color:#008e7e; margin-bottom:20px; margin-top:0;">تواصل معنا</h2>
+        
+        <form id="contactForm" onsubmit="submitContactForm(event)">
+            <input type="hidden" name="access_key" value="54190f55-c3e4-41b4-b772-9a62ae475b49">
+            <input type="hidden" name="subject" value="رسالة جديدة من منظومة إسناد المستمرين">
+            
+            <div class="contact-form-group">
+                <label>جهة العمل</label>
+                <input type="text" name="جهة العمل" required placeholder="مثال: الكلية التقنية بـ...">
+            </div>
+            
+            <div class="contact-form-group">
+                <label>وسيلة التواصل</label>
+                <input type="text" name="وسيلة التواصل" required placeholder="البريد الإلكتروني أو رقم الجوال للتواصل معك">
+            </div>
+            
+            <div class="contact-form-group">
+                <label>نوع الرسالة</label>
+                <select name="نوع الرسالة">
+                    <option value="اقتراح">اقتراح تطوير</option>
+                    <option value="مشكلة">الإبلاغ عن مشكلة</option>
+                    <option value="استفسار">استفسار</option>
+                    <option value="أخرى">أخرى</option>
+                </select>
+            </div>
+            
+            <div class="contact-form-group">
+                <label>نص الرسالة</label>
+                <textarea name="الرسالة" required rows="4" placeholder="نأمل كتابة رسالتك أو ملاحظتك هنا..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn-process" id="contact_submit_btn">إرسال الرسالة</button>
+            <div id="contact_status" style="margin-top:15px; text-align:center; font-weight:600; font-size:14px;"></div>
+        </form>
+    </div>
+</div>
 </body>
 </html>
