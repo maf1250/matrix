@@ -947,6 +947,9 @@ traineesRaw.forEach(row => {
                 linkedCRNs[c2].add(c1);
             });
 
+             window.globalLinkedCRNs = linkedCRNs;
+             window.globalCrnToType = crnToType;
+            
             for (let code in courseMap) {
                 let minCap = -1;
                 for (let type in courseMap[code]) {
@@ -1968,10 +1971,8 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
    // --- دوال التعديل اليدوي (النسخة المتصلة بنواة النظام) ---
 
     // 1. دالة لتوليد أزرار الشعب المتاحة بناءً على التعارض والشقوق الناقصة
-    window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
+window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         let traineeData = globalTraineesSchedules[traineeId];
-        
-        // معرفة الشقوق التي تمت إضافتها مسبقاً (نظري أو عملي) لإخفائها من المقترحات
         let addedBaseTypes = traineeData.schedule
             .filter(s => s.code === courseCode)
             .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
@@ -1981,8 +1982,6 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             let sec = allSectionsRef[crn];
             if (sec.code === courseCode) {
                 let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
-                
-                // إذا تم إضافة هذا الشق مسبقاً للجدول، لا تعرض خياراته مجدداً
                 if (addedBaseTypes.includes(baseType)) continue;
                 
                 let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
@@ -1993,12 +1992,18 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
                     }
                 }
                 
-                let fitStatusText = hasConflict ? 'يتعارض زمنياً' : 'متوافق زمنياً';
-                let cssClass = (!hasConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
-                let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
-                let clickAction = !hasConflict ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
+                // --- فحص الارتباط SF33 هنا ---
+                let linkConflict = false;
+                if (!hasConflict) {
+                    linkConflict = !window.checkSF33LinkValidity(sec, traineeData.schedule);
+                }
                 
-                crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
+                let fitStatusText = hasConflict ? 'يتعارض زمنياً' : (linkConflict ? 'غير مرتبط (SF33)' : 'متوافق');
+                let cssClass = (!hasConflict && !linkConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && !linkConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
+                let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
+                
+                crnsListHTML.push(`<span class="crn-item ${cssClass} ${(!hasConflict && !linkConflict) ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
             }
         }
         return crnsListHTML.join('');
@@ -2124,22 +2129,22 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
                 return;
             }
         }
+
+        // --- فحص الارتباط SF33 ---
+        if (!window.checkSF33LinkValidity(sec, traineeData.schedule)) {
+            alert("⚠️ لا يمكن الإضافة! هذه الشعبة (حسب ملف SF33) غير مرتبطة بالشق الموجود حالياً في جدول المتدرب.");
+            return;
+        }
         
-        // --- التعديل الجوهري هنا ---
-        // نتحقق مما إذا كان هذا الرقم المرجعي (CRN) بعينه مسجلاً مسبقاً في القائمة الأصلية
         let isOriginallyPre = (traineeData.originalPreRegistered && traineeData.originalPreRegistered.includes(String(crn)));
-        
-        // الإضافة للجدول
         let secCopy = JSON.parse(JSON.stringify(sec));
-        secCopy.isPreRegistered = isOriginallyPre; // سيأخذ علامة (📌) فقط إذا كان هو نفسه مسجلاً مسبقاً
+        secCopy.isPreRegistered = isOriginallyPre; 
         traineeData.schedule.push(secCopy);
         
-        // خصم المقعد (فقط إذا كانت الشعبة جديدة حقاً)
         if (!isOriginallyPre) {
             sec.remaining -= 1;
         }
         
-        // --- التحقق من اكتمال الشقين ---
         let code = sec.code;
         let requiredTypes = Object.keys(courseMap[code] || {}); 
         let addedBaseTypes = traineeData.schedule
@@ -2281,7 +2286,7 @@ async function submitContactForm(e) {
         document.getElementById('add-crn-modal').style.display = 'none';
     };
 
-    window.updateCrnDropdown = function() {
+window.updateCrnDropdown = function() {
         let traineeId = document.getElementById('add-crn-trainee-id').value;
         let courseCode = document.getElementById('add-crn-course-select').value;
         let crnSelect = document.getElementById('add-crn-select');
@@ -2295,13 +2300,19 @@ async function submitContactForm(e) {
         for (let crn in allSectionsRef) {
             let sec = allSectionsRef[crn];
             if (sec.code === courseCode) {
-                // التأكد من عدم وجود تعارض
+                // التأكد من عدم وجود تعارض زمني
                 let conflict = false;
                 for (let existSec of traineeData.schedule) {
                     if (getConflictDetail(sec, existSec) !== null) { conflict = true; break; }
                 }
                 
+                // --- التأكد من الارتباط SF33 ---
+                let linkConflict = false;
                 if (!conflict) {
+                    linkConflict = !window.checkSF33LinkValidity(sec, traineeData.schedule);
+                }
+                
+                if (!conflict && !linkConflict) {
                     let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
                     let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
                     let capText = sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`;
@@ -2315,7 +2326,7 @@ async function submitContactForm(e) {
         }
 
         if (availableCrns.length === 0) {
-            crnSelect.innerHTML = '<option value="">❌ لا توجد شعب، أو جميعها تتعارض مع الجدول الحالي</option>';
+            crnSelect.innerHTML = '<option value="">❌ لا توجد شعب، أو جميعها تتعارض (زمنياً أو ارتباط SF33)</option>';
         } else {
             availableCrns.forEach(item => {
                 let opt = document.createElement('option');
@@ -2325,7 +2336,7 @@ async function submitContactForm(e) {
             });
         }
     };
-
+    
     window.confirmAddCrn = function() {
         let traineeId = document.getElementById('add-crn-trainee-id').value;
         let crn = document.getElementById('add-crn-select').value;
@@ -2338,6 +2349,37 @@ async function submitContactForm(e) {
         // استدعاء دالة الإضافة السابقة
         addCrnToTrainee(traineeId, crn);
         closeAddCrnModal();
+    };
+
+    // دالة للتحقق من ارتباط SF33 عند الإضافة اليدوية
+    window.checkSF33LinkValidity = function(newSec, schedule) {
+        if (!window.globalLinkedCRNs || !window.globalCrnToType) return true; 
+        
+        let newCrn = String(newSec.crn);
+        for (let existSec of schedule) {
+            if (existSec.code === newSec.code) { // التحقق مع نفس المقرر فقط
+                let existCrn = String(existSec.crn);
+                
+                let existHasLinkToNewType = false;
+                if (window.globalLinkedCRNs[existCrn]) {
+                    for (let linked of window.globalLinkedCRNs[existCrn]) {
+                        if (window.globalCrnToType[linked] === newSec.type) { existHasLinkToNewType = true; break; }
+                    }
+                }
+                
+                let newHasLinkToExistType = false;
+                if (window.globalLinkedCRNs[newCrn]) {
+                    for (let linked of window.globalLinkedCRNs[newCrn]) {
+                        if (window.globalCrnToType[linked] === existSec.type) { newHasLinkToExistType = true; break; }
+                    }
+                }
+                
+                // إذا كان أحدهما يشترط ارتباطاً بنوع الآخر، يجب أن يكونا مرتبطين
+                if (existHasLinkToNewType && (!window.globalLinkedCRNs[existCrn] || !window.globalLinkedCRNs[existCrn].has(newCrn))) return false;
+                if (newHasLinkToExistType && (!window.globalLinkedCRNs[newCrn] || !window.globalLinkedCRNs[newCrn].has(existCrn))) return false;
+            }
+        }
+        return true;
     };
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
