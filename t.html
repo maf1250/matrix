@@ -777,14 +777,26 @@
                     let headerRowIndex = -1, idCol = -1, crnCol = -1;
                     for (let i = 0; i < jsonArray.length; i++) {
                         let rowStrings = jsonArray[i].map(c => String(c).trim());
-                        if (rowStrings.includes(idHeader) && rowStrings.includes(crnHeader)) {
+                        
+                        // محاولة التطابق الدقيق أولاً
+                        idCol = rowStrings.indexOf(idHeader);
+                        crnCol = rowStrings.indexOf(crnHeader);
+                        
+                        // إذا لم تتطابق، نستخدم البحث المرن الذكي
+                        if (idCol === -1) idCol = rowStrings.findIndex(s => s.includes("رقم المتدرب") || s.includes("الرقم الجامعي") || s.includes("رقم الطالب") || s.includes("الطالب"));
+                        if (crnCol === -1) crnCol = rowStrings.findIndex(s => s.includes("الرقم المرجعي") || s.includes("رقم الشعبة") || s.includes("الشعبة") || s.includes("المرجعي"));
+
+                        if (idCol !== -1 && crnCol !== -1) {
                             headerRowIndex = i;
-                            idCol = rowStrings.indexOf(idHeader);
-                            crnCol = rowStrings.indexOf(crnHeader);
                             break;
                         }
                     }
-                    if (headerRowIndex === -1) { resolve({}); return; }
+                    
+                    if (headerRowIndex === -1) { 
+                        alert("⚠️ تنبيه: لم يتعرف النظام على أعمدة ملف المسجلين مسبقاً SF01، نأمل التأكد من مسميات الأعمدة.");
+                        resolve({}); 
+                        return; 
+                    }
 
                     const sf01Data = {};
                     for (let i = headerRowIndex + 1; i < jsonArray.length; i++) {
