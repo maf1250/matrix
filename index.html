@@ -1899,7 +1899,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
     function copyAllToRayatAuto() {
         let fullText = "";
         let count = 0;
-        let errorTrainees = []; // مصفوفة لجمع المتدربين الذين لديهم نواقص
+        let errorTrainees = []; // مصفوفة لجمع الكائنات (ID والاسم) بدلاً من النصوص فقط
 
         // --- فحص جميع المتدربين أولاً للتأكد من خلوهم من خطأ الشق الواحد أو الناقص ---
         for (let traineeId in globalTraineesSchedules) {
@@ -1907,14 +1907,14 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             if (traineeData.unassigned) {
                 let missing = traineeData.unassigned.some(u => u.reason && (u.reason.includes("شق واحد فقط") || u.reason.includes("الشق الناقص")));
                 if (missing) {
-                    errorTrainees.push(traineeData.name + " (" + traineeId + ")");
+                    errorTrainees.push({ id: traineeId, name: traineeData.name }); // حفظ ككائن
                 }
             }
         }
 
-        // إذا كان هناك أي متدرب لديه شق ناقص، يتم إيقاف النسخ للجميع وإظهار رسالة بأسماء/أرقام المتدربين
+        // إذا كان هناك أي متدرب لديه شق ناقص، استدعِ النافذة المنبثقة التفاعلية وأوقف النسخ
         if (errorTrainees.length > 0) {
-            alert("⚠️ لا يمكن نسخ بيانات الجميع!\n\nيوجد متدربين لديهم مقررات غير مكتملة (نظري بدون عملي أو العكس).\nنأمل استكمال جداولهم أو إزالة المقرر بالكامل قبل النسخ:\n\n" + errorTrainees.join("\n"));
+            showIncompleteTraineesModal(errorTrainees);
             return; // إيقاف العملية
         }
         // -------------------------------------------------------------------
@@ -2394,6 +2394,68 @@ window.updateCrnDropdown = function() {
             }
         }
         return true;
+    };
+    // بناء وعرض النافذة المنبثقة للمتدربين ذوي الجداول غير المكتملة
+    window.showIncompleteTraineesModal = function(traineesList) {
+        // إنشاء الهيكل إذا لم يكن موجوداً
+        let modal = document.getElementById('incomplete-modal');
+        if (!modal) {
+            const modalHTML = `
+            <div id="incomplete-modal" class="modal-overlay" style="z-index: 100001;">
+                <div class="modal-box" style="max-width: 600px;">
+                    <button class="modal-close" onclick="closeIncompleteModal()">✖</button>
+                    <h2 style="text-align:center; color:#dc3545; margin-top:0; border-bottom: 2px dashed #f5c6cb; padding-bottom: 10px;">
+                        ⚠️ تعذر النسخ (مقررات غير مكتملة)
+                    </h2>
+                    <div style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px; border:1px solid #ffeeba; margin-bottom:20px; font-weight:bold; font-size:14px; text-align: right;">
+                        لا يمكن نسخ بيانات الجميع! يوجد متدربين لديهم مقررات غير مكتملة (نظري بدون عملي أو العكس).<br><br>
+                        نأمل الضغط على زر (تعديل الجدول) بجانب اسم المتدرب لاستكمال جدوله أو إزالة المقرر غير المكتمل بالكامل قبل النسخ لرايات.
+                    </div>
+                    <div id="incomplete-list-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modal = document.getElementById('incomplete-modal');
+        }
+
+        // تفريغ القائمة وتعبئتها من جديد
+        let listContainer = document.getElementById('incomplete-list-container');
+        listContainer.innerHTML = '';
+
+        traineesList.forEach(t => {
+            let div = document.createElement('div');
+            div.style.cssText = 'background: #fdfdfd; border: 1px solid #eee; padding: 12px 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+            
+            let nameSpan = document.createElement('span');
+            nameSpan.innerHTML = `<strong style="color:#333; font-size:14px;">${t.name}</strong> <span style="color:#777; font-size:13px;">(${t.id})</span>`;
+            
+            let btn = document.createElement('button');
+            btn.innerHTML = '⚙️ تعديل الجدول';
+            btn.className = 'btn-copy-rayat'; 
+            btn.style.backgroundColor = '#dc3545'; // لون أحمر للتنبيه
+            btn.onmouseover = () => btn.style.backgroundColor = '#c82333';
+            btn.onmouseout = () => btn.style.backgroundColor = '#dc3545';
+            
+            // عند الضغط: نغلق نافذة التنبيه ونفتح نافذة تعديل المتدرب فوراً
+            btn.onclick = () => {
+                closeIncompleteModal();
+                openTraineeModal(t.id);
+            };
+
+            div.appendChild(nameSpan);
+            div.appendChild(btn);
+            listContainer.appendChild(div);
+        });
+
+        // عرض النافذة
+        modal.style.display = 'flex';
+    };
+
+    // إغلاق نافذة التنبيه
+    window.closeIncompleteModal = function() {
+        let modal = document.getElementById('incomplete-modal');
+        if (modal) modal.style.display = 'none';
     };
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
