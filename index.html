@@ -356,6 +356,7 @@
                     <div><label>عمود رمز المقرر</label><input type="text" id="col_course" value="المقرر"></div>
                     <div><label>عمود اسم المقرر</label><input type="text" id="col_course_name" value="اسم المقرر"></div>
                     <div><label>عمود الرقم المرجعي</label><input type="text" id="col_crn" value="الرقم المرجعي"></div>
+                    <div><label>عمود الساعات المعتمدة</label><input type="text" id="col_credit_hours" value="الساعات المعتمدة"></div>
                     <div><label>عمود نوع الجدولة</label><input type="text" id="col_type" value="نوع الجدولة"></div>
                     <div><label>عمود الوقت</label><input type="text" id="col_time" value="الوقت"></div>
                     <div><label>عمود اليوم</label><input type="text" id="col_day" value="اليوم"></div>
@@ -838,6 +839,7 @@
         const C_COURSE = document.getElementById('col_course').value.trim();
         const C_COURSE_NAME = document.getElementById('col_course_name').value.trim();
         const C_CRN = document.getElementById('col_crn').value.trim();
+        const C_CREDIT_HOURS = document.getElementById('col_credit_hours').value.trim();
         const C_TYPE = document.getElementById('col_type').value.trim();
         const C_TIME = document.getElementById('col_time').value.trim();
         const C_DAY = document.getElementById('col_day').value.trim();
@@ -911,9 +913,10 @@ traineesRaw.forEach(row => {
 
                 let rem = parseInt(row[C_REM]) || 0;
                 let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
+let creditHours = parseFloat(row[C_CREDIT_HOURS]) || 0;  
                 
-                if (!code || !crn) return;
-                crnToType[crn] = type;
+if (!code || !crn) return;
+crnToType[crn] = type;
 
                 let days = parseDays(row[C_DAY]);
                 let timeData = parseTimeRange(row[C_TIME]);
@@ -926,10 +929,10 @@ traineesRaw.forEach(row => {
                     allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
                 } else {
                     let section = {
-                        code: code, courseName: courseName, crn: crn, type: type, remaining: rem, originalRem: rem,
-                        instructor: instructor,
-                        schedules: [{ days: days, timeData: timeData }]
-                    };
+    code: code, courseName: courseName, crn: crn, type: type, remaining: rem, originalRem: rem,
+    instructor: instructor, creditHours: creditHours,
+    schedules: [{ days: days, timeData: timeData }]
+};
                     allSectionsRef[crn] = section;
                    if (!courseMap[code]) courseMap[code] = {};
                    if (!courseMap[code][baseType]) courseMap[code][baseType] = [];
@@ -1547,6 +1550,43 @@ for (let crn in allSectionsRef) {
         let detailsHTML = '';
 
         if (schedule.length > 0) {
+            let totalCreditHours = 0;
+            let totalContactHours = 0;
+            let courseCredits = {};
+
+            // حساب الساعات قبل بناء الجدول
+            schedule.forEach(sec => {
+                // حساب ساعات الاتصال (كل 50 دقيقة = ساعة اتصال)
+                let secContact = 0;
+                sec.schedules.forEach(sched => {
+                    let duration = sched.timeData.end - sched.timeData.start;
+                    if (duration <= 0) duration = 50; 
+                    secContact += (duration / 50) * sched.days.length;
+                });
+                sec.computedContactHours = parseFloat(secContact.toFixed(2));
+                
+                // إضافة الساعات المعتمدة بدون تكرار للمقرر الواحد
+                if (!courseCredits[sec.code] || sec.creditHours > courseCredits[sec.code]) {
+                    courseCredits[sec.code] = sec.creditHours;
+                }
+            });
+
+            // جمع إجمالي الساعات
+            schedule.forEach(sec => { totalContactHours += sec.computedContactHours; });
+            // نقسم ساعات الاتصال على 2 لأن اللوب بالأعلى يمر على كل شعبة، وإذا كان المقرر بشقين فسيتم الجمع بشكل صحيح
+            totalContactHours = 0; // تصفير لنعيد الجمع للعناصر الفريدة فقط
+            let uniqueForHours = new Set();
+            schedule.forEach(sec => {
+                if(!uniqueForHours.has(sec.crn)) {
+                    uniqueForHours.add(sec.crn);
+                    totalContactHours += sec.computedContactHours || 0;
+                }
+            });
+
+            for (let code in courseCredits) {
+                totalCreditHours += courseCredits[code] || 0;
+            }
+
             let daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             let daySchedules = { 0:[], 1:[], 2:[], 3:[], 4:[] };
 
@@ -1580,7 +1620,7 @@ for (let crn in allSectionsRef) {
             const PX_PER_MIN = 2.2;
             let baseStartTime = (typeof globalCollegeStartTime !== 'undefined' && globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 450; 
 
-           gridHTML += `
+        gridHTML += `
 <div style="margin-bottom: 15px; font-size: 13px; background: #fdfdfd; border: 1px solid #cbe6e3; padding: 10px; border-radius: 6px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
     <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
         <strong style="color: #006d60;">💡 دليل الجدولة:</strong>
@@ -1588,16 +1628,23 @@ for (let crn in allSectionsRef) {
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
-    </div>    </div>
-  <div style="display: flex; gap: 10px;">
+    </div>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; background: #eef7f6; padding: 5px 12px; border-radius: 4px; border: 1px dashed #008e7e;">
+        <strong style="color: #006d60;">📊 إجمالي الساعات:</strong>
+        <span style="font-weight:bold; color:#008e7e;" title="مجموع الساعات المعتمدة للمقررات">المعتمدة: ${totalCreditHours}</span>
+        <span style="font-weight:bold; color:#8dc63f;" title="مجموع ساعات الاتصال بناءً على 50 دقيقة للساعة">الاتصال: ${parseFloat(totalContactHours.toFixed(2))}</span>
+    </div>
+    <div style="display: flex; gap: 10px;">
         <button class="btn-copy-rayat" style="background-color: #008e7e;" onclick="openAddCrnModal('${traineeId}')">
             ➕ إضافة مقرر يدوياً
         </button>
         <button class="btn-copy-rayat" onclick="copyToRayatAuto('${traineeId}')">
-            📋 نسخ إلى رايات أوتو
+            📋 نسخ لرايات أوتو
         </button>
     </div>
 </div>`;
+
+            // ... (هنا يبقى كود رسم الشبكة المرئية gridHTML كما هو، لن نغيره) ...
             
             gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
             for (let i = 0; i <= 4; i++) {
@@ -1684,7 +1731,7 @@ for (let crn in allSectionsRef) {
             gridHTML += '</div>';
 
             detailsHTML += `<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية الموجودة في جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}</h3>`;
-            detailsHTML += `<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>اسم ${isFemaleCampus ? 'المدربة' : 'المدرب'}</th></tr></thead><tbody>`;
+            detailsHTML += `<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>الساعات المعتمدة</th><th>ساعات الاتصال</th><th>اسم ${isFemaleCampus ? 'المدربة' : 'المدرب'}</th></tr></thead><tbody>`;
             
             let uniqueDetails = [];
             let seenDetails = new Set();
@@ -1700,7 +1747,15 @@ for (let crn in allSectionsRef) {
                 let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
                 let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
                 
-                detailsHTML += `<tr><td>${sec.code}</td><td>${sec.courseName || '-'}</td><td><span style="${badgeStyle}">${sec.crn}</span></td><td>${secTypeEmoji}</td><td>${sec.instructor || 'غير محدد'}</td></tr>`;
+                detailsHTML += `<tr>
+                    <td>${sec.code}</td>
+                    <td>${sec.courseName || '-'}</td>
+                    <td><span style="${badgeStyle}">${sec.crn}</span></td>
+                    <td>${secTypeEmoji}</td>
+                    <td style="font-weight:bold;">${sec.creditHours || 0}</td>
+                    <td style="font-weight:bold; color:#5c8a24;">${sec.computedContactHours || 0}</td>
+                    <td>${sec.instructor || 'غير محدد'}</td>
+                </tr>`;
             });
             detailsHTML += '</tbody></table>';
     
