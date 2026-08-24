@@ -1930,26 +1930,41 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
     function scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  // دالة النسخ لرايات أوتو (متدرب واحد)
+ 
+    // دالة النسخ لرايات أوتو (متدرب واحد)
     function copyToRayatAuto(traineeId) {
         const traineeData = globalTraineesSchedules[traineeId];
         if (!traineeData || !traineeData.schedule) return;
 
+        // --- الفحص الديناميكي الذكي للشقوق الناقصة (يشمل اليدوي والآلي) ---
         let missingCourses = [];
-        if (traineeData.unassigned) {
-            for (let uItem of traineeData.unassigned) {
-                if (uItem.reason && (uItem.reason.includes("شق واحد فقط") || uItem.reason.includes("الشق الناقص"))) {
-                    missingCourses.push(uItem.code);
-                }
+        let scheduledCourses = {};
+
+        // 1. تجميع الشقوق الموجودة فعلياً في جدول المتدرب
+        traineeData.schedule.forEach(sec => {
+            if (!scheduledCourses[sec.code]) scheduledCourses[sec.code] = new Set();
+            let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+            scheduledCourses[sec.code].add(baseType);
+        });
+
+        // 2. مقارنتها مع متطلبات المقرر الأساسية
+        for (let code in scheduledCourses) {
+            if (courseMap[code]) {
+                let requiredTypes = Object.keys(courseMap[code]); // الشقوق المطلوبة عالمياً للمقرر
+                // هل المتدرب يمتلك جميع الشقوق المطلوبة؟
+                let hasAll = requiredTypes.every(reqType => scheduledCourses[code].has(reqType));
+                if (!hasAll) missingCourses.push(code);
             }
         }
 
         if (missingCourses.length > 0) {
             let coursesText = missingCourses.join("، ");
             alert(`🚫 عذراً، تعذر النسخ!\n\nيوجد مقرر غير مكتمل (تمت إضافة شق وترك الآخر) للمقررات التالية:\n[ ${coursesText} ]\n\nنأمل استكمال الشق الناقص (نظري/عملي) أو إزالة المقرر بالكامل من الجدول قبل النسخ لرايات.`);
-            return; // إيقاف عملية النسخ
+            return; 
         }
+        // ------------------------------------------------
 
+        // --- فحص التكرار (أكثر من شعبة من نفس النوع لنفس المقرر) ---
         let courseTypeCounts = {};
         let duplicateCourses = [];
         traineeData.schedule.forEach(sec => {
@@ -1964,14 +1979,14 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
         if (duplicateCourses.length > 0) {
             let dupText = duplicateCourses.join("، ");
-            let proceed = confirm(`⚠️ تنبيه بالتكرار: تم اكتشاف تكرار في الإسناد (أكثر من شعبة من نفس نوع الجدولة) للمقررات التالية:\n[ ${dupText} ]\n\nهل تريد المتابعة والنسخ على أي حال؟`);
-            if (!proceed) return; // إيقاف النسخ إذا اختار المستخدم (إلغاء)
+            let proceed = confirm(`⚠️ تنبيه بالتكرار: تم اكتشاف تكرار في الإسناد (أكثر من شعبة من نفس النوع) للمقررات التالية:\n[ ${dupText} ]\n\nهل تريد المتابعة والنسخ على أي حال؟`);
+            if (!proceed) return; 
         }
+        // ------------------------------------------------
 
         let crnsToCopy = [];
         let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
 
-        // 1. جلب المقررات الجديدة (المضافة للجدول وليست مسجلة مسبقاً)
         let seenDetails = new Set();
         traineeData.schedule.forEach(sec => {
             if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
@@ -1980,11 +1995,10 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         });
 
-        // 2. جلب المقررات المسجلة مسبقاً التي تم حذفها يدوياً (مسبوقة بـ سالب)
         if (traineeData.originalPreRegistered) {
             traineeData.originalPreRegistered.forEach(crn => {
                 if (!currentScheduleCRNs.has(String(crn))) {
-                    crnsToCopy.push("-" + crn); // إضافة علامة السالب
+                    crnsToCopy.push("-" + crn);
                 }
             });
         }
@@ -2009,17 +2023,28 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         let errorTrainees = []; 
         let duplicateTrainees = []; 
 
-        // --- 1. فحص المقررات غير المكتملة (شق ناقص) ---
+        // --- 1. الفحص الديناميكي الذكي للشقوق الناقصة للجميع ---
         for (let traineeId in globalTraineesSchedules) {
             let traineeData = globalTraineesSchedules[traineeId];
-            if (traineeData.unassigned) {
-                let missingCourses = traineeData.unassigned
-                    .filter(u => u.reason && (u.reason.includes("شق واحد فقط") || u.reason.includes("الشق الناقص")))
-                    .map(u => u.code);
-                
-                if (missingCourses.length > 0) {
-                    errorTrainees.push({ id: traineeId, name: traineeData.name, missingCourses: missingCourses });
+            let missingCourses = [];
+            let scheduledCourses = {};
+
+            traineeData.schedule.forEach(sec => {
+                if (!scheduledCourses[sec.code]) scheduledCourses[sec.code] = new Set();
+                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                scheduledCourses[sec.code].add(baseType);
+            });
+
+            for (let code in scheduledCourses) {
+                if (courseMap[code]) {
+                    let requiredTypes = Object.keys(courseMap[code]);
+                    let hasAll = requiredTypes.every(reqType => scheduledCourses[code].has(reqType));
+                    if (!hasAll) missingCourses.push(code);
                 }
+            }
+
+            if (missingCourses.length > 0) {
+                errorTrainees.push({ id: traineeId, name: traineeData.name, missingCourses: missingCourses });
             }
         }
 
@@ -2049,13 +2074,11 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
 
-        // عرض نافذة التكرار المنبثقة بدلاً من الرسالة العادية
         if (duplicateTrainees.length > 0) {
             showDuplicateTraineesModal(duplicateTrainees);
             return; 
         }
 
-        // إذا لم تكن هناك أي مشاكل، قم بالنسخ مباشرة
         executeCopyAll();
     }
 
@@ -2318,7 +2341,19 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         if (isFullyAssigned) {
             traineeData.unassigned = traineeData.unassigned.filter(u => u.code !== code);
         } else {
-            if (uItem) uItem.reason = "⚠️ تمت إضافة شق واحد فقط! (نأمل اختيار الشق الآخر)";
+            let reasonText = "⚠️ تمت إضافة شق واحد فقط! (نأمل استكمال الشق الناقص)";
+            if (uItem) {
+                uItem.reason = reasonText;
+            } else {
+                // إذا تمت إضافة مقرر لم يكن في المتبقيات أصلاً، ننشئ له مربع تحذير جديد
+                let courseName = sec.courseName || code;
+                traineeData.unassigned.push({
+                    code: code,
+                    courseName: courseName,
+                    reason: reasonText,
+                    suggestedCrnsHTML: ""
+                });
+            }
         }
         
         traineeData.unassigned.forEach(u => {
