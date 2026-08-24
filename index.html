@@ -1930,28 +1930,43 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
     function scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    
-    // دالة النسخ لرايات أوتو (متدرب واحد)
+  // دالة النسخ لرايات أوتو (متدرب واحد)
     function copyToRayatAuto(traineeId) {
         const traineeData = globalTraineesSchedules[traineeId];
         if (!traineeData || !traineeData.schedule) return;
 
-        // --- فحص وجود مقررات بشق واحد فقط أو شق ناقص قبل النسخ ---
-        let hasMissingComponent = false;
+        let missingCourses = [];
         if (traineeData.unassigned) {
             for (let uItem of traineeData.unassigned) {
                 if (uItem.reason && (uItem.reason.includes("شق واحد فقط") || uItem.reason.includes("الشق الناقص"))) {
-                    hasMissingComponent = true;
-                    break;
+                    missingCourses.push(uItem.code);
                 }
             }
         }
 
-        if (hasMissingComponent) {
-            alert("⚠️ تنبيه هام: لا يمكن النسخ!\n\nيوجد مقرر غير مكتمل (تمت إضافة شق وترك الآخر).\nنأمل استكمال الشق الناقص (نظري/عملي) أو إزالة المقرر بالكامل من الجدول قبل النسخ لرايات.");
+        if (missingCourses.length > 0) {
+            let coursesText = missingCourses.join("، ");
+            alert(`🚫 عذراً، تعذر النسخ!\n\nيوجد مقرر غير مكتمل (تمت إضافة شق وترك الآخر) للمقررات التالية:\n[ ${coursesText} ]\n\nنأمل استكمال الشق الناقص (نظري/عملي) أو إزالة المقرر بالكامل من الجدول قبل النسخ لرايات.`);
             return; // إيقاف عملية النسخ
         }
-        // ------------------------------------------------
+
+        let courseTypeCounts = {};
+        let duplicateCourses = [];
+        traineeData.schedule.forEach(sec => {
+            let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+            let key = sec.code + '-' + baseType;
+            if (courseTypeCounts[key]) {
+                if (!duplicateCourses.includes(sec.code)) duplicateCourses.push(sec.code);
+            } else {
+                courseTypeCounts[key] = true;
+            }
+        });
+
+        if (duplicateCourses.length > 0) {
+            let dupText = duplicateCourses.join("، ");
+            let proceed = confirm(`⚠️ تنبيه بالتكرار: تم اكتشاف تكرار في الإسناد (أكثر من شعبة من نفس نوع الجدولة) للمقررات التالية:\n[ ${dupText} ]\n\nهل تريد المتابعة والنسخ على أي حال؟`);
+            if (!proceed) return; // إيقاف النسخ إذا اختار المستخدم (إلغاء)
+        }
 
         let crnsToCopy = [];
         let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
@@ -1989,19 +2004,22 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         });
     }
 
-    // دالة نسخ الجميع لرايات أوتو
+   // دالة نسخ الجميع لرايات أوتو
     function copyAllToRayatAuto() {
         let fullText = "";
         let count = 0;
-        let errorTrainees = []; // مصفوفة لجمع الكائنات (ID والاسم) بدلاً من النصوص فقط
+        let errorTrainees = []; // مصفوفة لجمع الكائنات (ID والاسم والمقررات الناقصة)
 
         // --- فحص جميع المتدربين أولاً للتأكد من خلوهم من خطأ الشق الواحد أو الناقص ---
         for (let traineeId in globalTraineesSchedules) {
             let traineeData = globalTraineesSchedules[traineeId];
             if (traineeData.unassigned) {
-                let missing = traineeData.unassigned.some(u => u.reason && (u.reason.includes("شق واحد فقط") || u.reason.includes("الشق الناقص")));
-                if (missing) {
-                    errorTrainees.push({ id: traineeId, name: traineeData.name }); // حفظ ككائن
+                let missingCourses = traineeData.unassigned
+                    .filter(u => u.reason && (u.reason.includes("شق واحد فقط") || u.reason.includes("الشق الناقص")))
+                    .map(u => u.code);
+                
+                if (missingCourses.length > 0) {
+                    errorTrainees.push({ id: traineeId, name: traineeData.name, missingCourses: missingCourses });
                 }
             }
         }
@@ -2010,6 +2028,27 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         if (errorTrainees.length > 0) {
             showIncompleteTraineesModal(errorTrainees);
             return; // إيقاف العملية
+        }
+        // -------------------------------------------------------------------
+
+        // --- فحص التكرار للجميع ---
+        let traineesWithDuplicates = [];
+        for (let traineeId in globalTraineesSchedules) {
+            let traineeData = globalTraineesSchedules[traineeId];
+            let courseTypeCounts = {};
+            let hasDup = false;
+            traineeData.schedule.forEach(sec => {
+                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                let key = sec.code + '-' + baseType;
+                if (courseTypeCounts[key]) hasDup = true;
+                courseTypeCounts[key] = true;
+            });
+            if (hasDup) traineesWithDuplicates.push(traineeData.name);
+        }
+
+        if (traineesWithDuplicates.length > 0) {
+            let proceed = confirm(`⚠️ تنبيه بالتكرار: تم اكتشاف تكرار في الإسناد لبعض ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} (مثل: ${traineesWithDuplicates[0]}).\n\nهل أنت متأكد من المتابعة ونسخ جداول الجميع؟`);
+            if (!proceed) return;
         }
         // -------------------------------------------------------------------
 
@@ -2500,6 +2539,7 @@ window.updateCrnDropdown = function() {
         }
         return true;
     };
+    
     // بناء وعرض النافذة المنبثقة للمتدربين ذوي الجداول غير المكتملة
     window.showIncompleteTraineesModal = function(traineesList) {
         // إنشاء الهيكل إذا لم يكن موجوداً
@@ -2510,11 +2550,11 @@ window.updateCrnDropdown = function() {
                 <div class="modal-box" style="max-width: 600px;">
                     <button class="modal-close" onclick="closeIncompleteModal()">✖</button>
                     <h2 style="text-align:center; color:#dc3545; margin-top:0; border-bottom: 2px dashed #f5c6cb; padding-bottom: 10px;">
-                        ⚠️ تعذر النسخ (مقررات غير مكتملة)
+                        🚫 عذراً، تعذر النسخ التلقائي للجميع
                     </h2>
                     <div style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px; border:1px solid #ffeeba; margin-bottom:20px; font-weight:bold; font-size:14px; text-align: right;">
-                        لا يمكن نسخ بيانات الجميع! يوجد متدربين لديهم مقررات غير مكتملة (نظري بدون عملي أو العكس).<br><br>
-                        نأمل الضغط على زر (تعديل الجدول) بجانب اسم المتدرب لاستكمال جدوله أو إزالة المقرر غير المكتمل بالكامل قبل النسخ لرايات.
+                        لا يمكن إتمام عملية النسخ لاحتواء بعض الجداول على مقررات غير مكتملة (تمت إضافة شق وترك الآخر).<br><br>
+                        نأمل الضغط على زر (تعديل الجدول) بجانب اسم ${isFemaleCampus ? 'المتدربة' : 'المتدرب'} لاستكمال الشق الناقص أو إزالة المقرر بالكامل.
                     </div>
                     <div id="incomplete-list-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
                     </div>
@@ -2532,8 +2572,9 @@ window.updateCrnDropdown = function() {
             let div = document.createElement('div');
             div.style.cssText = 'background: #fdfdfd; border: 1px solid #eee; padding: 12px 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
             
+            let coursesText = t.missingCourses ? ` <span style="display:block; color:#dc3545; font-size:12px; margin-top:4px; font-weight:bold;">المقررات غير المكتملة: [ ${t.missingCourses.join("، ")} ]</span>` : '';
             let nameSpan = document.createElement('span');
-            nameSpan.innerHTML = `<strong style="color:#333; font-size:14px;">${t.name}</strong> <span style="color:#777; font-size:13px;">(${t.id})</span>`;
+            nameSpan.innerHTML = `<strong style="color:#333; font-size:14px;">${t.name}</strong> <span style="color:#777; font-size:13px;">(${t.id})</span>${coursesText}`;
             
             let btn = document.createElement('button');
             btn.innerHTML = '⚙️ تعديل الجدول';
