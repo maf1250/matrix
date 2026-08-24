@@ -1199,7 +1199,7 @@ crnToType[crn] = type;
                                         cssClass = 'crn-conflict'; 
                                     }
                                     
-                                    let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
+                                    let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
 let clickAction = "";
 if (!hasConflict) {
     clickAction = `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"`;
@@ -1666,6 +1666,7 @@ for (let crn in allSectionsRef) {
         <strong style="color: #006d60;">💡 دليل الجدولة:</strong>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #008e7e; padding:3px 8px; border-radius:3px; color:#008e7e; font-weight:bold;">📘 نظري</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f4f0fd; border-right:3px solid #6f42c1; padding:3px 8px; border-radius:3px; color:#5a32a3; font-weight:bold;">💻 مدمج/ذاتي</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
     </div>
@@ -1723,14 +1724,16 @@ for (let crn in allSectionsRef) {
                         currentCursor = cls.end; 
                         
                         let isPre = cls.isPreRegistered;
-                        let isPractical = cls.baseType === 'عملي';
                         let isIntersecting = cls.hasIntersection;
-                        let typeEmoji = isPractical ? '🛠️' : '📘';
                         
-                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#8dc63f' : '#008e7e')); 
-                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isPractical ? '#5c8a24' : '#008e7e')); 
-                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isPractical ? '#74a629' : '#006d60'));
-                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : '#eef7f6');
+                        let isBlended = cls.type.includes('مدمج') || cls.type.includes('ذاتي');
+                        let isPractical = cls.baseType === 'عملي';
+                        
+                        let typeEmoji = isBlended ? '💻' : (isPractical ? '🛠️' : '📘');
+                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#6f42c1' : (isPractical ? '#8dc63f' : '#008e7e'))); 
+                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isBlended ? '#5a32a3' : (isPractical ? '#5c8a24' : '#008e7e'))); 
+                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#6f42c1' : (isPractical ? '#74a629' : '#006d60')));
+                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : (isBlended ? '#f4f0fd' : '#eef7f6'));
                         let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
                         let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
 
@@ -1781,7 +1784,7 @@ for (let crn in allSectionsRef) {
             });
             
             uniqueDetails.forEach(sec => {
-                let baseEmoji = sec.baseType === 'عملي' ? '🛠️ (عملي)' : '📘 (نظري)';
+                let baseEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻 (مدمج/ذاتي)' : (sec.baseType === 'عملي' ? '🛠️ (عملي)' : '📘 (نظري)');
                 let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
                 let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
                 
@@ -1817,7 +1820,7 @@ for (let crn in allSectionsRef) {
                 <div class="unassigned-card">
 <span class="u-code">📌 ${item.code} ${item.courseName ? ' &bull; ' + item.courseName : ''}</span>
 <span class="u-reason"><strong>السبب:</strong> ${item.reason}</span>
-${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:8px; color:#333; font-weight:bold; display:flex; align-items:center; gap:10px;">حالة الأرقام المرجعية للمقرر: <span style="font-weight:normal; font-size:12px; background:#f0f0f0; padding:3px 8px; border-radius:4px; color:#555;">( 📘 = نظري &nbsp;|&nbsp; 🛠️ = عملي )</span></div> ${item.suggestedCrnsHTML}</div>` : ''}
+${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-bottom:8px; color:#333; font-weight:bold; display:flex; align-items:center; gap:10px;">حالة الأرقام المرجعية للمقرر: <span style="font-weight:normal; font-size:12px; background:#f0f0f0; padding:3px 8px; border-radius:4px; color:#555;">( 📘 = نظري &nbsp;|&nbsp; 🛠️ = عملي &nbsp;|&nbsp; 💻 = مدمج/ذاتي )</span></div> ${item.suggestedCrnsHTML}</div>` : ''}
 </div>`;
             });
             
@@ -2204,7 +2207,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
                 
                 let fitStatusText = hasConflict ? 'يتعارض زمنياً' : (linkConflict ? 'غير مرتبط (SF33)' : 'متوافق');
                 let cssClass = (!hasConflict && !linkConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && !linkConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
-                let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
+                let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
                 let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
                 
                 crnsListHTML.push(`<span class="crn-item ${cssClass} ${(!hasConflict && !linkConflict) ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
@@ -2548,7 +2551,7 @@ window.updateCrnDropdown = function() {
                 
                 if (!conflict && !linkConflict) {
                     let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
-                    let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
+                    let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
                     let capText = sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`;
                     
                     availableCrns.push({
