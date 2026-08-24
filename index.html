@@ -2070,7 +2070,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         }
     };
     
-// 3. دالة الحذف (المحدثة)
+// 3. دالة الحذف 
     window.removeCrnFromTrainee = function(traineeId, crn, courseCode) {
         if (!confirm('هل أنت متأكد من إزالة الشعبة (' + crn + ') من الجدول؟')) return;
         
@@ -2087,18 +2087,29 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
             allSectionsRef[crn].remaining += 1;
         }
 
-        // إرجاع المقرر للمتبقيات
+        // التحقق مما إذا كان هناك شقوق أخرى لنفس المقرر ما زالت موجودة في جدول المتدرب
+        let remainingSectionsForCourse = traineeData.schedule.filter(s => s.code === courseCode);
+        
+        // تحديد سبب عدم الإسناد بناءً على الشقوق المتبقية
+        let newReason = "";
+        if (remainingSectionsForCourse.length === 0) {
+            newReason = "أُزيل المقرر يدوياً من الجدول بالكامل (نأمل إضافته من جديد)";
+        } else {
+            newReason = "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص)";
+        }
+
+        // إرجاع المقرر للمتبقيات أو تحديث حالته إذا كان موجوداً
         let uItem = traineeData.unassigned.find(u => u.code === courseCode);
         if (!uItem) {
             let courseName = allSectionsRef[crn] ? allSectionsRef[crn].courseName : courseCode;
             traineeData.unassigned.push({ 
                 code: courseCode, 
                 courseName: courseName, 
-                reason: "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص أو إضافته من جديد)",
+                reason: newReason,
                 suggestedCrnsHTML: ""
             });
         } else {
-            uItem.reason = "أُزيلت إحدى الشعب يدوياً (نأمل إكمال الشق الناقص)";
+            uItem.reason = newReason;
         }
         
         // تحديث الأزرار
