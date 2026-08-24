@@ -2006,11 +2006,10 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
    // دالة نسخ الجميع لرايات أوتو
     function copyAllToRayatAuto() {
-        let fullText = "";
-        let count = 0;
-        let errorTrainees = []; // مصفوفة لجمع الكائنات (ID والاسم والمقررات الناقصة)
+        let errorTrainees = []; 
+        let duplicateTrainees = []; 
 
-        // --- فحص جميع المتدربين أولاً للتأكد من خلوهم من خطأ الشق الواحد أو الناقص ---
+        // --- 1. فحص المقررات غير المكتملة (شق ناقص) ---
         for (let traineeId in globalTraineesSchedules) {
             let traineeData = globalTraineesSchedules[traineeId];
             if (traineeData.unassigned) {
@@ -2024,40 +2023,52 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
 
-        // إذا كان هناك أي متدرب لديه شق ناقص، استدعِ النافذة المنبثقة التفاعلية وأوقف النسخ
+        // إيقاف النسخ وعرض نافذة الشق الناقص (أولوية قصوى)
         if (errorTrainees.length > 0) {
             showIncompleteTraineesModal(errorTrainees);
-            return; // إيقاف العملية
+            return; 
         }
-        // -------------------------------------------------------------------
 
-        // --- فحص التكرار للجميع ---
-        let traineesWithDuplicates = [];
+        // --- 2. فحص التكرار للجميع ---
         for (let traineeId in globalTraineesSchedules) {
             let traineeData = globalTraineesSchedules[traineeId];
             let courseTypeCounts = {};
-            let hasDup = false;
+            let dups = [];
+            
             traineeData.schedule.forEach(sec => {
                 let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
                 let key = sec.code + '-' + baseType;
-                if (courseTypeCounts[key]) hasDup = true;
+                if (courseTypeCounts[key]) {
+                    if (!dups.includes(sec.code)) dups.push(sec.code);
+                }
                 courseTypeCounts[key] = true;
             });
-            if (hasDup) traineesWithDuplicates.push(traineeData.name);
+            
+            if (dups.length > 0) {
+                duplicateTrainees.push({ id: traineeId, name: traineeData.name, duplicateCourses: dups });
+            }
         }
 
-        if (traineesWithDuplicates.length > 0) {
-            let proceed = confirm(`⚠️ تنبيه بالتكرار: تم اكتشاف تكرار في الإسناد لبعض ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} (مثل: ${traineesWithDuplicates[0]}).\n\nهل أنت متأكد من المتابعة ونسخ جداول الجميع؟`);
-            if (!proceed) return;
+        // عرض نافذة التكرار المنبثقة بدلاً من الرسالة العادية
+        if (duplicateTrainees.length > 0) {
+            showDuplicateTraineesModal(duplicateTrainees);
+            return; 
         }
-        // -------------------------------------------------------------------
+
+        // إذا لم تكن هناك أي مشاكل، قم بالنسخ مباشرة
+        executeCopyAll();
+    }
+
+    // دالة النسخ الفعلي (تم فصلها لاستدعائها بعد التأكيد من النافذة المنبثقة)
+    window.executeCopyAll = function() {
+        let fullText = "";
+        let count = 0;
 
         for (let traineeId in globalTraineesSchedules) {
             const traineeData = globalTraineesSchedules[traineeId];
             let crnsToCopy = [];
             let currentScheduleCRNs = new Set(traineeData.schedule.map(sec => String(sec.crn)));
             
-            // 1. جلب المقررات الجديدة
             let seenDetails = new Set();
             traineeData.schedule.forEach(sec => {
                 if(!seenDetails.has(sec.crn) && !sec.isPreRegistered) {
@@ -2066,7 +2077,6 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
                 }
             });
 
-            // 2. جلب المقررات المسجلة مسبقاً التي تم حذفها
             if (traineeData.originalPreRegistered) {
                 traineeData.originalPreRegistered.forEach(crn => {
                     if (!currentScheduleCRNs.has(String(crn))) {
@@ -2094,7 +2104,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             console.error('فشل النسخ: ', err);
             showToast('❌ حدث خطأ أثناء النسخ');
         });
-    }
+    };
 
     function showToast(message) {
         let toast = document.getElementById("toast");
@@ -2603,6 +2613,84 @@ window.updateCrnDropdown = function() {
         let modal = document.getElementById('incomplete-modal');
         if (modal) modal.style.display = 'none';
     };
+
+    // بناء وعرض النافذة المنبثقة للمتدربين ذوي الجداول المكررة
+    window.showDuplicateTraineesModal = function(traineesList) {
+        let modal = document.getElementById('duplicate-modal');
+        if (!modal) {
+            const modalHTML = `
+            <div id="duplicate-modal" class="modal-overlay" style="z-index: 100001;">
+                <div class="modal-box" style="max-width: 600px; border-color: #ff9800;">
+                    <button class="modal-close" style="background: #ff9800;" onclick="closeDuplicateModal()">✖</button>
+                    <h2 style="text-align:center; color:#e65100; margin-top:0; border-bottom: 2px dashed #ffe0b2; padding-bottom: 10px;">
+                        ⚠️ تنبيه: اكتشاف تكرار في الجداول
+                    </h2>
+                    <div style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px; border:1px solid #ffeeba; margin-bottom:20px; font-weight:bold; font-size:14px; text-align: right;">
+                        تم اكتشاف تكرار في الإسناد (أكثر من شعبة من نفس النوع لنفس المقرر) في جداول ${isFemaleCampus ? 'بعض المتدربات' : 'بعض المتدربين'}.<br><br>
+                        يمكنك تعديل الجداول بالنقر على (تعديل الجدول)، أو المتابعة ونسخ الجميع متجاهلاً هذا التنبيه.
+                    </div>
+                    
+                    <div id="duplicate-list-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: center; border-top: 1px dashed #ccc; padding-top: 15px;">
+                        <button class="btn-copy-rayat" style="background-color: #6c757d;" onclick="closeDuplicateModal()">
+                            ❌ إلغاء العملية
+                        </button>
+                        <button class="btn-copy-rayat" style="background-color: #ff9800;" onclick="ignoreDuplicatesAndCopy()">
+                            📋 متابعة النسخ (تجاهل التكرار)
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modal = document.getElementById('duplicate-modal');
+        }
+
+        let listContainer = document.getElementById('duplicate-list-container');
+        listContainer.innerHTML = '';
+
+        traineesList.forEach(t => {
+            let div = document.createElement('div');
+            div.style.cssText = 'background: #fdfdfd; border: 1px solid #eee; padding: 12px 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+            
+            let coursesText = ` <span style="display:block; color:#e65100; font-size:12px; margin-top:4px; font-weight:bold;">مقررات مكررة: [ ${t.duplicateCourses.join("، ")} ]</span>`;
+            let nameSpan = document.createElement('span');
+            nameSpan.innerHTML = `<strong style="color:#333; font-size:14px;">${t.name}</strong> <span style="color:#777; font-size:13px;">(${t.id})</span>${coursesText}`;
+            
+            let btn = document.createElement('button');
+            btn.innerHTML = '⚙️ عرض الجدول';
+            btn.className = 'btn-copy-rayat'; 
+            btn.style.backgroundColor = '#ff9800'; 
+            btn.onmouseover = () => btn.style.backgroundColor = '#e65100';
+            btn.onmouseout = () => btn.style.backgroundColor = '#ff9800';
+            
+            // عند الضغط يفتح جدول المتدرب للتعديل
+            btn.onclick = () => {
+                closeDuplicateModal();
+                openTraineeModal(t.id);
+            };
+
+            div.appendChild(nameSpan);
+            div.appendChild(btn);
+            listContainer.appendChild(div);
+        });
+
+        modal.style.display = 'flex';
+    };
+
+    // إغلاق نافذة التكرار
+    window.closeDuplicateModal = function() {
+        let modal = document.getElementById('duplicate-modal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    // المتابعة والنسخ بالرغم من التكرار
+    window.ignoreDuplicatesAndCopy = function() {
+        closeDuplicateModal();
+        executeCopyAll(); // استدعاء النسخ الفعلي
+    };
+    
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
