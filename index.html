@@ -1627,7 +1627,8 @@ for (let crn in allSectionsRef) {
 
             const PX_PER_MIN = 2.2;
             let baseStartTime = (typeof globalCollegeStartTime !== 'undefined' && globalCollegeStartTime !== Infinity) ? globalCollegeStartTime : 450; 
-
+            let creditColor = (totalCreditHours < 12 || totalCreditHours > 24) ? '#dc3545' : '#008e7e';
+            
         gridHTML += `
 <div style="margin-bottom: 15px; font-size: 13px; background: #fdfdfd; border: 1px solid #cbe6e3; padding: 10px; border-radius: 6px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
     <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
@@ -1639,7 +1640,7 @@ for (let crn in allSectionsRef) {
     </div>
     <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; background: #eef7f6; padding: 5px 12px; border-radius: 4px; border: 1px dashed #008e7e;">
         <strong style="color: #006d60;">📊 إجمالي الساعات:</strong>
-        <span style="font-weight:bold; color:#008e7e;" title="مجموع الساعات المعتمدة للمقررات">المعتمدة: ${totalCreditHours}</span>
+        <span style="font-weight:bold; color:${creditColor};" title="مجموع الساعات المعتمدة للمقررات">المعتمدة: ${totalCreditHours}</span>
         <span style="font-weight:bold; color:#8dc63f;" title="مجموع ساعات الاتصال بناءً على 50 دقيقة للساعة">الاتصال: ${parseFloat(totalContactHours.toFixed(2))}</span>
     </div>
     <div style="display: flex; gap: 10px;">
@@ -1651,8 +1652,6 @@ for (let crn in allSectionsRef) {
         </button>
     </div>
 </div>`;
-
-            // ... (هنا يبقى كود رسم الشبكة المرئية gridHTML كما هو، لن نغيره) ...
             
             gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
             for (let i = 0; i <= 4; i++) {
