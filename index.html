@@ -1554,20 +1554,28 @@ for (let crn in allSectionsRef) {
             let totalContactHours = 0;
             let courseCredits = {};
 
-            // حساب الساعات قبل بناء الجدول
+          // حساب الساعات قبل بناء الجدول 
             schedule.forEach(sec => {
-                // حساب ساعات الاتصال (كل 50 دقيقة = ساعة اتصال)
                 let secContact = 0;
+                let seenPeriods = new Set(); 
                 sec.schedules.forEach(sched => {
                     let duration = sched.timeData.end - sched.timeData.start;
                     if (duration <= 0) duration = 50; 
-                    secContact += (duration / 50) * sched.days.length;
+                    
+                    sched.days.forEach(dayIndex => {
+                        if (dayIndex <= 4) { // من الأحد للخميس فقط
+                            let uniqueKey = `${dayIndex}-${sched.timeData.start}`;
+                            if (!seenPeriods.has(uniqueKey)) {
+                                seenPeriods.add(uniqueKey);
+                                secContact += (duration / 50);
+                            }
+                        }
+                    });
                 });
                 sec.computedContactHours = parseFloat(secContact.toFixed(2));
                 
-                // إضافة الساعات المعتمدة بدون تكرار للمقرر الواحد
-                if (!courseCredits[sec.code] || sec.creditHours > courseCredits[sec.code]) {
-                    courseCredits[sec.code] = sec.creditHours;
+                if (!courseCredits[sec.code] || (sec.creditHours && sec.creditHours > courseCredits[sec.code])) {
+                    courseCredits[sec.code] = sec.creditHours || 0;
                 }
             });
 
