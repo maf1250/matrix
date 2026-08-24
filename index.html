@@ -1427,10 +1427,20 @@ for (let crn in allSectionsRef) {
                 if (index === 0) {
                     let copyAllBtnContainer = document.createElement('div');
                     copyAllBtnContainer.style.marginBottom = '15px';
+                    copyAllBtnContainer.style.display = 'flex';
+                    copyAllBtnContainer.style.flexDirection = 'column';
+                    copyAllBtnContainer.style.alignItems = 'flex-start';
+                    copyAllBtnContainer.style.gap = '10px';
                     copyAllBtnContainer.innerHTML = `
                         <button class="btn-copy-rayat" onclick="copyAllToRayatAuto()" >
                             📋 نسخ بيانات الجميع لرايات أوتو
                         </button>
+                        <div style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px 15px; border-radius: 6px; display: inline-flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13.5px;">
+                            <input type="checkbox" id="hide-unassigned-checkbox" checked onchange="toggleUnassignedTrainees()" style="width: 16px; height: 16px; cursor: pointer; margin: 0;">
+                            <label for="hide-unassigned-checkbox" style="cursor: pointer; margin: 0;">
+                                ${isFemaleCampus ? 'إخفاء بيانات المتدربات اللاتي ليس لديهن إسناد' : 'إخفاء بيانات المتدربين الذين ليس لديهم إسناد'}
+                            </label>
+                        </div>
                     `;
                     contentDiv.appendChild(copyAllBtnContainer);
                 }
@@ -1469,9 +1479,15 @@ for (let crn in allSectionsRef) {
                 thead.appendChild(headerRow);
                 table.appendChild(thead);
 
-                let tbody = document.createElement('tbody');
+               let tbody = document.createElement('tbody');
                 sheet.data.forEach(row => {
                     let tr = document.createElement('tr');
+                    
+                    if (index === 0 && Object.keys(row).length <= 2) {
+                        tr.classList.add('unassigned-trainee-row');
+                        tr.style.display = 'none'; 
+                        }
+
                     headers.forEach(h => {
                         let td = document.createElement('td');
                         let cellValue = row[h] !== undefined ? String(row[h]) : '';
@@ -1746,13 +1762,22 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
     function handleGlobalSearch() {
         const searchTerm = document.getElementById('global-search').value.trim();
+        const checkbox = document.getElementById('hide-unassigned-checkbox');
+        const hideUnassigned = checkbox ? checkbox.checked : false;
         
         const allTables = document.querySelectorAll('.report-table');
         allTables.forEach(table => {
             const rows = table.querySelectorAll('tbody tr');
             rows.forEach(row => {
-                if (row.innerText.includes(searchTerm)) {
-                    row.style.display = '';
+                let matchesSearch = row.innerText.includes(searchTerm);
+                let isUnassigned = row.classList.contains('unassigned-trainee-row');
+
+                if (matchesSearch) {
+                    if (isUnassigned && hideUnassigned) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
+                    }
                 } else {
                     row.style.display = 'none';
                 }
@@ -1769,6 +1794,10 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             }
         }
     }
+
+    window.toggleUnassignedTrainees = function() {
+        handleGlobalSearch();
+    };
 
     async function downloadExcelFile() {
         if (!globalSheetsData || globalSheetsData.length === 0) return;
