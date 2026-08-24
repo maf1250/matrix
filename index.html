@@ -900,16 +900,48 @@ traineesRaw.forEach(row => {
             courseMap = {};
             allSectionsRef = {};
             let courseTotalCapacity = {};
-            let courseOriginalCapacity = {}; 
-            let courseStats = {}; 
+            let courseOriginalCapacity = {};
+            let courseStats = {};
             let crnToType = {};
+
+            // --- 1. قراءة أولية لمعرفة أنواع الشقوق المتاحة لكل مقرر ---
+            let courseAvailableTypes = {};
+            ss01Raw.forEach(row => {
+                let code = row[C_COURSE];
+                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
+                if (code) {
+                    if (!courseAvailableTypes[code]) courseAvailableTypes[code] = new Set();
+                    courseAvailableTypes[code].add(type);
+                }
+            });
+            // --------------------------------------------------------
 
             ss01Raw.forEach(row => {
                 let code = row[C_COURSE];
                 let courseName = row[C_COURSE_NAME] ? String(row[C_COURSE_NAME]).trim() : '';
                 let crn = String(row[C_CRN]).trim();
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
-                let baseType = type.includes('عملي') ? 'عملي' : 'نظري';
+
+                // --- 2. تحديد نوع الشق بذكاء بناءً على ما يقابله ---
+                let baseType = 'نظري'; 
+                if (type.includes('عملي')) {
+                    baseType = 'عملي';
+                } else if (type.includes('نظري')) {
+                    baseType = 'نظري';
+                } else if (type.includes('مدمج') || type.includes('ذاتي')) {
+                    let allTypes = Array.from(courseAvailableTypes[code] || []);
+                    let hasTheory = allTypes.some(t => t.includes('نظري'));
+                    let hasPractical = allTypes.some(t => t.includes('عملي'));
+
+                    if (hasPractical && !hasTheory) {
+                        baseType = 'نظري'; // إذا وجد عملي فقط، فالمدمج يكمل النظري
+                    } else if (hasTheory && !hasPractical) {
+                        baseType = 'عملي'; // إذا وجد نظري فقط، فالمدمج يكمل العملي
+                    } else {
+                        baseType = 'عملي'; // الافتراضي
+                    }
+                }
+                // --------------------------------------------------------
 
                 let rem = parseInt(row[C_REM]) || 0;
                 let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
@@ -929,7 +961,7 @@ crnToType[crn] = type;
                     allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
                 } else {
                     let section = {
-    code: code, courseName: courseName, crn: crn, type: type, remaining: rem, originalRem: rem,
+    code: code, courseName: courseName, crn: crn, type: type, baseType: baseType, remaining: rem, originalRem: rem,
     instructor: instructor, creditHours: creditHours,
     schedules: [{ days: days, timeData: timeData }]
 };
@@ -1167,7 +1199,7 @@ crnToType[crn] = type;
                                         cssClass = 'crn-conflict'; 
                                     }
                                     
-                                    let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                                    let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
 let clickAction = "";
 if (!hasConflict) {
     clickAction = `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"`;
@@ -1602,7 +1634,7 @@ for (let crn in allSectionsRef) {
                     sched.days.forEach(dayIndex => {
                         if (dayIndex <= 4) { 
                             daySchedules[dayIndex].push({
-                                code: sec.code, courseName: sec.courseName, type: sec.type, crn: sec.crn,
+                                code: sec.code, courseName: sec.courseName, type: sec.type, baseType: sec.baseType, crn: sec.crn,
                                 instructor: sec.instructor, start: sched.timeData.start, end: sched.timeData.end,
                                 textTime: sched.timeData.originalText, isPreRegistered: sec.isPreRegistered
                             });
@@ -1691,7 +1723,7 @@ for (let crn in allSectionsRef) {
                         currentCursor = cls.end; 
                         
                         let isPre = cls.isPreRegistered;
-                        let isPractical = cls.type.includes('عملي');
+                        let isPractical = cls.baseType === 'عملي';
                         let isIntersecting = cls.hasIntersection;
                         let typeEmoji = isPractical ? '🛠️' : '📘';
                         
@@ -1749,7 +1781,7 @@ for (let crn in allSectionsRef) {
             });
             
             uniqueDetails.forEach(sec => {
-                let baseEmoji = sec.type.includes('عملي') ? '🛠️ (عملي)' : '📘 (نظري)';
+                let baseEmoji = sec.baseType === 'عملي' ? '🛠️ (عملي)' : '📘 (نظري)';
                 let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
                 let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
                 
@@ -1942,7 +1974,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         // 1. تجميع الشقوق الموجودة فعلياً في جدول المتدرب
         traineeData.schedule.forEach(sec => {
             if (!scheduledCourses[sec.code]) scheduledCourses[sec.code] = new Set();
-            let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+            let baseType = sec.baseType === 'عملي' ? 'عملي' : 'نظري';
             scheduledCourses[sec.code].add(baseType);
         });
 
@@ -1967,7 +1999,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
         let courseTypeCounts = {};
         let duplicateCourses = [];
         traineeData.schedule.forEach(sec => {
-            let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+            let baseType = sec.baseType === 'عملي' ? 'عملي' : 'نظري';
             let key = sec.code + '-' + baseType;
             if (courseTypeCounts[key]) {
                 if (!duplicateCourses.includes(sec.code)) duplicateCourses.push(sec.code);
@@ -2030,7 +2062,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
             traineeData.schedule.forEach(sec => {
                 if (!scheduledCourses[sec.code]) scheduledCourses[sec.code] = new Set();
-                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                let baseType = sec.baseType === 'عملي' ? 'عملي' : 'نظري';
                 scheduledCourses[sec.code].add(baseType);
             });
 
@@ -2060,7 +2092,7 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
             let dups = [];
             
             traineeData.schedule.forEach(sec => {
-                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                let baseType = sec.baseType === 'عملي' ? 'عملي' : 'نظري';
                 let key = sec.code + '-' + baseType;
                 if (courseTypeCounts[key]) {
                     if (!dups.includes(sec.code)) dups.push(sec.code);
@@ -2147,13 +2179,13 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         let traineeData = globalTraineesSchedules[traineeId];
         let addedBaseTypes = traineeData.schedule
             .filter(s => s.code === courseCode)
-            .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
+            .map(s => s.baseType);
 
         let crnsListHTML = [];
         for (let crn in allSectionsRef) {
             let sec = allSectionsRef[crn];
             if (sec.code === courseCode) {
-                let baseType = sec.type.includes('عملي') ? 'عملي' : 'نظري';
+                let baseType = sec.baseType === 'عملي' ? 'عملي' : 'نظري';
                 if (addedBaseTypes.includes(baseType)) continue;
                 
                 let statusText = sec.remaining <= 0 ? 'ممتلئ' : 'متاح';
@@ -2172,7 +2204,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
                 
                 let fitStatusText = hasConflict ? 'يتعارض زمنياً' : (linkConflict ? 'غير مرتبط (SF33)' : 'متوافق');
                 let cssClass = (!hasConflict && !linkConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && !linkConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
-                let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
                 let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
                 
                 crnsListHTML.push(`<span class="crn-item ${cssClass} ${(!hasConflict && !linkConflict) ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
@@ -2332,7 +2364,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         let requiredTypes = Object.keys(courseMap[code] || {}); 
         let addedBaseTypes = traineeData.schedule
             .filter(s => s.code === code)
-            .map(s => s.type.includes('عملي') ? 'عملي' : 'نظري');
+            .map(s => s.baseType);
             
         let isFullyAssigned = requiredTypes.every(reqType => addedBaseTypes.includes(reqType));
         let uItem = traineeData.unassigned.find(u => u.code === code);
@@ -2516,7 +2548,7 @@ window.updateCrnDropdown = function() {
                 
                 if (!conflict && !linkConflict) {
                     let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
-                    let typeEmoji = sec.type.includes('عملي') ? '🛠️' : '📘';
+                    let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
                     let capText = sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`;
                     
                     availableCrns.push({
