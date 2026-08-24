@@ -1666,7 +1666,7 @@ for (let crn in allSectionsRef) {
         <strong style="color: #006d60;">💡 دليل الجدولة:</strong>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #008e7e; padding:3px 8px; border-radius:3px; color:#008e7e; font-weight:bold;">📘 نظري</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
-        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f4f0fd; border-right:3px solid #6f42c1; padding:3px 8px; border-radius:3px; color:#5a32a3; font-weight:bold;">💻 مدمج/ذاتي</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef4f7; border-right:3px solid #4f8fab; padding:3px 8px; border-radius:3px; color:#3b6a7e; font-weight:bold;">💻 مدمج/ذاتي</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
     </div>
@@ -1730,10 +1730,10 @@ for (let crn in allSectionsRef) {
                         let isPractical = cls.baseType === 'عملي';
                         
                         let typeEmoji = isBlended ? '💻' : (isPractical ? '🛠️' : '📘');
-                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#6f42c1' : (isPractical ? '#8dc63f' : '#008e7e'))); 
-                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isBlended ? '#5a32a3' : (isPractical ? '#5c8a24' : '#008e7e'))); 
-                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#6f42c1' : (isPractical ? '#74a629' : '#006d60')));
-                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : (isBlended ? '#f4f0fd' : '#eef7f6'));
+                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#4f8fab' : (isPractical ? '#8dc63f' : '#008e7e'))); 
+                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isBlended ? '#3b6a7e' : (isPractical ? '#5c8a24' : '#008e7e'))); 
+                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#4f8fab' : (isPractical ? '#74a629' : '#006d60')));
+                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : (isBlended ? '#eef4f7' : '#eef7f6'));
                         let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
                         let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
 
