@@ -630,8 +630,8 @@
                         if (idColIndex !== -1 && nameColIndex !== -1) break;
                     }
 
-                    if (idRowIndex === -1 || idColIndex === -1) return reject(new Error("لم يتم العثور على عمود رقم المتدرب"));
-                    if (nameColIndex === -1) return reject(new Error("لم يتم العثور على عمود اسم المتدرب"));
+                    if (idRowIndex === -1 || idColIndex === -1) return reject(new Error("لم يتم العثور على عمود رقم المتدرب في ملف المصفوفة"));
+                    if (nameColIndex === -1) return reject(new Error("لم يتم العثور على عمود اسم المتدرب في ملف المصفوفة"));
 
                     let courseHeaderRow = -1, courseStartCol = -1;
                     for (let r = 0; r < jsonArray.length; r++) {
@@ -645,7 +645,7 @@
                         if (courseHeaderRow !== -1) break;
                     }
 
-                    if (courseHeaderRow === -1) return reject(new Error("لم يتم العثور على صف رموز المقررات"));
+                    if (courseHeaderRow === -1) return reject(new Error("لم يتم العثور على صف رموز المقررات في ملف المصفوفة"));
 
                     let courseHeaders = [];
                     courseHeaders[idColIndex] = idHeader;
