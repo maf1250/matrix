@@ -1015,9 +1015,9 @@ crnToType[crn] = type;
                     }
                 }
                 
-                // تحديد ما إذا كان خريجاً (باقي له 15 أو أقل)
+                // تحديد ما إذا كان خريجاً 
                 let remCoursesCount = parseFloat(tRow['متبقية']);
-                let isGraduating = (!isNaN(remCoursesCount) && remCoursesCount <= 15 && remCoursesCount > 0);
+                let isGraduating = (!isNaN(remCoursesCount) && remCoursesCount <= 17 && remCoursesCount > 0);
 
                 return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, passedCourses: passed, mrvScore: rarityScore, isGrad: isGraduating };
             });
