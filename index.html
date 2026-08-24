@@ -876,9 +876,9 @@ traineesRaw.forEach(row => {
             if (isFemaleCampus) {
                 C_TRAINEE_NAME = C_TRAINEE_NAME.replace("المتدرب", "المتدربة");
                 C_TRAINEE_ID = C_TRAINEE_ID.replace("المتدرب", "المتدربة");
-                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدربة للوصول السريع...";
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم أو اسم المتدربة للوصول السريع...";
             } else {
-                document.getElementById('global-search').placeholder = "🔍 ابحث برقم المتدرب للوصول السريع...";
+                document.getElementById('global-search').placeholder = "🔍 ابحث برقم أو اسم المتدرب للوصول السريع...";
             }
 
             if (ss01Raw.length > 0) {
@@ -1786,7 +1786,10 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
         if (searchTerm !== "") {
             const dropdown = document.getElementById('trainee-dropdown');
-            let matchedId = Object.keys(globalTraineesSchedules).find(id => id.includes(searchTerm));
+            let matchedId = Object.keys(globalTraineesSchedules).find(id => 
+                id.includes(searchTerm) || 
+                (globalTraineesSchedules[id].name && globalTraineesSchedules[id].name.includes(searchTerm))
+            );
             
             if (matchedId && dropdown.value !== matchedId) {
                 dropdown.value = matchedId;
