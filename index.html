@@ -1019,7 +1019,7 @@ crnToType[crn] = type;
                 let remCoursesCount = parseFloat(tRow[C_REM_COURSES]);
                 let isGraduating = (!isNaN(remCoursesCount) && remCoursesCount <= 17 && remCoursesCount > 0);
 
-                return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, passedCourses: passed, mrvScore: rarityScore, isGrad: isGraduating };
+                return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, passedCourses: passed, mrvScore: rarityScore, isGrad: isGraduating, remCount: tRow[C_REM_COURSES] };
             });
 
             // فرز المتدربين (الخريج له الأولوية القصوى المطلقة)
@@ -1032,7 +1032,7 @@ crnToType[crn] = type;
                 return scoreB - scoreA; 
             });
 
-            let mainSheetData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [];
+            let mainSheetData = [], graduatingTraineesData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             for (let i = 0; i < structuredTrainees.length; i++) {
@@ -1275,7 +1275,8 @@ crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-h
                     unassigned: traineeUnassignedList,
                     originalPreRegistered: sf01Raw[traineeId] || [], 
                     passedCourses: trainee.passedCourses,
-                    isGrad: trainee.isGrad // حفظ حالة الخريج
+                    isGrad: trainee.isGrad, // حفظ حالة الخريج
+                    remCount: trainee.remCount               
                 };
 
                 if (missingCount > 0) unassignedCodesData.push(unassignedRow);
@@ -1287,6 +1288,11 @@ crnsListHTML.push(`<span class="crn-item ${cssClass} ${!hasConflict ? 'add-btn-h
                 let mainRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId };
                 studentCrnsNew.forEach((crn, idx) => mainRow[`الرقم المرجعي ${idx + 1}`] = crn);
                 mainSheetData.push(mainRow);
+                if (trainee.isGrad) {
+                    let gradRow = { [C_TRAINEE_NAME]: traineeName, [C_TRAINEE_ID]: traineeId, [C_REM_COURSES]: trainee.remCount };
+                    studentCrnsNew.forEach((crn, idx) => gradRow[`الرقم المرجعي ${idx + 1}`] = crn);
+                    graduatingTraineesData.push(gradRow);
+                }
 
                // --- حساب التقاطعات الزمنية ---
                 let dayTimings = {0:[], 1:[], 2:[], 3:[], 4:[]};
@@ -1369,6 +1375,7 @@ for (let crn in allSectionsRef) {
 
             globalSheetsData = [
                 { name: isFemaleCampus ? "جدول المتدربات" : "جدول المتدربين", data: mainSheetData },
+                { name: isFemaleCampus ? "الخريجات" : "الخريجون", data: graduatingTraineesData },
                 { name: "المقررات المعينة", data: assignedCodesData },
                 { name: "التقاطعات", data: intersectionsData },
                 { name: "مسجل مسبقا", data: preRegisteredData },
@@ -1477,7 +1484,7 @@ for (let crn in allSectionsRef) {
             
            if (sheet.data && sheet.data.length > 0) {
                 
-                if (index === 0) {
+                if (index === 0 || sheet.name === "الخريجون" || sheet.name === "الخريجات") {
                     let copyAllBtnContainer = document.createElement('div');
                     copyAllBtnContainer.style.marginBottom = '15px';
                     copyAllBtnContainer.style.display = 'flex';
@@ -1536,7 +1543,7 @@ for (let crn in allSectionsRef) {
                 sheet.data.forEach(row => {
                     let tr = document.createElement('tr');
                     
-                    if (index === 0 && Object.keys(row).length <= 2) {
+                    if ((index === 0 && Object.keys(row).length <= 2) || ((sheet.name === "الخريجون" || sheet.name === "الخريجات") && Object.keys(row).length <= 3)) {
                         tr.classList.add('unassigned-trainee-row');
                         }
 
@@ -2240,10 +2247,12 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         let tName = tData.name;
         let C_ID = document.getElementById('col_trainee_id').value.trim();
         let C_NAME = document.getElementById('col_trainee_name').value.trim();
+        let C_REM_COURSES = document.getElementById('col_rem_courses').value.trim();
 
         // تحديث صامت لجدول الإكسل الرئيسي في الخلفية
-        if (globalSheetsData[0] && globalSheetsData[0].data) {
-            let mainSheet = globalSheetsData[0].data;
+        let mainSheetObj = globalSheetsData.find(s => s.name === "جدول المتدربين" || s.name === "جدول المتدربات");
+        if (mainSheetObj && mainSheetObj.data) {
+            let mainSheet = mainSheetObj.data;
             let idx = mainSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
             if (idx > -1) {
                 let newRow = { [C_NAME]: tName, [C_ID]: traineeId };
@@ -2253,9 +2262,21 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
             }
         }
 
+        let gradSheetObj = globalSheetsData.find(s => s.name === "الخريجون" || s.name === "الخريجات");
+        if (gradSheetObj && gradSheetObj.data && tData.isGrad) {
+            let gradSheet = gradSheetObj.data;
+            let idx = gradSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
+            if (idx > -1) {
+                let newRow = { [C_NAME]: tName, [C_ID]: traineeId, [C_REM_COURSES]: tData.remCount };
+                let newCrns = tData.schedule.filter(s => !s.isPreRegistered).map(s => s.crn);
+                newCrns.forEach((crn, i) => newRow[`الرقم المرجعي ${i + 1}`] = crn);
+                gradSheet[idx] = newRow;
+            }
+        }
         // تحديث صامت لجدول المقررات المتبقية في الخلفية
-        if (globalSheetsData[4] && globalSheetsData[4].data) {
-            let unassSheet = globalSheetsData[4].data;
+        let unassSheetObj = globalSheetsData.find(s => s.name === "المقررات المتبقية");
+        if (unassSheetObj && unassSheetObj.data) {
+            let unassSheet = unassSheetObj.data;
             let idx = unassSheet.findIndex(r => String(r[C_ID]) === String(traineeId));
             
             let unassignedRow = { [C_NAME]: tName, [C_ID]: traineeId };
