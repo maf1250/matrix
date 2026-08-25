@@ -664,7 +664,7 @@
                         let rowObj = {};
                         rowObj[idHeader] = traineeId;
                         rowObj[nameHeader] = String(jsonArray[r][nameColIndex]).trim();
-                        rowObj['متبقية'] = remColIndex !== -1 ? String(jsonArray[r][remColIndex]).trim() : "99"; // حفظ القيمة
+                        rowObj[remCoursesHeader] = remColIndex !== -1 ? String(jsonArray[r][remColIndex]).trim() : "99";
                         let hasRequests = false;
 
                         for (let c = courseStartCol; c < courseHeaders.length; c++) {
@@ -1016,7 +1016,7 @@ crnToType[crn] = type;
                 }
                 
                 // تحديد ما إذا كان خريجاً 
-                let remCoursesCount = parseFloat(tRow['متبقية']);
+                let remCoursesCount = parseFloat(tRow[C_REM_COURSES]);
                 let isGraduating = (!isNaN(remCoursesCount) && remCoursesCount <= 17 && remCoursesCount > 0);
 
                 return { id: tRow[C_TRAINEE_ID], name: tRow[C_TRAINEE_NAME] || "", requiredCourses: req, passedCourses: passed, mrvScore: rarityScore, isGrad: isGraduating };
