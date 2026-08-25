@@ -1485,6 +1485,7 @@ for (let crn in allSectionsRef) {
            if (sheet.data && sheet.data.length > 0) {
                 
                 if (index === 0 || sheet.name === "الخريجون" || sheet.name === "الخريجات") {
+                    let checkboxId = 'hide-unassigned-checkbox-' + index;
                     let copyAllBtnContainer = document.createElement('div');
                     copyAllBtnContainer.style.marginBottom = '15px';
                     copyAllBtnContainer.style.display = 'flex';
@@ -1496,8 +1497,8 @@ for (let crn in allSectionsRef) {
                             📋 نسخ بيانات الجميع لرايات أوتو
                         </button>
                         <div style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px 15px; border-radius: 6px; display: inline-flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13.5px;">
-                            <input type="checkbox" id="hide-unassigned-checkbox" onchange="toggleUnassignedTrainees()" style="width: 16px; height: 16px; cursor: pointer; margin: 0;">
-                            <label for="hide-unassigned-checkbox" style="cursor: pointer; margin: 0;">
+                            <input type="checkbox" id="${checkboxId}" onchange="toggleUnassignedTrainees()" style="width: 16px; height: 16px; cursor: pointer; margin: 0;">
+                            <label for="${checkboxId}" style="cursor: pointer; margin: 0;">
                                 ${isFemaleCampus ? 'إخفاء بيانات المتدربات اللاتي ليس لديهن إسناد' : 'إخفاء بيانات المتدربين الذين ليس لديهم إسناد'}
                             </label>
                         </div>
@@ -1883,11 +1884,13 @@ ${item.suggestedCrnsHTML ? `<div class="u-crns"><div style="width:100%; margin-b
 
     function handleGlobalSearch() {
         const searchTerm = document.getElementById('global-search').value.trim();
-        const checkbox = document.getElementById('hide-unassigned-checkbox');
-        const hideUnassigned = checkbox ? checkbox.checked : false;
-        
-        const allTables = document.querySelectorAll('.report-table');
-        allTables.forEach(table => {
+        const allTabs = document.querySelectorAll('.tab-content');
+        allTabs.forEach(tab => {
+            const table = tab.querySelector('.report-table');
+            if (!table) return;
+
+            const checkbox = tab.querySelector('input[type="checkbox"][id^="hide-unassigned"]');
+            const hideUnassigned = checkbox ? checkbox.checked : false;
             const rows = table.querySelectorAll('tbody tr');
             rows.forEach(row => {
                 let matchesSearch = row.innerText.includes(searchTerm);
