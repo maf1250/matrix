@@ -1653,27 +1653,42 @@ for (let crn in allSectionsRef) {
 
     window.ignoredRemoteCourses = new Set();
     
+    window.ignoredRemoteCourses = new Set();
+    
     window.checkAndShowRemoteCourses = function() {
         const id1 = document.getElementById('match-id-1').value.trim();
         const id2 = document.getElementById('match-id-2').value.trim();
         const container = document.getElementById('remote-courses-container');
 
         if (id1 && id2 && globalTraineesSchedules[id1] && globalTraineesSchedules[id2]) {
-            let courses = new Set();
-            globalTraineesSchedules[id1].schedule.forEach(s => courses.add(s.code));
-            globalTraineesSchedules[id2].schedule.forEach(s => courses.add(s.code));
+            let courses = new Map(); // استخدام خريطة لتخزين المقرر مع شقوقه
+            
+            const addCourseTypes = (schedule) => {
+                schedule.forEach(s => {
+                    if (!courses.has(s.code)) courses.set(s.code, new Set());
+                    courses.get(s.code).add(s.baseType); // تخزين نوع الشق (نظري أو عملي)
+                });
+            };
+            
+            addCourseTypes(globalTraineesSchedules[id1].schedule);
+            addCourseTypes(globalTraineesSchedules[id2].schedule);
 
             if (courses.size === 0) {
                 container.style.display = 'none';
                 return;
             }
 
-            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">حدد المقررات التي تُدرس "عن بُعد" (سيتم إخفاؤها من حسابات أوقات الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
-            courses.forEach(code => {
-                let isChecked = window.ignoredRemoteCourses.has(code) ? 'checked' : '';
-                html += `<label style="background:#fff; padding:5px 10px; border-radius:4px; border:1px solid #cbe6e3; cursor:pointer; font-size:13px; font-weight:bold; color:#333; display:flex; align-items:center; gap:5px;">
-                            <input type="checkbox" value="${code}" class="remote-course-checkbox" onchange="updateRemoteCourses()" ${isChecked}> ${code}
-                         </label>`;
+            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">حدد المقررات التي تُدرب "عن بُعد" (سيتم استثناؤها من حساب الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
+            
+            courses.forEach((types, code) => {
+                types.forEach(type => {
+                    let uniqueKey = code + "|" + type; // مفتاح فريد يجمع الرمز والنوع
+                    let isChecked = window.ignoredRemoteCourses.has(uniqueKey) ? 'checked' : '';
+                    let emoji = type === 'عملي' ? '🛠️' : '📘';
+                    html += `<label style="background:#fff; padding:5px 10px; border-radius:4px; border:1px solid #cbe6e3; cursor:pointer; font-size:13px; font-weight:bold; color:#333; display:flex; align-items:center; gap:5px;">
+                                <input type="checkbox" value="${uniqueKey}" class="remote-course-checkbox" onchange="updateRemoteCourses()" ${isChecked}> ${code} (${emoji} ${type})
+                             </label>`;
+                });
             });
             html += '</div>';
             container.innerHTML = html;
@@ -1688,7 +1703,7 @@ for (let crn in allSectionsRef) {
         document.querySelectorAll('.remote-course-checkbox:checked').forEach(cb => {
             window.ignoredRemoteCourses.add(cb.value);
         });
-    };
+    };    
 
     function renderSingleTraineeSchedule() {
         const dropdown = document.getElementById('trainee-dropdown');
@@ -2933,10 +2948,13 @@ window.updateCrnDropdown = function() {
             return;
         }
 
-        // دالة مساعدة لتجهيز المحاضرات لكل يوم
+        // دالة مساعدة لتجهيز المحاضرات لكل يوم (مع استثناء عن بعد)
         function getDailyClasses(schedule) {
             let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
             schedule.forEach(sec => {
+                // استثناء الشق المحدد كعن بعد
+                if (window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType)) return;
+
                 sec.schedules.forEach(sched => {
                     sched.days.forEach(dayIndex => {
                         if (dayIndex <= 4) {
@@ -3114,9 +3132,9 @@ window.updateCrnDropdown = function() {
         resultsContainer.innerHTML = html;
     };
 
-   window.suggestOptimizedSchedule = function(id1, id2) {
+  window.suggestOptimizedSchedule = function(id1, id2) {
         const container = document.getElementById('suggestion-results-container');
-        container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;">جارِ البحث عن أفضل توافق في جميع الاحتمالات المتاحة... ⏳</div>';
+        container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;">جارِ البحث المكثف عن أفضل توافق زمني متاح... ⏳</div>';
 
         setTimeout(() => {
             const t1 = globalTraineesSchedules[id1];
@@ -3125,12 +3143,11 @@ window.updateCrnDropdown = function() {
             let currentS1 = JSON.parse(JSON.stringify(t1.schedule));
             let currentS2 = JSON.parse(JSON.stringify(t2.schedule));
 
-            // حساب الإحصائيات مع تجاهل مقررات (عن بُعد) المحددة
             function getDailyStats(schedule) {
                 let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
-                    // استثناء مقررات عن بعد من تقييم وقت الدخول والخروج
-                    if (window.ignoredRemoteCourses.has(sec.code)) return; 
+                    // استثناء الشق المحدد كـ عن بعد
+                    if (window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType)) return; 
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(dayIndex => {
                             if (dayIndex <= 4) daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
@@ -3157,12 +3174,11 @@ window.updateCrnDropdown = function() {
                 return { stats, totalGaps };
             }
 
-            // دالة التقييم الجديدة (قيد 15 دقيقة صارم)
+            // الخوارزمية الجديدة (التربيعية) التي توجه الذكاء الاصطناعي للحل بدقة
             function evaluateWaitTime(s1, s2) {
                 let info1 = getDailyStats(s1);
                 let info2 = getDailyStats(s2);
-                let waitCost = 0;
-                let penalty = 0; // عقوبات النظام للخيارات المرفوضة
+                let score = 0;
                 
                 for (let i = 0; i <= 4; i++) {
                     let d1 = info1.stats[i], d2 = info2.stats[i];
@@ -3170,16 +3186,19 @@ window.updateCrnDropdown = function() {
                         let arriveDiff = Math.abs(d1.start - d2.start); 
                         let leaveDiff = Math.abs(d1.end - d2.end);     
                         
-                        // تطبيق عقوبة ضخمة جداً في حال كان الفارق يزيد عن 15 دقيقة
-                        if (arriveDiff > 15) penalty += (arriveDiff * 10000);
-                        if (leaveDiff > 15) penalty += (leaveDiff * 10000);
+                        // التربيـع: يجعل الفروق الكبيرة مكلفة جداً، والفروق الصغيرة أقل تكلفة
+                        // مما يرشد الخوارزمية تدريجياً للنزول للصفر
+                        score += Math.pow(arriveDiff, 2) + Math.pow(leaveDiff, 2);
 
-                        waitCost += arriveDiff + leaveDiff;
+                        // جدار حماية صارم: إذا تجاوز 15 دقيقة يعطيه عقوبة تعجيزية إضافية
+                        if (arriveDiff > 15) score += 50000;
+                        if (leaveDiff > 15) score += 50000;
+
                     } else if (d1 || d2) {
-                        penalty += 500000; // عقوبة ضخمة في حال وجود متدرب يداوم بمفرده
+                        score += 500000; // عقوبة ضخمة جداً لدوام أحدهما بمفرده
                     }
                 }
-                return waitCost + penalty + (info1.totalGaps * 0.5) + (info2.totalGaps * 0.5);
+                return score + (info1.totalGaps * 5) + (info2.totalGaps * 5); // أوقات الفراغ الداخلية أولوية ثانوية
             }
 
             function getValidAlternatives(secToReplace, scheduleWithoutTarget, originalPreReg) {
@@ -3197,23 +3216,32 @@ window.updateCrnDropdown = function() {
                     if (!window.checkSF33LinkValidity(candidate, scheduleWithoutTarget)) continue;
 
                     let candCopy = JSON.parse(JSON.stringify(candidate));
-                    // تصنيفها كمسجلة مسبقاً للواجهة فقط
                     candCopy.isPreRegistered = (originalPreReg && originalPreReg.includes(String(candidate.crn)));
                     alts.push(candCopy);
                 }
                 return alts;
             }
 
+            // دالة عشوائية لخلط المصفوفة (لمنع الذكاء الاصطناعي من العلوق في نقطة معينة)
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
             let bestScore = evaluateWaitTime(currentS1, currentS2);
             let improved = true;
-            let iterations = 0;
+            let passes = 0;
 
-            // خوارزمية الاستبدال الشاملة (تشمل تغيير المسجل مسبقاً بحرية)
-            while (improved && iterations < 150) { 
+            // السماح بعدد ضخم من المحاولات مع خلط ترتيب المواد في كل مرة
+            while (improved || passes < 25) { 
                 improved = false;
-                iterations++;
+                passes++;
 
-                for (let i = 0; i < currentS1.length; i++) {
+                let indices1 = shuffleArray(currentS1.map((_, i) => i));
+                for (let i of indices1) {
                     let secToSwap = currentS1[i];
                     let schedWithout = currentS1.filter((s, idx) => idx !== i);
                     let alternatives = getValidAlternatives(secToSwap, schedWithout, t1.originalPreRegistered);
@@ -3229,7 +3257,8 @@ window.updateCrnDropdown = function() {
                     }
                 }
 
-                for (let i = 0; i < currentS2.length; i++) {
+                let indices2 = shuffleArray(currentS2.map((_, i) => i));
+                for (let i of indices2) {
                     let secToSwap = currentS2[i];
                     let schedWithout = currentS2.filter((s, idx) => idx !== i);
                     let alternatives = getValidAlternatives(secToSwap, schedWithout, t2.originalPreRegistered);
@@ -3246,18 +3275,20 @@ window.updateCrnDropdown = function() {
                 }
             }
 
+            // --- بناء العرض المرئي للجدول المقترح ---
             const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             const PX_PER_MIN = 2.2;
 
             function extractVisualClasses(schedule) {
                 let daily = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
-                    let isRemote = window.ignoredRemoteCourses.has(sec.code);
+                    let isRemote = window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType);
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(day => {
                             if (day <= 4) daily[day].push({ 
                                 code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, 
-                                textTime: sched.timeData.originalText, isPre: sec.isPreRegistered, isRemote: isRemote 
+                                textTime: sched.timeData.originalText, isPre: sec.isPreRegistered, isRemote: isRemote,
+                                baseType: sec.baseType
                             });
                         });
                     });
@@ -3301,11 +3332,12 @@ window.updateCrnDropdown = function() {
                     
                     let preTag = cls.isPre ? '📌 ' : '';
                     let remoteTag = cls.isRemote ? ' 💻' : '';
+                    let typeTag = cls.baseType === 'عملي' ? '🛠️' : '📘';
                     let borderStyle = cls.isRemote ? `border: 2px dashed ${colorHex};` : `border-right:4px solid ${colorHex};`;
 
                     rowHtml += `<div class="course-card" style="background:${bgColor}; ${borderStyle} width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
                                     <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${preTag}${cls.code}${remoteTag}</strong>
-                                    <span style="font-size:11px; color:#555;"><b style="color:${colorHex}">${cls.crn}</b> | <span dir="ltr">${cls.textTime}</span></span>
+                                    <span style="font-size:10px; color:#555; white-space:nowrap;"><b style="color:${colorHex}">${cls.crn}</b> | ${typeTag} | <span dir="ltr">${cls.textTime}</span></span>
                                 </div>`;
                 });
                 return rowHtml + `</div>`;
@@ -3319,8 +3351,8 @@ window.updateCrnDropdown = function() {
 
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
-                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح (فارق الانتظار لا يتجاوز 15 دقيقة)</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">بناءً على الشعب المتاحة، تم اقتراح هذا الترتيب الزمني لتوحيد مواعيد المواصلات عبر البحث في جميع المقررات. قد يحذف النظام المسجل مسبقاً ويضيف شعبة جديدة لنفس المقرر لتحقيق التطابق التام، مقررات (💻) هي عن بعد وتم استثناؤها.</div>
+                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح</h4>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار إلى أقل من 15 دقيقة. إذا استمر ظهور الفارق كبيراً، فهذا يعني أنه <b>يستحيل رياضياً</b> إيجاد شُعب متاحة تطابق هذا الوقت للمتدربين.</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
@@ -3358,7 +3390,7 @@ window.updateCrnDropdown = function() {
                 } else if (hasPhysical1 || hasPhysical2) {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">يذهب بمفرده اليوم</div>`;
                 } else {
-                    summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">دراسة عن بُعد اليوم 💻</div>`;
+                    summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">تدريب عن بُعد اليوم 💻</div>`;
                 }
 
                 html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
@@ -3385,8 +3417,8 @@ window.updateCrnDropdown = function() {
             }
 
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
-                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المناسب:</h4>
-                        <div style="font-size:13px; color:#555; margin-bottom:15px;">لابد من حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على توافق مثالي.</div>
+                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المثالي:</h4>
+                        <div style="font-size:13px; color:#555; margin-bottom:15px;">احذف الشُعب التي لا تطابق هذه الأرقام من جدولك، وسجل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق.</div>
                         <div style="display:flex; gap:20px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
@@ -3401,7 +3433,9 @@ window.updateCrnDropdown = function() {
 
             container.innerHTML = html;
         }, 100); 
-    };</script>
+    };
+
+</script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="18 15 12 9 6 15"></polyline>
