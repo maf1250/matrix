@@ -1498,6 +1498,34 @@ for (let crn in allSectionsRef) {
         singleTabContent.innerHTML = selectHTML + '<div id="visual-schedule-container"></div>';
         contentsContainer.appendChild(singleTabContent);
 
+        let matchTabBtn = document.createElement('button');
+        matchTabBtn.className = 'tab-btn';
+        matchTabBtn.innerHTML = '🚗 التوافق الزمني (المواصلات)';
+        matchTabBtn.onclick = () => switchTab('tab-schedule-match', matchTabBtn);
+        tabsContainer.appendChild(matchTabBtn);
+
+        let matchTabContent = document.createElement('div');
+        matchTabContent.id = 'tab-schedule-match';
+        matchTabContent.className = 'tab-content';
+        matchTabContent.innerHTML = `
+            <div style="background: #fafdfa; padding: 25px; border-radius: 8px; border: 1px solid #cbe6e3; text-align: center; max-width: 900px; margin: 0 auto;">
+                <h3 style="color: #008e7e; margin-top:0;">مقارنة أوقات الحضور والانصراف للمواصلات المشتركة</h3>
+                <p style="font-size: 14px; color: #555; margin-bottom: 20px;">أدخل الأرقام لفحص تطابق أوقات أول محاضرة وآخر محاضرة لديهما خلال أيام الأسبوع.</p>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div>
+                        <label style="display:block; font-weight:bold; color:#006d60; margin-bottom:5px;">رقم ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'}:</label>
+                        <input type="text" id="match-id-1" placeholder="مثال: 441234567" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-weight:bold; color:#006d60; margin-bottom:5px;">رقم ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'}:</label>
+                        <input type="text" id="match-id-2" placeholder="مثال: 441234568" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
+                    </div>
+                </div>
+                <button class="btn-process" style="width: auto; padding: 10px 40px; margin: 0 auto;" onclick="compareTraineeSchedules()">فحص المطابقة الزمنية 🔄</button>
+                <div id="match-results-container" style="margin-top: 30px; text-align: right;"></div>
+            </div>
+        `;
+        contentsContainer.appendChild(matchTabContent);
         globalSheetsData.forEach((sheet, index) => {
             let tabId = `tab-sheet-${index}`;
             let btn = document.createElement('button');
@@ -2828,6 +2856,121 @@ window.updateCrnDropdown = function() {
     window.ignoreDuplicatesAndCopy = function() {
         closeDuplicateModal();
         executeCopyAll(); // استدعاء النسخ الفعلي
+    };
+    // دالة مقارنة أوقات الدخول والخروج لمتدربين (لغرض المواصلات)
+    window.compareTraineeSchedules = function() {
+        const id1 = document.getElementById('match-id-1').value.trim();
+        const id2 = document.getElementById('match-id-2').value.trim();
+        const resultsContainer = document.getElementById('match-results-container');
+
+        if (!id1 || !id2) {
+            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال رقمي المتدربين للمقارنة.</div>';
+            return;
+        }
+        if (!globalTraineesSchedules[id1]) {
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على المتدرب الأول (${id1}) في السجلات.</div>`;
+            return;
+        }
+        if (!globalTraineesSchedules[id2]) {
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على المتدرب الثاني (${id2}) في السجلات.</div>`;
+            return;
+        }
+
+        const t1 = globalTraineesSchedules[id1];
+        const t2 = globalTraineesSchedules[id2];
+
+        // دالة مساعدة لاستخراج وقت البداية والنهاية لكل يوم
+        function getDailyExtremes(schedule) {
+            let extremes = { 0: null, 1: null, 2: null, 3: null, 4: null };
+            schedule.forEach(sec => {
+                sec.schedules.forEach(sched => {
+                    sched.days.forEach(day => {
+                        if (day <= 4) {
+                            if (!extremes[day]) {
+                                extremes[day] = { start: sched.timeData.start, end: sched.timeData.end };
+                            } else {
+                                if (sched.timeData.start < extremes[day].start) extremes[day].start = sched.timeData.start;
+                                if (sched.timeData.end > extremes[day].end) extremes[day].end = sched.timeData.end;
+                            }
+                        }
+                    });
+                });
+            });
+            return extremes;
+        }
+
+        const ext1 = getDailyExtremes(t1.schedule);
+        const ext2 = getDailyExtremes(t2.schedule);
+        const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+        
+        let html = `<h4 style="color:#008e7e; border-bottom: 2px dashed #b2d8d3; padding-bottom:10px;">نتيجة المطابقة بين: (${t1.name}) و (${t2.name})</h4>`;
+        html += `<table class="data-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>اليوم</th>
+                            <th>دوام ${t1.name.split(' ')[0]}</th>
+                            <th>دوام ${t2.name.split(' ')[0]}</th>
+                            <th>حالة التوافق</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        let totalDays = 0;
+        let matchedDays = 0;
+
+        for (let i = 0; i <= 4; i++) {
+            let d1 = ext1[i];
+            let d2 = ext2[i];
+
+            if (!d1 && !d2) continue; // كلاهما لا يوجد لديه دوام (أوف)
+
+            totalDays++;
+            let time1Text = d1 ? `من ${formatTime(d1.start)} إلى ${formatTime(d1.end)}` : '<span style="color:#6c757d; font-weight:bold;">لا يوجد دوام (Off)</span>';
+            let time2Text = d2 ? `من ${formatTime(d2.start)} إلى ${formatTime(d2.end)}` : '<span style="color:#6c757d; font-weight:bold;">لا يوجد دوام (Off)</span>';
+
+            let statusHTML = "";
+            
+            if (!d1 || !d2) {
+                // أحدهما يداوم والآخر لا
+                statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ غير متوافق (أحدهما إجازة)</span>';
+            } else if (d1.start === d2.start && d1.end === d2.end) {
+                // تطابق تام
+                statusHTML = '<span style="color:#155724; font-weight:bold;">✅ تطابق تام</span>';
+                matchedDays++;
+            } else {
+                // دوام مختلف
+                let diffStart = Math.abs(d1.start - d2.start);
+                let diffEnd = Math.abs(d1.end - d2.end);
+                
+                if (diffStart <= 60 && diffEnd <= 60) {
+                    statusHTML = `<span style="color:#856404; font-weight:bold;">⚠️ تقارب زمني (فارق ${Math.max(diffStart, diffEnd)} دقيقة كحد أقصى)</span>`;
+                } else {
+                    statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ تعارض في الأوقات</span>';
+                }
+            }
+
+            html += `<tr>
+                        <td style="font-weight:bold; background:#f9f9f9;">${daysArray[i]}</td>
+                        <td dir="ltr" style="text-align:right;">${time1Text}</td>
+                        <td dir="ltr" style="text-align:right;">${time2Text}</td>
+                        <td>${statusHTML}</td>
+                     </tr>`;
+        }
+
+        html += `</tbody></table>`;
+        
+        if (totalDays === 0) {
+            html += `<div style="margin-top:15px; padding:15px; background:#fff3cd; color:#856404; border-radius:6px; text-align:center; font-weight:bold;">كلا المتدربين ليس لديهما أي جداول مسندة حالياً!</div>`;
+        } else {
+            let percentage = Math.round((matchedDays / totalDays) * 100);
+            let summaryColor = percentage === 100 ? '#155724' : (percentage >= 50 ? '#856404' : '#721c24');
+            let summaryBg = percentage === 100 ? '#d4edda' : (percentage >= 50 ? '#fff3cd' : '#f8d7da');
+            html += `<div style="margin-top:15px; padding:15px; background:${summaryBg}; color:${summaryColor}; border-radius:6px; text-align:center; font-size:16px; font-weight:bold; border: 1px solid currentColor;">
+                        نسبة التطابق التام: ${percentage}% (${matchedDays} أيام من أصل ${totalDays} أيام دوام)
+                     </div>`;
+        }
+
+        resultsContainer.innerHTML = html;
     };
     
 </script>
