@@ -2997,13 +2997,11 @@ window.applySuggestedSchedule = function(id1, id2) {
     }, 300);
 };
 
-// --- 2. دالة المقارنة الزمنية (مع دعم التأنيث وإظهار الجدول الفعلي) ---
 window.compareTraineeSchedules = function() {
     const id1 = document.getElementById('match-id-1').value.trim();
     const id2 = document.getElementById('match-id-2').value.trim();
     const resultsContainer = document.getElementById('match-results-container');
 
-    // مسميات متغيرة حسب نوع الكلية
     const p1Label = isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول';
     const p2Label = isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني';
 
@@ -3020,7 +3018,6 @@ window.compareTraineeSchedules = function() {
         return;
     }
 
-    // نأخذ الجدول الحالي بالكامل (سواءً كان مسجلاً مسبقاً أو مسنداً جديداً)
     const sched1 = t1.schedule;
     const sched2 = t2.schedule;
 
@@ -3095,8 +3092,9 @@ window.compareTraineeSchedules = function() {
             if (gapMins > 0) {
                 rowHtml += `<div style="width:${gapMins * PX_PER_MIN}px; min-width:${gapMins * PX_PER_MIN}px;"></div>`;
             }
+            // تم تحديث السطر التالي لإظهار الرقم المرجعي بجانب رمز المقرر
             rowHtml += `<div style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; padding:5px 10px; display:flex; flex-direction:column; justify-content:center; border:1px solid #eee;">
-                            <strong style="color:${colorHex}; font-size:11px; overflow:hidden;">${cls.code}</strong>
+                            <strong style="color:${colorHex}; font-size:11px; overflow:hidden; white-space:nowrap;">${cls.code} <span style="font-size:9px; background:#fff; padding:0 2px; border-radius:2px; border:1px solid ${colorHex}">[${cls.crn}]</span></strong>
                             <span dir="ltr" style="font-size:10px;">${cls.textTime}</span>
                         </div>`;
         });
@@ -3127,7 +3125,8 @@ window.compareTraineeSchedules = function() {
             summaryHtml = `<div style="font-size:12px; color:#666; text-align:center;">لا يوجد توافق اليوم</div>`;
         }
 
-        html += `<div class="day-row" style="margin-bottom: 10px; display:flex; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+        // تم إضافة min-width: max-content هنا للسكرول الأفقي
+        html += `<div class="day-row" style="margin-bottom: 10px; display:flex; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden; min-width: max-content;">
                     <div class="day-label" style="width: 70px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold;">${daysArray[i]}</div>
                     <div style="flex-grow: 1; display:flex; flex-direction:column;">
                         <div style="display:flex; border-bottom:1px dashed #eee;">
@@ -3143,11 +3142,12 @@ window.compareTraineeSchedules = function() {
                 </div>`;
     }
 
+    // تم إضافة display: flex و align-items: center للتوسيط
     html += `</div>
-             <div style="margin-top: 20px; border-top: 2px dashed #ccc; padding-top: 20px; text-align:center;">
+             <div style="margin-top: 20px; border-top: 2px dashed #ccc; padding-top: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align:center;">
                 <button class="btn-process" style="width: auto; padding: 10px 30px; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ اقتراح أفضل جدول متوافق</button>
              </div>
-             <div id="suggestion-results-container"></div>`;
+             <div id="suggestion-results-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;"></div>`;
 
     resultsContainer.innerHTML = html;
 };
@@ -3281,10 +3281,7 @@ window.compareTraineeSchedules = function() {
 window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول المقترحة
 
     window.suggestOptimizedSchedule = function(id1, id2, mode = 1) {
-        // mode 1: صارم (15 دقيقة)
-        // mode 2: معتدل (60 دقيقة)
-        // mode 3: مرن (أي فارق)
-        
+
         const container = document.getElementById('suggestion-results-container');
         
         let loadingMsg = '';
@@ -3601,7 +3598,7 @@ window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول الم
                                         </div>`;
                 }
 
-                html += `<div class="day-row" style="margin-bottom: 15px; display:flex; flex-direction:column; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                html += `<div class="day-row" style="margin-bottom: 15px; display:flex; flex-direction:column; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden; min-width: max-content;">
                             <div style="display:flex; align-items:stretch; width:100%;">
                                 <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">${daysArray[i]}</div>
                                 <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
@@ -3621,29 +3618,93 @@ window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول الم
             }
             html += `</div>`;
 
-            function getFinalCrnsList(optimizedSchedule) {
+            // --- الجزء المحدث لإضافة أزرار النسخ في النتائج المقترحة ---
+            
+            // دالة داخلية مساعدة لتجهيز النص المطلوب نسخه
+            window.prepareRayatTextForSuggested = function(traineeId) {
+                const traineeData = globalTraineesSchedules[traineeId];
+                const suggestedSched = window.tempSuggestedSchedules[traineeId];
+                
+                if (!suggestedSched) return "";
+
+                let crnsToCopy = [];
+                let newCrnSet = new Set(suggestedSched.map(s => String(s.crn)));
+
+                // 1. الأرقام الجديدة (التي لم تكن موجودة مسبقاً)
+                suggestedSched.forEach(sec => {
+                    if (!sec.isPreRegistered) {
+                        crnsToCopy.push(sec.crn);
+                    }
+                });
+
+                // 2. الأرقام التي كانت مسجلة ويجب حذفها (الموجودة في القديم وليست في المقترح)
+                if (traineeData.originalPreRegistered) {
+                    traineeData.originalPreRegistered.forEach(oldCrn => {
+                        if (!newCrnSet.has(String(oldCrn))) {
+                            crnsToCopy.push("-" + oldCrn);
+                        }
+                    });
+                }
+
+                if (crnsToCopy.length === 0) return "";
+                return traineeId + '\t' + crnsToCopy.join('\t');
+            };
+
+            // دالة تنفيذ النسخ للمتدرب الواحد
+            window.copySingleSuggested = function(traineeId) {
+                const text = window.prepareRayatTextForSuggested(traineeId);
+                if (!text) {
+                    showToast('لا توجد تغييرات لنسخها');
+                    return;
+                }
+                navigator.clipboard.writeText(text).then(() => showToast('✅ تم نسخ البيانات بنجاح'));
+            };
+
+            // دالة تنفيذ النسخ للاثنين معاً
+            window.copyBothSuggested = function(id1, id2) {
+                const text1 = window.prepareRayatTextForSuggested(id1);
+                const text2 = window.prepareRayatTextForSuggested(id2);
+                const finalLink = [text1, text2].filter(t => t !== "").join('\n');
+                
+                if (!finalLink) {
+                    showToast('لا توجد تغييرات لنسخها');
+                    return;
+                }
+                navigator.clipboard.writeText(finalLink).then(() => showToast('✅ تم نسخ بيانات الجميع بنجاح'));
+            };
+
+            function getFinalCrnsList(traineeId, optimizedSchedule) {
                 let allCrns = [...new Set(optimizedSchedule.map(s => s.crn))]; 
-                return `<div style="background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; margin-top:5px; font-weight:bold; word-spacing:12px; font-size:16px; color:#333;">${allCrns.join(' ')}</div>`;
+                return `
+                    <div style="background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; margin-top:5px; font-weight:bold; word-spacing:12px; font-size:16px; color:#333;">
+                        ${allCrns.join(' ')}
+                    </div>
+                    <button class="btn-copy-rayat" style="margin-top:10px; width:100%; justify-content:center;" onclick="window.copySingleSuggested('${traineeId}')">
+                        📋 نسخ البيانات لرايات أوتو
+                    </button>`;
             }
 
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
-                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول:</h4>
-                        <div style="font-size:13px; color:#555; margin-bottom:15px;">يتم حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                            <h4 style="color:#5c8a24; margin:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول:</h4>
+                            <button class="btn-copy-rayat" style="background-color:#008e7e;" onclick="window.copyBothSuggested('${id1}', '${id2}')">
+                                📋 نسخ بيانات الجميع لرايات أوتو
+                            </button>
+                        </div>
                         <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
-                                ${getFinalCrnsList(currentS1)}
+                                ${getFinalCrnsList(id1, currentS1)}
                             </div>
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#e65100;">أرقام ${t2.name.split(' ')[0]} (${t2.id})</strong>
-                                ${getFinalCrnsList(currentS2)}
+                                ${getFinalCrnsList(id2, currentS2)}
                             </div>
                         </div>
                         <div style="text-align: center; border-top: 1px dashed #ccc; padding-top: 15px;">
                             <button class="btn-process" style="width: auto; padding: 10px 30px; margin: 0 auto; background-color: #008e7e;" onclick="applySuggestedSchedule('${id1}', '${id2}')">
                                 ✅ اعتماد هذا الجدول وإعادة فحص (عن بُعد)
                             </button>
-                            <p style="font-size: 13px; color: #666; margin-top: 8px;">(سيسمح لك هذا الزر بحفظ الشعب الجديدة، لتتمكن من تحديد أوقاتها كـ "عن بعد" ليختفي الفارق الزمني تماماً)</p>
                         </div>
                      </div>`;
 
