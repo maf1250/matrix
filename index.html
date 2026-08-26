@@ -1661,34 +1661,48 @@ for (let crn in allSectionsRef) {
         const container = document.getElementById('remote-courses-container');
 
         if (id1 && id2 && globalTraineesSchedules[id1] && globalTraineesSchedules[id2]) {
-            let courses = new Map(); // استخدام خريطة لتخزين المقرر مع شقوقه
+            let uniqueMeetings = new Map(); 
             
-            const addCourseTypes = (schedule) => {
-                schedule.forEach(s => {
-                    if (!courses.has(s.code)) courses.set(s.code, new Set());
-                    courses.get(s.code).add(s.baseType); // تخزين نوع الشق (نظري أو عملي)
+            const addMeetings = (schedule) => {
+                schedule.forEach(sec => {
+                    sec.schedules.forEach(sched => {
+                        sched.days.forEach(day => {
+                            if (day <= 4) {
+                                // إنشاء مفتاح فريد يجمع بين (الرقم المرجعي + اليوم + وقت البداية)
+                                let key = `${sec.crn}|${day}|${sched.timeData.start}`;
+                                if (!uniqueMeetings.has(key)) {
+                                    uniqueMeetings.set(key, {
+                                        code: sec.code,
+                                        type: sec.baseType,
+                                        day: day,
+                                        timeText: sched.timeData.originalText,
+                                        crn: sec.crn
+                                    });
+                                }
+                            }
+                        });
+                    });
                 });
             };
             
-            addCourseTypes(globalTraineesSchedules[id1].schedule);
-            addCourseTypes(globalTraineesSchedules[id2].schedule);
+            addMeetings(globalTraineesSchedules[id1].schedule);
+            addMeetings(globalTraineesSchedules[id2].schedule);
 
-            if (courses.size === 0) {
+            if (uniqueMeetings.size === 0) {
                 container.style.display = 'none';
                 return;
             }
 
-            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">نأمل تحديد المقررات التي تُدرب "عن بُعد" (سيتم استثناؤها من حساب الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
+            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">نأمل تحديد اللقاءات (أيام محددة) التي تُدرب "عن بُعد" لاستثنائها من الدخول والخروج:</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
             
-            courses.forEach((types, code) => {
-                types.forEach(type => {
-                    let uniqueKey = code + "|" + type; // مفتاح فريد يجمع الرمز والنوع
-                    let isChecked = window.ignoredRemoteCourses.has(uniqueKey) ? 'checked' : '';
-                    let emoji = type === 'عملي' ? '🛠️' : '📘';
-                    html += `<label style="background:#fff; padding:5px 10px; border-radius:4px; border:1px solid #cbe6e3; cursor:pointer; font-size:13px; font-weight:bold; color:#333; display:flex; align-items:center; gap:5px;">
-                                <input type="checkbox" value="${uniqueKey}" class="remote-course-checkbox" onchange="updateRemoteCourses()" ${isChecked}> ${code} (${emoji} ${type})
-                             </label>`;
-                });
+            uniqueMeetings.forEach((data, key) => {
+                let isChecked = window.ignoredRemoteCourses.has(key) ? 'checked' : '';
+                let emoji = data.type === 'عملي' ? '🛠️' : '📘';
+                let dayName = reverseDaysMap[data.day];
+                html += `<label style="background:#fff; padding:8px 12px; border-radius:6px; border:1px solid #cbe6e3; cursor:pointer; font-size:13px; font-weight:bold; color:#333; display:flex; flex-direction:column; align-items:center; gap:5px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                            <div style="display:flex; align-items:center; gap:5px;"><input type="checkbox" value="${key}" class="remote-course-checkbox" onchange="updateRemoteCourses()" ${isChecked}> ${data.code} (${emoji})</div>
+                            <span style="font-size:11.5px; color:#008e7e; background:#eef7f6; padding:2px 6px; border-radius:4px;">يوم ${dayName} | ${data.timeText}</span>
+                         </label>`;
             });
             html += '</div>';
             container.innerHTML = html;
@@ -2948,16 +2962,16 @@ window.updateCrnDropdown = function() {
             return;
         }
 
-        // دالة مساعدة لتجهيز المحاضرات لكل يوم (مع استثناء عن بعد)
-        function getDailyClasses(schedule) {
+       function getDailyClasses(schedule) {
             let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
             schedule.forEach(sec => {
-                // استثناء الشق المحدد كعن بعد
-                if (window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType)) return;
-
                 sec.schedules.forEach(sched => {
                     sched.days.forEach(dayIndex => {
                         if (dayIndex <= 4) {
+                            // التحقق الدقيق باستخدام المفتاح الجديد (الرقم المرجعي + اليوم + وقت البداية)
+                            let meetingKey = `${sec.crn}|${dayIndex}|${sched.timeData.start}`;
+                            if (window.ignoredRemoteCourses.has(meetingKey)) return;
+
                             daysObj[dayIndex].push({
                                 code: sec.code, crn: sec.crn,
                                 start: sched.timeData.start, end: sched.timeData.end,
@@ -2967,7 +2981,6 @@ window.updateCrnDropdown = function() {
                     });
                 });
             });
-            // إزالة التكرار وترتيب الأوقات
             for (let i = 0; i <= 4; i++) {
                 let unique = [];
                 let seen = new Set();
@@ -3316,13 +3329,17 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             let pool1 = generateAllValidSchedules(options1);
             let pool2 = generateAllValidSchedules(options2);
 
-            function getDailyStats(schedule) {
+           function getDailyStats(schedule) {
                 let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
-                    if (window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType)) return; 
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(dayIndex => {
-                            if (dayIndex <= 4) daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
+                            if (dayIndex <= 4) {
+                                let meetingKey = `${sec.crn}|${dayIndex}|${sched.timeData.start}`;
+                                if (window.ignoredRemoteCourses.has(meetingKey)) return; 
+                                
+                                daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
+                            }
                         });
                     });
                 });
@@ -3340,6 +3357,27 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                     } else { stats[i] = null; }
                 }
                 return { stats, totalGaps };
+            }
+
+            function evaluateWaitTime(info1, info2) {
+                let score = 0;
+                for (let i = 0; i <= 4; i++) {
+                    let d1 = info1.stats[i], d2 = info2.stats[i];
+                    if (d1 && d2) {
+                        let arriveDiff = Math.abs(d1.start - d2.start); 
+                        let leaveDiff = Math.abs(d1.end - d2.end);     
+                        let totalWait = arriveDiff + leaveDiff;
+                        score += totalWait;
+                        
+                        // غرامة قاسية فقط إذا كان الانتظار بينهما يتجاوز 90 دقيقة (ليستبعد الجداول السيئة جداً)
+                        if (totalWait > 90) score += 10000;
+                    } else if (d1 || d2) {
+                        // تعديل جوهري: إذا كان أحدهما في إجازة، نعطيه نقاطاً قليلة (تعادل ساعتين انتظار) 
+                        // لكي يفضّل النظام إبقاءه في إجازة بدلاً من جدول سيء (غرامته 10000)
+                        score += 120; 
+                    }
+                }
+                return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
             }
 
             function evaluateWaitTime(info1, info2) {
@@ -3393,14 +3431,19 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             function extractVisualClasses(schedule) {
                 let daily = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
-                    let isRemote = window.ignoredRemoteCourses.has(sec.code + "|" + sec.baseType);
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(day => {
-                            if (day <= 4) daily[day].push({ 
-                                code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, 
-                                textTime: sched.timeData.originalText, isPre: sec.isPreRegistered, isRemote: isRemote,
-                                baseType: sec.baseType
-                            });
+                            if (day <= 4) {
+                                // تطبيق نفس الفلتر الدقيق بالاعتماد على اليوم والوقت
+                                let meetingKey = `${sec.crn}|${day}|${sched.timeData.start}`;
+                                let isRemote = window.ignoredRemoteCourses.has(meetingKey);
+                                
+                                daily[day].push({ 
+                                    code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, 
+                                    textTime: sched.timeData.originalText, isPre: sec.isPreRegistered, isRemote: isRemote,
+                                    baseType: sec.baseType
+                                });
+                            }
                         });
                     });
                 });
