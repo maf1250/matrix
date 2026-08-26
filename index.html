@@ -3154,11 +3154,36 @@ window.compareTraineeSchedules = function() {
                 </div>`;
     }
 
+   // إضافة عرض الأرقام المرجعية وزر النسخ بشكل دائم في واجهة المقارنة
     html += `</div>
+             <div id="applied-info-container" style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
+                <h4 style="color:#5c8a24; margin-top:0;">📋 الأرقام المرجعية الحالية لكلا الجدولين:</h4>
+                <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
+                    <div style="flex:1; min-width:250px;">
+                        <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
+                        <div style="background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; margin-top:5px; font-weight:bold; word-spacing:12px; font-size:16px; color:#333;">
+                            ${[...new Set(t1.schedule.map(s => s.crn))].join(' ')}
+                        </div>
+                    </div>
+                    <div style="flex:1; min-width:250px;">
+                        <strong style="color:#e65100;">أرقام ${t2.name.split(' ')[0]} (${t2.id})</strong>
+                        <div style="background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; margin-top:5px; font-weight:bold; word-spacing:12px; font-size:16px; color:#333;">
+                            ${[...new Set(t2.schedule.map(s => s.crn))].join(' ')}
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn-copy-rayat" style="padding: 10px 25px; font-size: 15px;" onclick="window.copyOptimizedPairToRayat('${id1}', '${id2}')">
+                        📋 نسخ البيانات لرايات أوتو
+                    </button>
+                </div>
+             </div>
              <div style="margin-top: 20px; border-top: 2px dashed #ccc; padding-top: 20px; text-align:center;">
-                <button class="btn-process" style="width: auto; padding: 10px 30px; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ اقتراح أفضل جدول متوافق</button>
+                <button class="btn-process" style="width: auto; padding: 10px 30px; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ بحث عن تحسين إضافي</button>
              </div>
              <div id="suggestion-results-container"></div>`;
+
+    resultsContainer.innerHTML = html;
 
     resultsContainer.innerHTML = html;
 };
@@ -3234,60 +3259,61 @@ window.compareTraineeSchedules = function() {
         return html;
     };
 
-    // دالة إضافة الرزمة الكاملة دفعة واحدة وبشكل صامت، ثم تحديث الجدول
-    window.addCompleteComboAndRefresh = function(traineeId, crnList, id1, id2) {
-        let crns = crnList.split(',');
-        let tData = globalTraineesSchedules[traineeId];
-        let addedCode = '';
+window.addCompleteComboAndRefresh = function(traineeId, crnList, id1, id2) {
+    // 1. إضافة المقررات للبيانات الأساسية (خلف الكواليس)
+    let crns = crnList.split(',');
+    let tData = globalTraineesSchedules[traineeId];
+    let addedCode = '';
 
-        // إضافة جميع الشقوق
-        crns.forEach(crn => {
-            let sec = allSectionsRef[crn];
-            addedCode = sec.code;
-            
-            // فحص هل هو مسجل مسبقاً
-            let isOriginallyPre = (tData.originalPreRegistered && tData.originalPreRegistered.includes(String(crn)));
-            let secCopy = JSON.parse(JSON.stringify(sec));
-            secCopy.isPreRegistered = isOriginallyPre; 
-            
-            tData.schedule.push(secCopy);
-            
-            // سحب المقعد من الكلية إذا لم يكن مسجلاً مسبقاً
-            if (!isOriginallyPre) {
-                sec.remaining -= 1;
-            }
-        });
+    crns.forEach(crn => {
+        let sec = allSectionsRef[crn];
+        if (!sec) return;
+        addedCode = sec.code;
+        let isOriginallyPre = (tData.originalPreRegistered && tData.originalPreRegistered.includes(String(crn)));
+        let secCopy = JSON.parse(JSON.stringify(sec));
+        secCopy.isPreRegistered = isOriginallyPre; 
+        tData.schedule.push(secCopy);
+        if (!isOriginallyPre) sec.remaining -= 1;
+    });
 
-        // إزالة المقرر المضاف من قائمة "المتبقيات"
-        tData.unassigned = tData.unassigned.filter(u => u.code !== addedCode);
+    // 2. تحديث قائمة المتبقيات والمزامنة الصامتة
+    tData.unassigned = tData.unassigned.filter(u => u.code !== addedCode);
+    if (window.syncGlobalDataAfterEdit) {
+        window.syncGlobalDataAfterEdit(traineeId);
+    }
+
+    // 3. تحديث واجهة المقارنة العلوية (هذا سيمسح منطقة النتائج مؤقتاً)
+    window.compareTraineeSchedules(); 
+
+    // 4. استهداف منطقة النتائج فوراً وتشغيل البحث "تلقائياً" وبقوة
+    const resContainer = document.getElementById('suggestion-results-container');
+    if (resContainer) {
+        // نضع رسالة انتظار بسيطة في نفس المكان
+        resContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#008e7e; font-weight:bold;">
+            <div class="loader" style="display:inline-block; border-color:#008e7e; border-bottom-color:transparent; margin-bottom:10px;"></div><br>
+            تمت الإضافة.. جارِ إعادة تحسين الجدول فوراً...
+        </div>`;
         
-        // مزامنة البيانات الأصلية في الواجهة
-        if (window.syncGlobalDataAfterEdit) {
-            window.syncGlobalDataAfterEdit(traineeId);
-        }
+        // التمرير لمكان التحميل لضمان عدم ضياع المتدرب
+        resContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
-        // إظهار إشعار الإضافة
-        let toast = document.getElementById("toast");
-        if (toast) {
-            toast.innerText = '✅ تمت إضافة المقرر بشقوقه كاملة بنجاح!';
-            toast.className = "show";
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
-        }
-
-        // إعادة تشغيل خوارزمية البحث العميق فوراً لإعادة بناء الجدول بناءً على المعطيات الجديدة
-        setTimeout(() => {
-            window.suggestOptimizedSchedule(id1, id2);
-        }, 600);
-    };
+    // 5. تشغيل محرك البحث (Deep Search) بعد 200 ملي ثانية فقط لضمان استقرار الواجهة
+    setTimeout(() => {
+        // تشغيل البحث (الوضع 1: صارم 15 دقيقة)
+        window.suggestOptimizedSchedule(id1, id2, 1);
+        showToast('✅ تم تحديث الجدول وإعادة البحث');
+    }, 200);
+};
 
     // دالة إضافة الشعبة وتحديث المقارنة تلقائياً
-    window.addCrnToTraineeAndRefresh = function(traineeId, crn, id1, id2) {
-        window.addCrnToTrainee(traineeId, crn);
-        // نعطي مهلة بسيطة لتحديث البيانات وإظهار الإشعار، ثم نعيد تشغيل الذكاء الاصطناعي
-        setTimeout(() => {
-            window.suggestOptimizedSchedule(id1, id2);
-        }, 600);
-    };
+ window.addCrnToTraineeAndRefresh = function(traineeId, crn, id1, id2) {
+    window.addCrnToTrainee(traineeId, crn);
+    setTimeout(() => {
+        window.compareTraineeSchedules();
+        window.suggestOptimizedSchedule(id1, id2, 1);
+    }, 200);
+};
     
 window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول المقترحة
 
@@ -3670,30 +3696,38 @@ window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول الم
 
 
 window.copyOptimizedPairToRayat = function(id1, id2) {
-    if (!window.tempSuggestedSchedules[id1] || !window.tempSuggestedSchedules[id2]) {
-        showToast('❌ خطأ في البيانات المؤقتة');
+    // محاولة القراءة من الاقتراح المؤقت، وإذا لم يوجد (بعد الاعتماد مثلاً) يقرأ من الجدول الحالي للمتدرب
+    let sched1 = window.tempSuggestedSchedules[id1] || globalTraineesSchedules[id1].schedule;
+    let sched2 = window.tempSuggestedSchedules[id2] || globalTraineesSchedules[id2].schedule;
+
+    if (!sched1 || !sched2) {
+        showToast('❌ عذراً، لم يتم العثور على جداول لنسخها');
         return;
     }
 
-    function getRayatLine(id, newSched) {
+    function getRayatLine(id, currentSched) {
         let tData = globalTraineesSchedules[id];
-        let newCrns = new Set(newSched.map(s => String(s.crn)));
+        let currentCrns = new Set(currentSched.map(s => String(s.crn)));
         let preRegCrns = new Set((tData.originalPreRegistered || []).map(c => String(c)));
-        
+
         let output = [id];
-        // إضافة الشعب الجديدة (الموجودة في الجديد وليست في المسجل مسبقاً)
-        newCrns.forEach(crn => {
-            if (!preRegCrns.has(crn)) output.push(crn);
+        // إضافة جميع الشعب الموجودة في الجدول المختار حالياً
+        currentSched.forEach(sec => {
+            output.push(String(sec.crn));
         });
-        // حذف الشعب القديمة (الموجودة في المسجل مسبقاً وليست في الجديد)
+        // إضافة الشعب التي كانت مسجلة ويجب حذفها (موجودة في القديم وليست في الحالي)
         preRegCrns.forEach(crn => {
-            if (!newCrns.has(crn)) output.push("-" + crn);
+            if (!currentCrns.has(crn)) {
+                output.push("-" + crn);
+            }
         });
-        return output.join('\t');
+        
+        // إزالة التكرارات
+        return [...new Set(output)].join('\t');
     }
 
-    let line1 = getRayatLine(id1, window.tempSuggestedSchedules[id1]);
-    let line2 = getRayatLine(id2, window.tempSuggestedSchedules[id2]);
+    let line1 = getRayatLine(id1, sched1);
+    let line2 = getRayatLine(id2, sched2);
     let finalPayload = line1 + '\n' + line2;
 
     navigator.clipboard.writeText(finalPayload).then(() => {
