@@ -2964,255 +2964,193 @@ window.updateCrnDropdown = function() {
         executeCopyAll(); // استدعاء النسخ الفعلي
     };
 
-    /* استبدل دالة applySuggestedSchedule و compareTraineeSchedules بالتالي */
 
+// --- 1. دالة اعتماد الجدول المقترح (إصلاح شامل) ---
 window.applySuggestedSchedule = function(id1, id2) {
     if (!window.tempSuggestedSchedules[id1] || !window.tempSuggestedSchedules[id2]) {
         showToast('❌ عذراً، لا توجد بيانات محفوظة للاعتماد');
         return;
     }
 
-    // 1. تحديث البيانات الفعلية في النظام بالجداول المقترحة
-    globalTraineesSchedules[id1].schedule = [...window.tempSuggestedSchedules[id1]];
-    globalTraineesSchedules[id2].schedule = [...window.tempSuggestedSchedules[id2]];
+    // تحديث البيانات في الذاكرة
+    globalTraineesSchedules[id1].schedule = JSON.parse(JSON.stringify(window.tempSuggestedSchedules[id1]));
+    globalTraineesSchedules[id2].schedule = JSON.parse(JSON.stringify(window.tempSuggestedSchedules[id2]));
 
-    // 2. مزامنة البيانات مع الجداول الرئيسية (Excel) والواجهة
+    // مزامنة مع الجداول والتقارير
     if (window.syncGlobalDataAfterEdit) {
         window.syncGlobalDataAfterEdit(id1);
         window.syncGlobalDataAfterEdit(id2);
     }
     
-    // 3. تفريغ تحديدات "عن بعد" القديمة لأن المواعيد تغيرت
+    // تفريغ اللقاءات عن بعد القديمة لتحديثها
     window.ignoredRemoteCourses.clear();
     
-    // 4. إظهار رسالة نجاح
-    showToast('✅ تم اعتماد الجدول الجديد بنجاح!');
+    showToast('✅ تم اعتماد الجداول الجديدة بنجاح!');
 
-    // 5. تحديث واجهة المقارنة فوراً مع عرض الجدول الجديد كاملاً
+    // إعادة تشغيل واجهة المقارنة فوراً لإظهار النتائج الجديدة
     setTimeout(() => {
         window.compareTraineeSchedules(); 
         window.checkAndShowRemoteCourses();
-        // التمرير لأعلى أداة المقارنة لرؤية النتيجة
-        document.getElementById('match-results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // التمرير لمكان النتائج
+        const container = document.getElementById('match-results-container');
+        if(container) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
 };
 
-// تحديث دالة المقارنة لتشمل "كل" الجدول الحالي وليس فقط المسجل مسبقاً
+// --- 2. دالة المقارنة الزمنية (مع دعم التأنيث وإظهار الجدول الفعلي) ---
 window.compareTraineeSchedules = function() {
     const id1 = document.getElementById('match-id-1').value.trim();
     const id2 = document.getElementById('match-id-2').value.trim();
     const resultsContainer = document.getElementById('match-results-container');
 
+    // مسميات متغيرة حسب نوع الكلية
+    const p1Label = isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول';
+    const p2Label = isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني';
+
     if (!id1 || !id2) {
-        resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال الأرقام التدريبية للمقارنة.</div>';
+        resultsContainer.innerHTML = `<div class="error" style="text-align:center;">نأمل إدخال أرقام ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} للمقارنة.</div>`;
         return;
     }
-    
+
     const t1 = globalTraineesSchedules[id1];
     const t2 = globalTraineesSchedules[id2];
 
     if (!t1 || !t2) {
-        resultsContainer.innerHTML = '<div class="error" style="text-align:center;">تأكد من صحة الأرقام المدخلة.</div>';
+        resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على أرقام ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} المدخلة في المصفوفة.</div>`;
         return;
     }
 
-    // التعديل الجوهري: نأخذ كامل الجدول الحالي (المسجل + المسند جديداً)
-    const sched1 = t1.schedule; 
+    // نأخذ الجدول الحالي بالكامل (سواءً كان مسجلاً مسبقاً أو مسنداً جديداً)
+    const sched1 = t1.schedule;
     const sched2 = t2.schedule;
 
     if (sched1.length === 0 && sched2.length === 0) {
         resultsContainer.innerHTML = `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
-            ⚠️ لا توجد مقررات في جدول المتدربين حالياً لرسم المقارنة!
+            ⚠️ لا توجد مقررات في الجداول حالياً للمقارنة.
         </div>`;
         return;
     }
 
-    /* ... باقي كود الدالة كما هو في النسخة الأصلية لديك ... */
-    // سيعمل النظام الآن بشكل صحيح ولن يمسح البيانات عند الاعتماد
-};
+    function getDailyClasses(schedule) {
+        let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+        schedule.forEach(sec => {
+            sec.schedules.forEach(sched => {
+                sched.days.forEach(dayIndex => {
+                    if (dayIndex <= 4) {
+                        let meetingKey = `${sec.crn}|${dayIndex}|${sched.timeData.start}`;
+                        if (window.ignoredRemoteCourses.has(meetingKey)) return;
+
+                        daysObj[dayIndex].push({
+                            code: sec.code, crn: sec.crn,
+                            start: sched.timeData.start, end: sched.timeData.end,
+                            textTime: sched.timeData.originalText
+                        });
+                    }
+                });
+            });
+        });
+        for (let i = 0; i <= 4; i++) {
+            let unique = [];
+            let seen = new Set();
+            daysObj[i].forEach(cls => {
+                let key = `${cls.crn}-${cls.start}`;
+                if (!seen.has(key)) { seen.add(key); unique.push(cls); }
+            });
+            unique.sort((a, b) => a.start - b.start);
+            daysObj[i] = unique;
+        }
+        return daysObj;
+    }
+
+    const daily1 = getDailyClasses(sched1);
+    const daily2 = getDailyClasses(sched2);
+    const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+
+    let minTime = Infinity;
+    for (let i = 0; i <= 4; i++) {
+        if (daily1[i].length > 0 && daily1[i][0].start < minTime) minTime = daily1[i][0].start;
+        if (daily2[i].length > 0 && daily2[i][0].start < minTime) minTime = daily2[i][0].start;
+    }
+    if (minTime === Infinity) minTime = 480;
     
-       function getDailyClasses(schedule) {
-            let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
-            schedule.forEach(sec => {
-                sec.schedules.forEach(sched => {
-                    sched.days.forEach(dayIndex => {
-                        if (dayIndex <= 4) {
-                            // التحقق الدقيق باستخدام المفتاح الجديد (الرقم المرجعي + اليوم + وقت البداية)
-                            let meetingKey = `${sec.crn}|${dayIndex}|${sched.timeData.start}`;
-                            if (window.ignoredRemoteCourses.has(meetingKey)) return;
+    const PX_PER_MIN = 2.2;
 
-                            daysObj[dayIndex].push({
-                                code: sec.code, crn: sec.crn,
-                                start: sched.timeData.start, end: sched.timeData.end,
-                                textTime: sched.timeData.originalText
-                            });
-                        }
-                    });
-                });
-            });
-            for (let i = 0; i <= 4; i++) {
-                let unique = [];
-                let seen = new Set();
-                daysObj[i].forEach(cls => {
-                    let key = `${cls.crn}-${cls.start}`;
-                    if (!seen.has(key)) { seen.add(key); unique.push(cls); }
-                });
-                unique.sort((a, b) => a.start - b.start);
-                daysObj[i] = unique;
+    let html = `<div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: right; border: 1px solid #cbe6e3;">
+                    <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني الفعلي للمقارنة</h4>
+                    <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
+                        <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]} (${t1.id})</span>
+                        <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]} (${t2.id})</span>
+                    </div>
+                </div>
+                <div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px; text-align:right;">`;
+
+    function renderPersonRow(classes, colorHex, bgColor) {
+        if (classes.length === 0) return `<div style="display:flex; align-items:center; height:50px; padding:0 15px; color:#999; font-weight:bold; background:#fafafa; border-radius:4px;">إجازة (Off)</div>`;
+        let rowHtml = `<div style="display:flex; align-items:center; flex-wrap:nowrap; min-height:50px;">`;
+        let currentCursor = minTime;
+        classes.forEach(cls => {
+            let gapMins = Math.max(0, cls.start - currentCursor);
+            let durationMins = Math.max(50, cls.end - cls.start);
+            currentCursor = cls.end;
+            if (gapMins > 0) {
+                rowHtml += `<div style="width:${gapMins * PX_PER_MIN}px; min-width:${gapMins * PX_PER_MIN}px;"></div>`;
             }
-            return daysObj;
+            rowHtml += `<div style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; padding:5px 10px; display:flex; flex-direction:column; justify-content:center; border:1px solid #eee;">
+                            <strong style="color:${colorHex}; font-size:11px; overflow:hidden;">${cls.code}</strong>
+                            <span dir="ltr" style="font-size:10px;">${cls.textTime}</span>
+                        </div>`;
+        });
+        return rowHtml + `</div>`;
+    }
+
+    for (let i = 0; i <= 4; i++) {
+        let cls1 = daily1[i];
+        let cls2 = daily2[i];
+        if (cls1.length === 0 && cls2.length === 0) continue;
+
+        let arrive1 = cls1.length ? cls1[0].start : null;
+        let leave1 = cls1.length ? cls1[cls1.length-1].end : null;
+        let arrive2 = cls2.length ? cls2[0].start : null;
+        let leave2 = cls2.length ? cls2[cls2.length-1].end : null;
+
+        let summaryHtml = "";
+        if (cls1.length > 0 && cls2.length > 0) {
+            let jointArrive = Math.min(arrive1, arrive2);
+            let jointLeave = Math.max(leave1, leave2);
+            let totalWait = (arrive1 - jointArrive) + (jointLeave - leave1) + (arrive2 - jointArrive) + (jointLeave - leave2);
+            summaryHtml = `<div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 150px;">
+                            <div>🟢 دخول: ${formatTime(jointArrive)}</div>
+                            <div>🔴 خروج: ${formatTime(jointLeave)}</div>
+                            <div style="color:${totalWait > 30 ? '#dc3545' : '#155724'}; font-weight:bold;">الفارق: ${totalWait}د</div>
+                           </div>`;
+        } else {
+            summaryHtml = `<div style="font-size:12px; color:#666; text-align:center;">لا يوجد توافق اليوم</div>`;
         }
 
-        const daily1 = getDailyClasses(sched1);
-        const daily2 = getDailyClasses(sched2);
-        const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-
-        // البحث عن أبكر وقت بداية لتوحيد بداية الجدول بصرياً
-        let minTime = Infinity;
-        for (let i = 0; i <= 4; i++) {
-            if (daily1[i].length > 0 && daily1[i][0].start < minTime) minTime = daily1[i][0].start;
-            if (daily2[i].length > 0 && daily2[i][0].start < minTime) minTime = daily2[i][0].start;
-        }
-        if (minTime === Infinity) minTime = 480; // افتراضي 8:00 صباحاً
-        
-        const PX_PER_MIN = 2.2; // معامل التكبير لرسم الجدول
-
-        let html = `<div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: right; border: 1px solid #cbe6e3;">
-                        <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المشترك (للمسجل مسبقاً)</h4>
-                        <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
-                            <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]} (${t1.id})</span>
-                            <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]} (${t2.id})</span>
+        html += `<div class="day-row" style="margin-bottom: 10px; display:flex; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                    <div class="day-label" style="width: 70px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold;">${daysArray[i]}</div>
+                    <div style="flex-grow: 1; display:flex; flex-direction:column;">
+                        <div style="display:flex; border-bottom:1px dashed #eee;">
+                            <div style="width:70px; background:#f0f7f6; font-size:10px; display:flex; align-items:center; justify-content:center;">${t1.name.split(' ')[0]}</div>
+                            ${renderPersonRow(cls1, '#008e7e', '#eef7f6')}
+                        </div>
+                        <div style="display:flex;">
+                            <div style="width:70px; background:#fff8f0; font-size:10px; display:flex; align-items:center; justify-content:center;">${t2.name.split(' ')[0]}</div>
+                            ${renderPersonRow(cls2, '#e65100', '#fff3e0')}
                         </div>
                     </div>
-                    <div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px; text-align:right;">`;
+                    <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center;">${summaryHtml}</div>
+                </div>`;
+    }
 
-        let sharedDaysCount = 0;
+    html += `</div>
+             <div style="margin-top: 20px; border-top: 2px dashed #ccc; padding-top: 20px; text-align:center;">
+                <button class="btn-process" style="width: auto; padding: 10px 30px; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ اقتراح أفضل جدول متوافق</button>
+             </div>
+             <div id="suggestion-results-container"></div>`;
 
-        // دالة مساعدة لرسم صف يوم لمتدرب واحد
-        function renderPersonRow(classes, colorHex, bgColor) {
-            if (classes.length === 0) {
-                return `<div style="display:flex; align-items:center; height:50px; padding:0 15px; color:#999; font-weight:bold; background:#fafafa; border-radius:4px;">إجازة (Off)</div>`;
-            }
-            let rowHtml = `<div style="display:flex; align-items:center; flex-wrap:nowrap; min-height:50px;">`;
-            let currentCursor = minTime;
-            
-            classes.forEach(cls => {
-                let gapMins = Math.max(0, cls.start - currentCursor);
-                let durationMins = Math.max(50, cls.end - cls.start);
-                currentCursor = cls.end;
-                
-                if (gapMins > 0) {
-                    let h = Math.floor(gapMins / 60);
-                    let m = gapMins % 60;
-                    let text = (h>0?h+'س ':'') + (m>0?m+'د':'');
-                    rowHtml += `<div style="width:${gapMins * PX_PER_MIN}px; min-width:${gapMins * PX_PER_MIN}px; text-align:center; color:#bbb; font-size:11px; font-weight:bold;">${text}</div>`;
-                }
-                
-                rowHtml += `<div class="course-card" style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
-                                <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${cls.code}</strong>
-                                <span dir="ltr" style="font-size:11px; color:#555;">${cls.textTime}</span>
-                            </div>`;
-            });
-            rowHtml += `</div>`;
-            return rowHtml;
-        }
-
-        for (let i = 0; i <= 4; i++) {
-            let cls1 = daily1[i];
-            let cls2 = daily2[i];
-
-            if (cls1.length === 0 && cls2.length === 0) continue; // كلاهما أوف
-
-            // حساب وقت الحضور المشترك والانصراف والانتظار
-            let arrive1 = cls1.length ? cls1[0].start : null;
-            let leave1 = cls1.length ? cls1[cls1.length-1].end : null;
-            
-            let arrive2 = cls2.length ? cls2[0].start : null;
-            let leave2 = cls2.length ? cls2[cls2.length-1].end : null;
-
-            let summaryHtml = "";
-            if (cls1.length > 0 && cls2.length > 0) {
-                sharedDaysCount++;
-                let jointArrive = Math.min(arrive1, arrive2);
-                let jointLeave = Math.max(leave1, leave2);
-                
-                let wait1 = (arrive1 - jointArrive) + (jointLeave - leave1);
-                let wait2 = (arrive2 - jointArrive) + (jointLeave - leave2);
-                let totalWait = wait1 + wait2; // إجمالي الوقت المهدر لأحدهما أو كليهما
-
-                let waitText = totalDaysWait => {
-                    if (totalDaysWait === 0) return `<span style="color:#155724;">لا يوجد انتظار ✅</span>`;
-                    let h = Math.floor(totalDaysWait / 60);
-                    let m = totalDaysWait % 60;
-                    return `<span style="color:#dc3545;">فارق: ${(h>0?h+'س ':'') + (m>0?m+'د':'')} ⏳</span>`;
-                };
-
-                summaryHtml = `
-                    <div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 160px; display:flex; flex-direction:column; justify-content:center; gap:5px;">
-                        <div><strong>🟢 دخول:</strong> ${formatTime(jointArrive)}</div>
-                        <div><strong>🔴 خروج:</strong> ${formatTime(jointLeave)}</div>
-                        <div style="margin-top:5px; border-top:1px solid #eee; padding-top:5px;">${waitText(totalWait)}</div>
-                    </div>
-                `;
-            } else {
-                let personAlone = cls1.length > 0 ? t1.name.split(' ')[0] : t2.name.split(' ')[0];
-                summaryHtml = `
-                    <div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 160px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">
-                        (${personAlone})<br>يذهب بمفرده اليوم 🚗
-                    </div>
-                `;
-            }
-
-            html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
-                        <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
-                            ${daysArray[i]}
-                        </div>
-                        
-                        <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
-                            <!-- صف المتدرب الأول -->
-                            <div style="display:flex; border-bottom:1px dashed #eee; min-height:55px;">
-                                <div style="width:80px; min-width:80px; background:#eef7f6; color:#008e7e; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">
-                                    ${t1.name.split(' ')[0]}
-                                </div>
-                                <div style="flex-grow:1; padding:5px;">
-                                    ${renderPersonRow(cls1, '#008e7e', '#eef7f6')}
-                                </div>
-                            </div>
-                            <!-- صف المتدرب الثاني -->
-                            <div style="display:flex; min-height:55px;">
-                                <div style="width:80px; min-width:80px; background:#fff3e0; color:#e65100; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">
-                                    ${t2.name.split(' ')[0]}
-                                </div>
-                                <div style="flex-grow:1; padding:5px;">
-                                    ${renderPersonRow(cls2, '#e65100', '#fff3e0')}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- ملخص الحضور والانصراف للمواصلات -->
-                        <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center;">
-                            ${summaryHtml}
-                        </div>
-                    </div>`;
-        }
-
-        html += `</div>`;
-        
-        if (sharedDaysCount === 0) {
-            html += `<div style="margin-top:15px; padding:15px; background:#d1ecf1; color:#0c5460; border-radius:6px; text-align:center; font-weight:bold; border: 1px solid #bee5eb;">
-                        لا توجد أي أيام دوام مشتركة بينهما! (كل ${isFemaleCampus ? 'متدربة تداوم' : 'متدرب يداوم'} في أيام مختلفة، ولن يتعارضا في المواصلات)
-                     </div>`;
-        }
-
-      html += `<div style="margin-top: 30px; border-top: 2px dashed #ccc; padding-top: 20px;">
-                    <h4 style="color:#006d60; margin-top:0;">هل تبحث عن أفضل توافق للجدولين بالكامل؟</h4>
-                    <p style="font-size:13px; color:#555;">يمكن للنظام البحث في جميع الشعب المتاحة (للمقررات الجديدة والمسجلة) واقتراح أفضل تعديل على الجدولين لتوحيد أوقات المواصلات.</p>
-                    <button class="btn-process" style="width: auto; padding: 10px 30px; margin: 0 auto; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ اقتراح أفضل جدول متوافق</button>
-                 </div>
-                 <div id="suggestion-results-container" style="margin-top: 30px; text-align: right;"></div>`;
-
-        resultsContainer.innerHTML = html;
-    };
+    resultsContainer.innerHTML = html;
+};
 
    // دالة البحث عن مقررات متبقية (كاملة الشقوق) تناسب يوم الفراغ
     window.getGapFillersHtml = function(traineeId, dayIndex, currentSched, id1, id2) {
