@@ -3062,9 +3062,288 @@ window.updateCrnDropdown = function() {
                      </div>`;
         }
 
+      html += `<div style="margin-top: 30px; border-top: 2px dashed #ccc; padding-top: 20px;">
+                    <h4 style="color:#006d60; margin-top:0;">هل تبحث عن أفضل توافق للجدولين بالكامل؟</h4>
+                    <p style="font-size:13px; color:#555;">يمكن للنظام البحث في جميع الشعب المتاحة (للمقررات الجديدة والمسجلة) واقتراح أفضل تعديل على الجدولين لتوحيد أوقات المواصلات.</p>
+                    <button class="btn-process" style="width: auto; padding: 10px 30px; margin: 0 auto; background-color: #8dc63f;" onclick="suggestOptimizedSchedule('${id1}', '${id2}')">✨ اقتراح أفضل جدول متوافق</button>
+                 </div>
+                 <div id="suggestion-results-container" style="margin-top: 30px; text-align: right;"></div>`;
+
         resultsContainer.innerHTML = html;
     };
-    
+
+    // دالة الذكاء الاصطناعي لاقتراح أفضل توافق زمني
+    window.suggestOptimizedSchedule = function(id1, id2) {
+        const container = document.getElementById('suggestion-results-container');
+        container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;">جارِ البحث عن أفضل توافق في آلاف الاحتمالات... ⏳</div>';
+
+        // نستخدم `setTimeout` للسماح للمتصفح برسم رسالة التحميل قبل تجميد الشاشة بالعمليات الحسابية
+        setTimeout(() => {
+            const t1 = globalTraineesSchedules[id1];
+            const t2 = globalTraineesSchedules[id2];
+
+            // أخذ نسخة من الجدول المسند بالكامل (المسجل مسبقاً + الجديد)
+            let currentS1 = JSON.parse(JSON.stringify(t1.schedule));
+            let currentS2 = JSON.parse(JSON.stringify(t2.schedule));
+
+            // دوال مساعدة لتقييم الجدول
+            function getDailyStats(schedule) {
+                let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+                schedule.forEach(sec => {
+                    sec.schedules.forEach(sched => {
+                        sched.days.forEach(dayIndex => {
+                            if (dayIndex <= 4) daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
+                        });
+                    });
+                });
+                
+                let stats = {};
+                let totalGaps = 0;
+                
+                for (let i = 0; i <= 4; i++) {
+                    if (daysObj[i].length > 0) {
+                        daysObj[i].sort((a, b) => a.start - b.start);
+                        stats[i] = { start: daysObj[i][0].start, end: daysObj[i][daysObj[i].length - 1].end };
+                        
+                        // حساب الفراغات الداخلية (لا نريد تدمير جدول المتدرب فقط من أجل المواصلات)
+                        for(let j=0; j < daysObj[i].length - 1; j++) {
+                            let gap = daysObj[i][j+1].start - daysObj[i][j].end;
+                            if(gap > 0) totalGaps += gap;
+                        }
+                    } else {
+                        stats[i] = null;
+                    }
+                }
+                return { stats, totalGaps };
+            }
+
+            // تقييم التكلفة (كلما كانت أقل كان الجدول أفضل)
+            function evaluateWaitTime(s1, s2) {
+                let info1 = getDailyStats(s1);
+                let info2 = getDailyStats(s2);
+                let waitCost = 0;
+                
+                for (let i = 0; i <= 4; i++) {
+                    let d1 = info1.stats[i], d2 = info2.stats[i];
+                    if (d1 && d2) {
+                        waitCost += Math.abs(d1.start - d2.start); // انتظار الصباح
+                        waitCost += Math.abs(d1.end - d2.end);     // انتظار المساء
+                    } else if (d1 || d2) {
+                        waitCost += 300; // عقوبة قوية لأيام الدوام الانفرادية (نحاول جعلهما يداومان نفس الأيام)
+                    }
+                }
+                // إضافة الفراغات الداخلية كعقوبة ثانوية
+                return waitCost + (info1.totalGaps * 0.5) + (info2.totalGaps * 0.5);
+            }
+
+            // إيجاد الشعب البديلة الصالحة
+            function getValidAlternatives(secToReplace, scheduleWithoutTarget) {
+                let alts = [];
+                for (let crn in allSectionsRef) {
+                    let candidate = allSectionsRef[crn];
+                    if (candidate.code !== secToReplace.code || candidate.baseType !== secToReplace.baseType) continue;
+                    
+                    // يجب أن يكون بها مقاعد، أو تكون هي نفس الشعبة الأصلية
+                    if (candidate.remaining <= 0 && candidate.crn !== secToReplace.crn) continue;
+
+                    let hasConflict = false;
+                    for (let existSec of scheduleWithoutTarget) {
+                        if (getConflictDetail(candidate, existSec) !== null) { hasConflict = true; break; }
+                    }
+                    if (hasConflict) continue;
+                    if (!window.checkSF33LinkValidity(candidate, scheduleWithoutTarget)) continue;
+
+                    let candCopy = JSON.parse(JSON.stringify(candidate));
+                    candCopy.isPreRegistered = secToReplace.isPreRegistered;
+                    alts.push(candCopy);
+                }
+                return alts;
+            }
+
+            // خوارزمية التحسين (Local Search - Hill Climbing)
+            let bestScore = evaluateWaitTime(currentS1, currentS2);
+            let improved = true;
+            let iterations = 0;
+
+            while (improved && iterations < 50) { // الحد الأقصى للمحاولات
+                improved = false;
+                iterations++;
+
+                // محاولة تحسين جدول المتدرب الأول
+                for (let i = 0; i < currentS1.length; i++) {
+                    if (currentS1[i].isPreRegistered) continue; // لا نلمس المسجل مسبقاً
+                    let secToSwap = currentS1[i];
+                    let schedWithout = currentS1.filter((s, idx) => idx !== i);
+                    let alternatives = getValidAlternatives(secToSwap, schedWithout);
+                    
+                    for (let alt of alternatives) {
+                        let tempS1 = [...schedWithout, alt];
+                        let newScore = evaluateWaitTime(tempS1, currentS2);
+                        if (newScore < bestScore) {
+                            bestScore = newScore;
+                            currentS1 = tempS1;
+                            improved = true;
+                        }
+                    }
+                }
+
+                // محاولة تحسين جدول المتدرب الثاني
+                for (let i = 0; i < currentS2.length; i++) {
+                    if (currentS2[i].isPreRegistered) continue; // لا نلمس المسجل مسبقاً
+                    let secToSwap = currentS2[i];
+                    let schedWithout = currentS2.filter((s, idx) => idx !== i);
+                    let alternatives = getValidAlternatives(secToSwap, schedWithout);
+                    
+                    for (let alt of alternatives) {
+                        let tempS2 = [...schedWithout, alt];
+                        let newScore = evaluateWaitTime(currentS1, tempS2);
+                        if (newScore < bestScore) {
+                            bestScore = newScore;
+                            currentS2 = tempS2;
+                            improved = true;
+                        }
+                    }
+                }
+            }
+
+            // --- بناء العرض المرئي للجدول المقترح ---
+            const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+            const PX_PER_MIN = 2.2;
+
+            function extractVisualClasses(schedule) {
+                let daily = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+                schedule.forEach(sec => {
+                    sec.schedules.forEach(sched => {
+                        sched.days.forEach(day => {
+                            if (day <= 4) daily[day].push({ code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, textTime: sched.timeData.originalText, isPre: sec.isPreRegistered });
+                        });
+                    });
+                });
+                for (let i = 0; i <= 4; i++) {
+                    let unique = [];
+                    let seen = new Set();
+                    daily[i].forEach(cls => {
+                        if (!seen.has(cls.crn + '-' + cls.start)) { seen.add(cls.crn + '-' + cls.start); unique.push(cls); }
+                    });
+                    unique.sort((a, b) => a.start - b.start);
+                    daily[i] = unique;
+                }
+                return daily;
+            }
+
+            const daily1 = extractVisualClasses(currentS1);
+            const daily2 = extractVisualClasses(currentS2);
+
+            let minTime = Infinity;
+            for (let i = 0; i <= 4; i++) {
+                if (daily1[i].length > 0 && daily1[i][0].start < minTime) minTime = daily1[i][0].start;
+                if (daily2[i].length > 0 && daily2[i][0].start < minTime) minTime = daily2[i][0].start;
+            }
+            if (minTime === Infinity) minTime = 480;
+
+            function renderRow(classes, colorHex, bgColor) {
+                if (classes.length === 0) return `<div style="display:flex; align-items:center; height:50px; padding:0 15px; color:#999; font-weight:bold; background:#fafafa; border-radius:4px;">إجازة (Off)</div>`;
+                let rowHtml = `<div style="display:flex; align-items:center; flex-wrap:nowrap; min-height:50px;">`;
+                let currentCursor = minTime;
+                
+                classes.forEach(cls => {
+                    let gapMins = Math.max(0, cls.start - currentCursor);
+                    let durationMins = Math.max(50, cls.end - cls.start);
+                    currentCursor = cls.end;
+                    
+                    if (gapMins > 0) {
+                        let h = Math.floor(gapMins / 60); let m = gapMins % 60;
+                        rowHtml += `<div style="width:${gapMins * PX_PER_MIN}px; min-width:${gapMins * PX_PER_MIN}px; text-align:center; color:#bbb; font-size:11px; font-weight:bold;">${(h>0?h+'س ':'') + (m>0?m+'د':'')}</div>`;
+                    }
+                    
+                    let preTag = cls.isPre ? '📌 ' : '';
+                    rowHtml += `<div class="course-card" style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
+                                    <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${preTag}${cls.code}</strong>
+                                    <span style="font-size:11px; color:#555;"><b style="color:${colorHex}">${cls.crn}</b> | <span dir="ltr">${cls.textTime}</span></span>
+                                </div>`;
+                });
+                return rowHtml + `</div>`;
+            }
+
+            let html = `
+            <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
+                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المقترح (يشمل المقررات الجديدة)</h4>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">بناءً على الشعب المتاحة، هذا هو أفضل ترتيب زمني لتوحيد مواعيد المواصلات. الشعب المسبوقة بـ (📌) مسجلة مسبقاً ولا يمكن تغيير وقتها.</div>
+                <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
+                    <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
+                    <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
+                </div>
+            </div>
+            <div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px; text-align:right;">`;
+
+            for (let i = 0; i <= 4; i++) {
+                let cls1 = daily1[i]; let cls2 = daily2[i];
+                if (cls1.length === 0 && cls2.length === 0) continue;
+
+                let arrive1 = cls1.length ? cls1[0].start : null;
+                let leave1 = cls1.length ? cls1[cls1.length-1].end : null;
+                let arrive2 = cls2.length ? cls2[0].start : null;
+                let leave2 = cls2.length ? cls2[cls2.length-1].end : null;
+
+                let summaryHtml = "";
+                if (cls1.length > 0 && cls2.length > 0) {
+                    let jointArrive = Math.min(arrive1, arrive2);
+                    let jointLeave = Math.max(leave1, leave2);
+                    let totalWait = ((arrive1 - jointArrive) + (jointLeave - leave1)) + ((arrive2 - jointArrive) + (jointLeave - leave2));
+                    
+                    let waitText = totalWait === 0 ? `<span style="color:#155724;">لا يوجد انتظار ✅</span>` : `<span style="color:#dc3545;">انتظار ضائع: ${Math.floor(totalWait/60)>0?Math.floor(totalWait/60)+'س ':''}${totalWait%60}د ⏳</span>`;
+                    
+                    summaryHtml = `<div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; gap:5px;">
+                                    <div><strong>🟢 دخول:</strong> ${formatTime(jointArrive)}</div>
+                                    <div><strong>🔴 خروج:</strong> ${formatTime(jointLeave)}</div>
+                                    <div style="margin-top:5px; border-top:1px solid #eee; padding-top:5px;">${waitText}</div>
+                                   </div>`;
+                } else {
+                    summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">يذهب بمفرده اليوم 🚗</div>`;
+                }
+
+                html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                            <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">${daysArray[i]}</div>
+                            <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
+                                <div style="display:flex; border-bottom:1px dashed #eee; min-height:55px;">
+                                    <div style="width:80px; min-width:80px; background:#eef7f6; color:#008e7e; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t1.name.split(' ')[0]}</div>
+                                    <div style="flex-grow:1; padding:5px;">${renderRow(cls1, '#008e7e', '#eef7f6')}</div>
+                                </div>
+                                <div style="display:flex; min-height:55px;">
+                                    <div style="width:80px; min-width:80px; background:#fff3e0; color:#e65100; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t2.name.split(' ')[0]}</div>
+                                    <div style="flex-grow:1; padding:5px;">${renderRow(cls2, '#e65100', '#fff3e0')}</div>
+                                </div>
+                            </div>
+                            <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center;">${summaryHtml}</div>
+                        </div>`;
+            }
+
+            html += `</div>`;
+
+            // عرض الأرقام المرجعية المطلوبة للوصول لهذا الجدول
+            function getNewCrnsList(optimizedSchedule, originalTrainee) {
+                let newCrns = optimizedSchedule.filter(s => !s.isPreRegistered).map(s => s.crn);
+                if (newCrns.length === 0) return 'لا يوجد مقررات جديدة للتسجيل';
+                return `<div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:4px; margin-top:5px; font-weight:bold; word-spacing:10px; font-size:15px; color:#333;">${newCrns.join('  ')}</div>`;
+            }
+
+            html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
+                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية المطلوبة للوصول لهذا الجدول (لنسخها في رايات):</h4>
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:10px;">
+                            <div style="flex:1; min-width:250px;">
+                                <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
+                                ${getNewCrnsList(currentS1, t1)}
+                            </div>
+                            <div style="flex:1; min-width:250px;">
+                                <strong style="color:#e65100;">أرقام ${t2.name.split(' ')[0]} (${t2.id})</strong>
+                                ${getNewCrnsList(currentS2, t2)}
+                            </div>
+                        </div>
+                     </div>`;
+
+            container.innerHTML = html;
+        }, 100); // 100ms delay to allow UI to show loading spinner
+    };
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
