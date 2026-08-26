@@ -3260,7 +3260,7 @@ window.compareTraineeSchedules = function() {
             });
             let displayText = displayParts.join(' + ');
 
-            html += `<button type="button" onclick="addCompleteComboAndRefresh('${traineeId}', '${item.crnList}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة المقرر بجميع شقوقه للجدول">➕ ${item.code} (${displayText})</button>`;
+            html += `<button type="button" onclick="addCompleteComboAndRefresh('${traineeId}', '${item.crnList}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة المقرر بكلا الشقين للجدول">➕ ${item.code} (${displayText})</button>`;
         });
 
         html += `</div></div>`;
