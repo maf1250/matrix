@@ -1500,7 +1500,7 @@ for (let crn in allSectionsRef) {
 
         let matchTabBtn = document.createElement('button');
         matchTabBtn.className = 'tab-btn';
-        matchTabBtn.innerHTML = '🚗 التوافق الزمني (المواصلات)';
+        matchTabBtn.innerHTML = 'التوافق الزمني (المواصلات)';
         matchTabBtn.onclick = () => switchTab('tab-schedule-match', matchTabBtn);
         tabsContainer.appendChild(matchTabBtn);
 
@@ -2864,15 +2864,15 @@ window.updateCrnDropdown = function() {
         const resultsContainer = document.getElementById('match-results-container');
 
         if (!id1 || !id2) {
-            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال رقمي المتدربين للمقارنة.</div>';
+            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال الأرقام التدريبية للمقارنة.</div>';
             return;
         }
-        if (!globalTraineesSchedules[id1]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على المتدرب الأول (${id1}) في السجلات.</div>`;
+      if (!globalTraineesSchedules[id1]) {
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'} (${id1}) في السجلات.</div>`;
             return;
         }
         if (!globalTraineesSchedules[id2]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على المتدرب الثاني (${id2}) في السجلات.</div>`;
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'} (${id2}) في السجلات.</div>`;
             return;
         }
 
