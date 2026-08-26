@@ -2926,11 +2926,11 @@ window.updateCrnDropdown = function() {
             return;
         }
         if (!globalTraineesSchedules[id1]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'} (${id1}) في السجلات.</div>`;
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'} (${id1}) في المصفوفة.</div>`;
             return;
         }
         if (!globalTraineesSchedules[id2]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'} (${id2}) في السجلات.</div>`;
+            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'} (${id2}) في المصفوفة.</div>`;
             return;
         }
 
@@ -3132,7 +3132,67 @@ window.updateCrnDropdown = function() {
         resultsContainer.innerHTML = html;
     };
 
- window.suggestOptimizedSchedule = function(id1, id2) {
+    // دالة البحث عن مقررات متبقية تناسب يوم الفراغ
+    window.getGapFillersHtml = function(traineeId, dayIndex, currentSched, id1, id2) {
+        let tData = globalTraineesSchedules[traineeId];
+        if (!tData.unassigned || tData.unassigned.length === 0) return '';
+
+        let unassignedCodes = tData.unassigned.map(u => u.code);
+        let validFillers = [];
+
+        for (let crn in allSectionsRef) {
+            let sec = allSectionsRef[crn];
+            if (!unassignedCodes.includes(sec.code)) continue;
+            
+            // السماح بالشعبة إذا كان بها مقاعد أو إذا كان مسجلاً بها مسبقاً
+            let isPre = tData.originalPreRegistered && tData.originalPreRegistered.includes(String(sec.crn));
+            if (sec.remaining <= 0 && !isPre) continue;
+
+            let runsToday = sec.schedules.some(sch => sch.days.includes(dayIndex));
+            if (!runsToday) continue;
+
+            // التأكد من عدم تعارضها مع الجدول المقترح الجديد
+            let hasConflict = false;
+            for (let exist of currentSched) {
+                if (getConflictDetail(sec, exist)) { hasConflict = true; break; }
+            }
+            if (hasConflict) continue;
+            if (!window.checkSF33LinkValidity(sec, currentSched)) continue;
+
+            validFillers.push(sec);
+        }
+
+        if (validFillers.length === 0) return '';
+
+        let html = `<div style="padding:10px 15px; background:#f4f9f8; border-top:1px dashed #cbe6e3; font-size:12px;">
+            <strong style="color:#008e7e;">💡 مقررات متبقية لـ (${tData.name.split(' ')[0]}) لسد الفراغ:</strong>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">`;
+
+        let seen = new Set();
+        validFillers.forEach(sec => {
+            if(!seen.has(sec.crn)) {
+                seen.add(sec.crn);
+                let timeText = sec.schedules.find(sch => sch.days.includes(dayIndex)).timeData.originalText;
+                let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
+                // زر إضافة سريع يعيد تحديث التوافق
+                html += `<button onclick="addCrnToTraineeAndRefresh('${traineeId}', '${sec.crn}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11.5px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة للجدول الفعلي">➕ ${sec.code} (${typeEmoji} ${timeText})</button>`;
+            }
+        });
+
+        html += `</div></div>`;
+        return html;
+    };
+
+    // دالة إضافة الشعبة وتحديث المقارنة تلقائياً
+    window.addCrnToTraineeAndRefresh = function(traineeId, crn, id1, id2) {
+        window.addCrnToTrainee(traineeId, crn);
+        // نعطي مهلة بسيطة لتحديث البيانات وإظهار الإشعار، ثم نعيد تشغيل الذكاء الاصطناعي
+        setTimeout(() => {
+            window.suggestOptimizedSchedule(id1, id2);
+        }, 600);
+    };
+    
+window.suggestOptimizedSchedule = function(id1, id2) {
         const container = document.getElementById('suggestion-results-container');
         container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;"><div class="loader" style="display:inline-block; border-color:#008e7e; border-bottom-color:transparent; margin-bottom:10px;"></div><br>جارِ إجراء بحث عميق (Deep Search) في جميع احتمالات الكلية... قد يستغرق بضع ثوانٍ ⏳</div>';
 
@@ -3140,18 +3200,15 @@ window.updateCrnDropdown = function() {
             const t1 = globalTraineesSchedules[id1];
             const t2 = globalTraineesSchedules[id2];
 
-            // استخراج متطلبات كل متدرب (رمز المقرر ونوعه)
             let reqs1 = t1.schedule.map(s => ({ code: s.code, baseType: s.baseType }));
             let reqs2 = t2.schedule.map(s => ({ code: s.code, baseType: s.baseType }));
 
-            // دالة لجلب جميع الشعب المتاحة لمقرر معين (مع السماح بالشعبة الممتلئة إذا كان المتدرب مسجلاً فيها حالياً)
             function getOptionsForReq(req, traineeSchedule) {
                 let opts = [];
                 for (let crn in allSectionsRef) {
                     let sec = allSectionsRef[crn];
                     if (sec.code === req.code && sec.baseType === req.baseType) {
                         let isCurrentlyEnrolled = traineeSchedule.some(s => s.crn === crn);
-                        // نقبل الشعبة إذا كان فيها مقاعد أو إذا كان المتدرب يمتلك مقعداً فيها مسبقاً
                         if (sec.remaining > 0 || isCurrentlyEnrolled) {
                             opts.push(sec);
                         }
@@ -3163,13 +3220,10 @@ window.updateCrnDropdown = function() {
             let options1 = reqs1.map(req => getOptionsForReq(req, t1.schedule));
             let options2 = reqs2.map(req => getOptionsForReq(req, t2.schedule));
 
-            // خوارزمية البناء الشامل (Backtracking) لبناء جميع الجداول الممكنة للمتدرب
             function generateAllValidSchedules(optionsGrid) {
                 let results = [];
                 function backtrack(index, currentSched) {
-                    // حماية المتصفح: الاكتفاء بأفضل 1500 احتمال كحد أقصى لكل متدرب لتفادي التعليق
                     if (results.length >= 1500) return; 
-                    
                     if (index === optionsGrid.length) {
                         results.push([...currentSched]);
                         return;
@@ -3188,16 +3242,14 @@ window.updateCrnDropdown = function() {
                     }
                 }
                 
-                // ترتيب الخيارات بحيث يتم تجربة الشعب ذات السعة الأعلى أولاً لضمان نتائج أفضل
                 optionsGrid.forEach(opts => opts.sort((a,b) => b.remaining - a.remaining));
                 backtrack(0, []);
-                return results.length > 0 ? results : [optionsGrid.map(opt => opt[0])]; // إرجاع الجدول الأصلي كطوق نجاة إذا لم يوجد غيره
+                return results.length > 0 ? results : [optionsGrid.map(opt => opt[0])]; 
             }
 
             let pool1 = generateAllValidSchedules(options1);
             let pool2 = generateAllValidSchedules(options2);
 
-            // دالة الإحصائيات (تستثني المقررات المحددة "عن بعد")
             function getDailyStats(schedule) {
                 let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
@@ -3224,7 +3276,6 @@ window.updateCrnDropdown = function() {
                 return { stats, totalGaps };
             }
 
-            // نظام التقييم الصارم
             function evaluateWaitTime(info1, info2) {
                 let score = 0;
                 for (let i = 0; i <= 4; i++) {
@@ -3232,20 +3283,16 @@ window.updateCrnDropdown = function() {
                     if (d1 && d2) {
                         let arriveDiff = Math.abs(d1.start - d2.start); 
                         let leaveDiff = Math.abs(d1.end - d2.end);     
-                        
                         score += arriveDiff + leaveDiff;
-                        // عقوبة تعجيزية صارمة جداً إذا تعدى الفارق 15 دقيقة
                         if (arriveDiff > 15) score += 100000;
                         if (leaveDiff > 15) score += 100000;
-
                     } else if (d1 || d2) {
-                        score += 500000; // عقوبة ضخمة لدراسة أحدهما بمفرده في يوم
+                        score += 500000; 
                     }
                 }
                 return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
             }
 
-            // البحث والمقارنة بين كل احتمالات المتدرب الأول والثاني (Deep Search)
             let bestScore = Infinity;
             let bestPair = { s1: t1.schedule, s2: t2.schedule };
 
@@ -3254,17 +3301,15 @@ window.updateCrnDropdown = function() {
                 for (let s2 of pool2) {
                     let info2 = getDailyStats(s2);
                     let score = evaluateWaitTime(info1, info2);
-                    
                     if (score < bestScore) {
                         bestScore = score;
                         bestPair = { s1: s1, s2: s2 };
                     }
-                    if (bestScore === 0) break; // وُجد التطابق المثالي 100%
+                    if (bestScore === 0) break; 
                 }
                 if (bestScore === 0) break;
             }
 
-            // تطبيق النتيجة الأفضل
             let currentS1 = bestPair.s1.map(sec => {
                 let copy = JSON.parse(JSON.stringify(sec));
                 copy.isPreRegistered = (t1.originalPreRegistered && t1.originalPreRegistered.includes(String(sec.crn)));
@@ -3276,7 +3321,6 @@ window.updateCrnDropdown = function() {
                 return copy;
             });
 
-            // --- بناء العرض المرئي للجدول المقترح ---
             const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             const PX_PER_MIN = 2.2;
 
@@ -3352,8 +3396,8 @@ window.updateCrnDropdown = function() {
 
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
-                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح (بواسطة Deep Search)</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار إلى أقل من 15 دقيقة عبر إعادة بناء جميع الاحتمالات الممكنة للمتدربين من الصفر. إذا استمر ظهور الفارق، فهذا يعني أنه <b>يستحيل رياضياً</b> إيجاد شُعب أخرى بالكلية تطابق هذا الوقت.</div>
+                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح</h4>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار. إذا استمر الفارق، فهذا ناتج عن <b>اختلاف عدد المقررات (أحدهما يتدرب أكثر من الآخر)</b>، في هذه الحالة استخدم ميزة <b>(سد الفراغ)</b> بالأسفل لإضافة مقرر متبقي بضغطة زر وتصحيح التوافق.</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
@@ -3374,14 +3418,16 @@ window.updateCrnDropdown = function() {
                 let hasPhysical2 = arrive2 !== null;
 
                 let summaryHtml = "";
+                let totalWaitForThisDay = 0;
+
                 if (hasPhysical1 && hasPhysical2) {
                     let jointArrive = Math.min(arrive1, arrive2);
                     let jointLeave = Math.max(leave1, leave2);
                     let wait1 = (arrive1 - jointArrive) + (jointLeave - leave1);
                     let wait2 = (arrive2 - jointArrive) + (jointLeave - leave2);
-                    let totalWait = wait1 + wait2;
+                    totalWaitForThisDay = wait1 + wait2;
                     
-                    let waitText = totalWait <= 30 ? `<span style="color:#155724;">متوافق تماماً ✅</span>` : `<span style="color:#dc3545;">فارق: ${Math.floor(totalWait/60)>0?Math.floor(totalWait/60)+'س ':''}${totalWait%60}د ⏳</span>`;
+                    let waitText = totalWaitForThisDay <= 30 ? `<span style="color:#155724;">متوافق تماماً ✅</span>` : `<span style="color:#dc3545;">فارق: ${Math.floor(totalWaitForThisDay/60)>0?Math.floor(totalWaitForThisDay/60)+'س ':''}${totalWaitForThisDay%60}د ⏳</span>`;
                     
                     summaryHtml = `<div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; gap:5px;">
                                     <div><strong>🟢 دخول:</strong> ${formatTime(jointArrive)}</div>
@@ -3390,23 +3436,40 @@ window.updateCrnDropdown = function() {
                                    </div>`;
                 } else if (hasPhysical1 || hasPhysical2) {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">يذهب بمفرده اليوم</div>`;
+                    totalWaitForThisDay = 999; // للإشارة إلى فراغ كامل
                 } else {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">دراسة عن بُعد اليوم 💻</div>`;
                 }
 
-                html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
-                            <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">${daysArray[i]}</div>
-                            <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
-                                <div style="display:flex; border-bottom:1px dashed #eee; min-height:55px;">
-                                    <div style="width:80px; min-width:80px; background:#eef7f6; color:#008e7e; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t1.name.split(' ')[0]}</div>
-                                    <div style="flex-grow:1; padding:5px;">${renderRow(cls1, '#008e7e', '#eef7f6')}</div>
+                // استدعاء ميزة (سد الفجوات) 
+                let fillersHtml1 = window.getGapFillersHtml(id1, i, currentS1, id1, id2);
+                let fillersHtml2 = window.getGapFillersHtml(id2, i, currentS2, id1, id2);
+                
+                let fillersContainer = '';
+                // إظهار سد الفجوات إذا كان هناك فارق كبير أو دوام انفرادي
+                if ((totalWaitForThisDay > 30 || totalWaitForThisDay === 999) && (fillersHtml1 || fillersHtml2)) {
+                    fillersContainer = `<div style="width:100%; border-top:1px dashed #eee;">
+                                          ${fillersHtml1}
+                                          ${fillersHtml2}
+                                        </div>`;
+                }
+
+                html += `<div class="day-row" style="margin-bottom: 15px; display:flex; flex-direction:column; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                            <div style="display:flex; align-items:stretch; width:100%;">
+                                <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">${daysArray[i]}</div>
+                                <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
+                                    <div style="display:flex; border-bottom:1px dashed #eee; min-height:55px;">
+                                        <div style="width:80px; min-width:80px; background:#eef7f6; color:#008e7e; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t1.name.split(' ')[0]}</div>
+                                        <div style="flex-grow:1; padding:5px;">${renderRow(cls1, '#008e7e', '#eef7f6')}</div>
+                                    </div>
+                                    <div style="display:flex; min-height:55px;">
+                                        <div style="width:80px; min-width:80px; background:#fff3e0; color:#e65100; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t2.name.split(' ')[0]}</div>
+                                        <div style="flex-grow:1; padding:5px;">${renderRow(cls2, '#e65100', '#fff3e0')}</div>
+                                    </div>
                                 </div>
-                                <div style="display:flex; min-height:55px;">
-                                    <div style="width:80px; min-width:80px; background:#fff3e0; color:#e65100; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">${t2.name.split(' ')[0]}</div>
-                                    <div style="flex-grow:1; padding:5px;">${renderRow(cls2, '#e65100', '#fff3e0')}</div>
-                                </div>
+                                <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center; justify-content:center;">${summaryHtml}</div>
                             </div>
-                            <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center;">${summaryHtml}</div>
+                            ${fillersContainer}
                         </div>`;
             }
             html += `</div>`;
@@ -3417,8 +3480,8 @@ window.updateCrnDropdown = function() {
             }
 
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
-                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول:</h4>
-                        <div style="font-size:13px; color:#555; margin-bottom:15px;">يتم حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
+                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المثالي:</h4>
+                        <div style="font-size:13px; color:#555; margin-bottom:15px;">احذف الشُعب التي لا تطابق هذه الأرقام من جدولك، وسجل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
                         <div style="display:flex; gap:20px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
@@ -3432,7 +3495,7 @@ window.updateCrnDropdown = function() {
                      </div>`;
 
             container.innerHTML = html;
-        }, 50); // إعطاء واجهة المستخدم وقتاً لعرض شريط التحميل قبل تجميد المتصفح أثناء الحساب
+        }, 50);
     };
 
 </script>
