@@ -3271,9 +3271,12 @@ window.updateCrnDropdown = function() {
         }, 600);
     };
     
-window.suggestOptimizedSchedule = function(id1, id2) {
+window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
         const container = document.getElementById('suggestion-results-container');
-        container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;"><div class="loader" style="display:inline-block; border-color:#008e7e; border-bottom-color:transparent; margin-bottom:10px;"></div><br>جارِ إجراء بحث عميق (Deep Search) في جميع احتمالات الكلية... قد يستغرق بضع ثوانٍ ⏳</div>';
+        
+        // تغيير رسالة التحميل بناءً على نوع البحث
+        let loadingMsg = isStrict ? 'جارِ إجراء بحث عميق (Deep Search) لتطبيق شرط الـ 15 دقيقة... ⏳' : 'جارِ البحث الشامل بمرونة لتحديد أفضل توافق ممكن بالكلية... ⏳';
+        container.innerHTML = `<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;"><div class="loader" style="display:inline-block; border-color:#008e7e; border-bottom-color:transparent; margin-bottom:10px;"></div><br>${loadingMsg}</div>`;
 
         setTimeout(() => {
             const t1 = globalTraineesSchedules[id1];
@@ -3368,15 +3371,23 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                         let leaveDiff = Math.abs(d1.end - d2.end);     
                         let totalWait = arriveDiff + leaveDiff;
                         
-                        // التعديل الصارم: رفض أي جدول يجعل الفارق أكبر من 15 دقيقة
-                        if (totalWait > 15) {
-                            return Infinity; 
+                        if (isStrict) {
+                            // البحث الصارم: رفض أي جدول فوق 15 دقيقة
+                            if (totalWait > 15) return Infinity; 
+                            score += totalWait;
+                        } else {
+                            // البحث المرن: قبول أي توافق مع معاقبة الفروقات الشاسعة
+                            score += totalWait;
+                            if (totalWait > 90) score += 10000;
                         }
-                        
-                        score += totalWait;
                     } else if (d1 || d2) {
-                        // عدم وضع غرامة على الإجازة إطلاقاً
-                        score += 0; 
+                        if (isStrict) {
+                            // البحث الصارم: الحفاظ على أيام الإجازة كلياً
+                            score += 0; 
+                        } else {
+                            // البحث المرن: يفضل إحضارهم معاً إذا أمكن، لكن يسمح بالإجازة
+                            score += 120;
+                        }
                     }
                 }
                 return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
@@ -3399,16 +3410,25 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                 if (bestScore === 0) break;
             }
 
-            // الشرط الحاسم: إذا لم يجد 15 دقيقة فأقل، يعتذر ويتوقف
-            if (bestScore === Infinity || !bestPair) {
+            // إذا كنا في الوضع الصارم ولم يجد حلاً: نعرض الاعتذار + زر البحث المرن
+            if (isStrict && (bestScore === Infinity || !bestPair)) {
                 container.innerHTML = `
                     <div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
-                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، لا يوجد توافق يحقق شرطك</h3>
-                        <p style="font-size:15px; margin-bottom:0; font-weight:600;">
-                            بحث النظام في جميع الشعب المتاحة، ولم يجد أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون أن يخرب أيام إجازتهم (Off).<br><br>
-                            لذلك.. تم إيقاف العملية، والاحتفاظ بالجداول الحالية كما هي!
+                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، التوافق المثالي غير متاح</h3>
+                        <p style="font-size:15px; margin-bottom:20px; font-weight:600;">
+                            لم يجد النظام أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون المساس بأيام إجازتهم (Off).<br>
+                            (تم الاحتفاظ بالجداول الحالية كما هي).
                         </p>
+                        <button class="btn-process" style="width: auto; padding: 10px 25px; margin: 0 auto; background-color: #ff9800; border-radius: 6px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="suggestOptimizedSchedule('${id1}', '${id2}', false)">
+                            🔄 البحث بمرونة (تجاهل الشروط وإظهار أفضل جدول متاح بالكلية)
+                        </button>
                     </div>`;
+                return;
+            }
+
+            // إذا كنا في الوضع المرن ولم يجد حلاً نهائياً (نادر جداً):
+            if (!isStrict && (bestScore === Infinity || !bestPair)) {
+                container.innerHTML = `<div class="error" style="text-align:center;">تعذر إيجاد أي توافق بين جداول المتدربين حتى بالبحث المرن.</div>`;
                 return;
             }
 
@@ -3500,10 +3520,14 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                 return { arrive: phys[0].start, leave: phys[phys.length - 1].end };
             }
 
+            // تغيير العنوان بناءً على طريقة البحث (صارم أم مرن)
+            let modeTitle = isStrict ? 'الجدول الزمني المثالي المقترح (وفق شرط 15 دقيقة)' : 'أفضل جدول متاح بالكلية (بعد البحث المرن)';
+            let modeDesc = isStrict ? 'تم بناء هذا الجدول ليقلل أوقات الانتظار إلى 15 دقيقة كحد أقصى، مع الاحتفاظ بأيام الإجازة (Off).' : 'هذا أفضل توافق استطاع النظام توليده. إذا ظهرت فجوة زمنية، يمكنك استخدام ميزة (سد الفراغ) بالأسفل لإضافة مقررات وتقريب الأوقات.';
+
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
-                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار إلى 15 دقيقة كحد أقصى، مع الاحتفاظ بأيام الإجازة (Off).</div>
+                <h4 style="color:#008e7e; margin:0 0 10px 0;">${modeTitle}</h4>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">${modeDesc}</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
