@@ -3329,14 +3329,14 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             let pool1 = generateAllValidSchedules(options1);
             let pool2 = generateAllValidSchedules(options2);
 
-           function getDailyStats(schedule) {
+            function getDailyStats(schedule) {
                 let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(dayIndex => {
                             if (dayIndex <= 4) {
                                 let meetingKey = `${sec.crn}|${dayIndex}|${sched.timeData.start}`;
-                                if (window.ignoredRemoteCourses.has(meetingKey)) return; 
+                                if (window.ignoredRemoteCourses && window.ignoredRemoteCourses.has(meetingKey)) return; 
                                 
                                 daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
                             }
@@ -3359,7 +3359,7 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                 return { stats, totalGaps };
             }
 
-           function evaluateWaitTime(info1, info2) {
+            function evaluateWaitTime(info1, info2) {
                 let score = 0;
                 for (let i = 0; i <= 4; i++) {
                     let d1 = info1.stats[i], d2 = info2.stats[i];
@@ -3368,15 +3368,14 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                         let leaveDiff = Math.abs(d1.end - d2.end);     
                         let totalWait = arriveDiff + leaveDiff;
                         
-                        // التعديل الصارم: إذا كان مجموع الانتظار (حضور + انصراف) في اليوم أكبر من 15 دقيقة.. ارفض الجدول فوراً!
+                        // التعديل الصارم: رفض أي جدول يجعل الفارق أكبر من 15 دقيقة
                         if (totalWait > 15) {
                             return Infinity; 
                         }
                         
                         score += totalWait;
                     } else if (d1 || d2) {
-                        // إذا كان أحدهما يداوم والآخر في إجازة (Off)
-                        // لا توجد أي غرامة نهائياً! (0) لكي يفضل النظام إبقاء المتدرب في بيته بدلاً من إحضاره للانتظار
+                        // عدم وضع غرامة على الإجازة إطلاقاً
                         score += 0; 
                     }
                 }
@@ -3384,50 +3383,7 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             }
 
             let bestScore = Infinity;
-            // لا نضع الجداول الحالية كافتراضي، بل نتركها فارغة حتى نجد جدولاً يحقق شرط الـ 15 دقيقة
-            let bestPair = null; 
-
-            for (let s1 of pool1) {
-                let info1 = getDailyStats(s1);
-                for (let s2 of pool2) {
-                    let info2 = getDailyStats(s2);
-                    let score = evaluateWaitTime(info1, info2);
-                    
-                    if (score < bestScore) {
-                        bestScore = score;
-                        bestPair = { s1: s1, s2: s2 };
-                    }
-                    if (bestScore === 0) break; // تطابق مثالي بنسبة 100%
-                }
-                if (bestScore === 0) break;
-            }
-
-            // ---  إذا لم يجد النظام أي جدول يحقق فارق 15 دقيقة فأقل ---
-            if (bestScore === Infinity || !bestPair) {
-                container.innerHTML = `
-                    <div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
-                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، لا يوجد توافق يحقق شرطك</h3>
-                        <p style="font-size:15px; margin-bottom:0; font-weight:600;">
-                            بحث النظام في جميع الشعب المتاحة، ولم يجد أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون أن يخرب أيام إجازتهم (Off).<br><br>
-                            لذلك.. تم إيقاف العملية، والاحتفاظ بالجداول الحالية كما هي!
-                        </p>
-                    </div>`;
-                return; // إيقاف إكمال بناء الجدول الوهمي
-            }
-
-            let currentS1 = bestPair.s1.map(sec => {
-                let copy = JSON.parse(JSON.stringify(sec));
-                copy.isPreRegistered = (t1.originalPreRegistered && t1.originalPreRegistered.includes(String(sec.crn)));
-                return copy;
-            });
-            let currentS2 = bestPair.s2.map(sec => {
-                let copy = JSON.parse(JSON.stringify(sec));
-                copy.isPreRegistered = (t2.originalPreRegistered && t2.originalPreRegistered.includes(String(sec.crn)));
-                return copy;
-            });
-
-            let bestScore = Infinity;
-            let bestPair = { s1: t1.schedule, s2: t2.schedule };
+            let bestPair = null;
 
             for (let s1 of pool1) {
                 let info1 = getDailyStats(s1);
@@ -3441,6 +3397,19 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                     if (bestScore === 0) break; 
                 }
                 if (bestScore === 0) break;
+            }
+
+            // الشرط الحاسم: إذا لم يجد 15 دقيقة فأقل، يعتذر ويتوقف
+            if (bestScore === Infinity || !bestPair) {
+                container.innerHTML = `
+                    <div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
+                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، لا يوجد توافق يحقق شرطك</h3>
+                        <p style="font-size:15px; margin-bottom:0; font-weight:600;">
+                            بحث النظام في جميع الشعب المتاحة، ولم يجد أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون أن يخرب أيام إجازتهم (Off).<br><br>
+                            لذلك.. تم إيقاف العملية، والاحتفاظ بالجداول الحالية كما هي!
+                        </p>
+                    </div>`;
+                return;
             }
 
             let currentS1 = bestPair.s1.map(sec => {
@@ -3463,9 +3432,8 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(day => {
                             if (day <= 4) {
-                                // تطبيق نفس الفلتر الدقيق بالاعتماد على اليوم والوقت
                                 let meetingKey = `${sec.crn}|${day}|${sched.timeData.start}`;
-                                let isRemote = window.ignoredRemoteCourses.has(meetingKey);
+                                let isRemote = window.ignoredRemoteCourses && window.ignoredRemoteCourses.has(meetingKey);
                                 
                                 daily[day].push({ 
                                     code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, 
@@ -3535,7 +3503,7 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
                 <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار. إذا استمر الفارق، فهذا ناتج عن <b>اختلاف عدد المقررات (أحدهما يتدرب أكثر من الآخر)</b>، في هذه الحالة استخدم ميزة <b>(سد الفراغ)</b> بالأسفل لإضافة مقرر متبقي بضغطة زر وتصحيح التوافق.</div>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">تم بناء هذا الجدول ليقلل أوقات الانتظار إلى 15 دقيقة كحد أقصى، مع الاحتفاظ بأيام الإجازة (Off).</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
@@ -3574,17 +3542,15 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                                    </div>`;
                 } else if (hasPhysical1 || hasPhysical2) {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">يذهب بمفرده اليوم</div>`;
-                    totalWaitForThisDay = 999; // للإشارة إلى فراغ كامل
+                    totalWaitForThisDay = 999; 
                 } else {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">دراسة عن بُعد اليوم 💻</div>`;
                 }
 
-                // استدعاء ميزة (سد الفجوات) 
                 let fillersHtml1 = window.getGapFillersHtml(id1, i, currentS1, id1, id2);
                 let fillersHtml2 = window.getGapFillersHtml(id2, i, currentS2, id1, id2);
                 
                 let fillersContainer = '';
-                // إظهار سد الفجوات إذا كان هناك فارق كبير أو دوام انفرادي
                 if ((totalWaitForThisDay > 30 || totalWaitForThisDay === 999) && (fillersHtml1 || fillersHtml2)) {
                     fillersContainer = `<div style="width:100%; border-top:1px dashed #eee;">
                                           ${fillersHtml1}
