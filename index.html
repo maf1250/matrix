@@ -910,21 +910,57 @@ traineesRaw.forEach(row => {
 
             // --- 1. قراءة أولية لمعرفة أنواع الشقوق المتاحة لكل مقرر ---
             let courseAvailableTypes = {};
+            let tempLastCode = "";
             ss01Raw.forEach(row => {
-                let code = row[C_COURSE];
+                let code = row[C_COURSE] ? String(row[C_COURSE]).trim() : '';
+                // وراثة رمز المقرر من السطر السابق إذا كان السطر الحالي يخص اللقاء الثاني
+                if (!code && tempLastCode) code = tempLastCode;
+                else tempLastCode = code;
+
                 let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
                 if (code) {
                     if (!courseAvailableTypes[code]) courseAvailableTypes[code] = new Set();
                     courseAvailableTypes[code].add(type);
                 }
             });
-            // --------------------------------------------------------
+
+            // متغيرات لحفظ بيانات السطر السابق لمعالجة دمج الخلايا في تقارير رايات
+            let lastCode = "", lastCrn = "", lastType = "", lastCourseName = "", lastRem = 0, lastInst = "", lastCredit = 0;
 
             ss01Raw.forEach(row => {
-                let code = row[C_COURSE];
+                let code = row[C_COURSE] ? String(row[C_COURSE]).trim() : '';
                 let courseName = row[C_COURSE_NAME] ? String(row[C_COURSE_NAME]).trim() : '';
-                let crn = String(row[C_CRN]).trim();
-                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : 'نظري';
+                let crn = row[C_CRN] ? String(row[C_CRN]).trim() : '';
+                let type = row[C_TYPE] ? String(row[C_TYPE]).trim() : '';
+                let rem = row[C_REM] !== undefined && row[C_REM] !== "" ? parseInt(row[C_REM]) : NaN;
+                let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : '';
+                let creditHours = row[C_CREDIT_HOURS] !== undefined && row[C_CREDIT_HOURS] !== "" ? parseFloat(row[C_CREDIT_HOURS]) : NaN;
+
+                if ((!code || !crn) && lastCrn) {
+                    code = lastCode;
+                    crn = lastCrn;
+                    if (!type) type = lastType;
+                    if (!courseName) courseName = lastCourseName;
+                    if (isNaN(rem)) rem = lastRem;
+                    if (!instructor) instructor = lastInst;
+                    if (isNaN(creditHours)) creditHours = lastCredit;
+                } else {
+                    lastCode = code;
+                    lastCrn = crn;
+                    lastType = type || 'نظري';
+                    lastCourseName = courseName;
+                    lastRem = isNaN(rem) ? 0 : rem;
+                    lastInst = instructor || 'غير محدد';
+                    lastCredit = isNaN(creditHours) ? 0 : creditHours;
+                    
+                    type = lastType;
+                    courseName = lastCourseName;
+                    rem = lastRem;
+                    instructor = lastInst;
+                    creditHours = lastCredit;
+                }
+
+                if (!code || !crn) return;
 
                 // --- 2. تحديد نوع الشق بذكاء بناءً على ما يقابله ---
                 let baseType = 'نظري'; 
@@ -938,21 +974,15 @@ traineesRaw.forEach(row => {
                     let hasPractical = allTypes.some(t => t.includes('عملي'));
 
                     if (hasPractical && !hasTheory) {
-                        baseType = 'نظري'; // إذا وجد عملي فقط، فالمدمج يكمل النظري
+                        baseType = 'نظري'; 
                     } else if (hasTheory && !hasPractical) {
-                        baseType = 'عملي'; // إذا وجد نظري فقط، فالمدمج يكمل العملي
+                        baseType = 'عملي'; 
                     } else {
-                        baseType = 'عملي'; // الافتراضي
+                        baseType = 'عملي'; 
                     }
                 }
-                // --------------------------------------------------------
 
-                let rem = parseInt(row[C_REM]) || 0;
-                let instructor = row[C_INSTRUCTOR] ? String(row[C_INSTRUCTOR]).trim() : 'غير محدد';
-let creditHours = parseFloat(row[C_CREDIT_HOURS]) || 0;  
-                
-if (!code || !crn) return;
-crnToType[crn] = type;
+                crnToType[crn] = type;
 
                 let days = parseDays(row[C_DAY]);
                 let timeData = parseTimeRange(row[C_TIME]);
@@ -961,14 +991,19 @@ crnToType[crn] = type;
                 if (timeData.start < globalCollegeStartTime) {
                     globalCollegeStartTime = timeData.start;
                 }
+                
                 if (allSectionsRef[crn]) {
-                    allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
+                    // التحقق من عدم تكرار نفس الوقت واليوم تجنباً لأي خطأ في الملف
+                    let isDup = allSectionsRef[crn].schedules.some(s => s.timeData.start === timeData.start && JSON.stringify(s.days) === JSON.stringify(days));
+                    if (!isDup) {
+                        allSectionsRef[crn].schedules.push({ days: days, timeData: timeData });
+                    }
                 } else {
                     let section = {
-    code: code, courseName: courseName, crn: crn, type: type, baseType: baseType, remaining: rem, originalRem: rem,
-    instructor: instructor, creditHours: creditHours,
-    schedules: [{ days: days, timeData: timeData }]
-};
+                        code: code, courseName: courseName, crn: crn, type: type, baseType: baseType, remaining: rem, originalRem: rem,
+                        instructor: instructor, creditHours: creditHours,
+                        schedules: [{ days: days, timeData: timeData }]
+                    };
                     allSectionsRef[crn] = section;
                    if (!courseMap[code]) courseMap[code] = {};
                    if (!courseMap[code][baseType]) courseMap[code][baseType] = [];
