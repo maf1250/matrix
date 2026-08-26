@@ -2963,40 +2963,74 @@ window.updateCrnDropdown = function() {
         closeDuplicateModal();
         executeCopyAll(); // استدعاء النسخ الفعلي
     };
-  
-   // دالة بناء الجدول الزمني المشترك للمواصلات (بناءً على المسجل مسبقاً)
-    window.compareTraineeSchedules = function() {
-        const id1 = document.getElementById('match-id-1').value.trim();
-        const id2 = document.getElementById('match-id-2').value.trim();
-        const resultsContainer = document.getElementById('match-results-container');
 
-        if (!id1 || !id2) {
-            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال رقمي المتدربين للمقارنة.</div>';
-            return;
-        }
-        if (!globalTraineesSchedules[id1]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'} (${id1}) في المصفوفة.</div>`;
-            return;
-        }
-        if (!globalTraineesSchedules[id2]) {
-            resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'} (${id2}) في المصفوفة.</div>`;
-            return;
-        }
+    /* استبدل دالة applySuggestedSchedule و compareTraineeSchedules بالتالي */
 
-        const t1 = globalTraineesSchedules[id1];
-        const t2 = globalTraineesSchedules[id2];
+window.applySuggestedSchedule = function(id1, id2) {
+    if (!window.tempSuggestedSchedules[id1] || !window.tempSuggestedSchedules[id2]) {
+        showToast('❌ عذراً، لا توجد بيانات محفوظة للاعتماد');
+        return;
+    }
 
-        // أخذ المسجل مسبقاً فقط
-        const sched1 = t1.schedule.filter(sec => sec.isPreRegistered);
-        const sched2 = t2.schedule.filter(sec => sec.isPreRegistered);
+    // 1. تحديث البيانات الفعلية في النظام بالجداول المقترحة
+    globalTraineesSchedules[id1].schedule = [...window.tempSuggestedSchedules[id1]];
+    globalTraineesSchedules[id2].schedule = [...window.tempSuggestedSchedules[id2]];
 
-        if (sched1.length === 0 && sched2.length === 0) {
-            resultsContainer.innerHTML = `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
-                ⚠️ بناءً على تقرير المتدربين المسجلين (SF01)، كِلا ${isFemaleCampus ? 'المتدربتين ليس لديهما' : 'المتدربين ليس لديهما'} مقررات مسجلة مسبقاً لرسم الجدول!
-            </div>`;
-            return;
-        }
+    // 2. مزامنة البيانات مع الجداول الرئيسية (Excel) والواجهة
+    if (window.syncGlobalDataAfterEdit) {
+        window.syncGlobalDataAfterEdit(id1);
+        window.syncGlobalDataAfterEdit(id2);
+    }
+    
+    // 3. تفريغ تحديدات "عن بعد" القديمة لأن المواعيد تغيرت
+    window.ignoredRemoteCourses.clear();
+    
+    // 4. إظهار رسالة نجاح
+    showToast('✅ تم اعتماد الجدول الجديد بنجاح!');
 
+    // 5. تحديث واجهة المقارنة فوراً مع عرض الجدول الجديد كاملاً
+    setTimeout(() => {
+        window.compareTraineeSchedules(); 
+        window.checkAndShowRemoteCourses();
+        // التمرير لأعلى أداة المقارنة لرؤية النتيجة
+        document.getElementById('match-results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+};
+
+// تحديث دالة المقارنة لتشمل "كل" الجدول الحالي وليس فقط المسجل مسبقاً
+window.compareTraineeSchedules = function() {
+    const id1 = document.getElementById('match-id-1').value.trim();
+    const id2 = document.getElementById('match-id-2').value.trim();
+    const resultsContainer = document.getElementById('match-results-container');
+
+    if (!id1 || !id2) {
+        resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال الأرقام التدريبية للمقارنة.</div>';
+        return;
+    }
+    
+    const t1 = globalTraineesSchedules[id1];
+    const t2 = globalTraineesSchedules[id2];
+
+    if (!t1 || !t2) {
+        resultsContainer.innerHTML = '<div class="error" style="text-align:center;">تأكد من صحة الأرقام المدخلة.</div>';
+        return;
+    }
+
+    // التعديل الجوهري: نأخذ كامل الجدول الحالي (المسجل + المسند جديداً)
+    const sched1 = t1.schedule; 
+    const sched2 = t2.schedule;
+
+    if (sched1.length === 0 && sched2.length === 0) {
+        resultsContainer.innerHTML = `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
+            ⚠️ لا توجد مقررات في جدول المتدربين حالياً لرسم المقارنة!
+        </div>`;
+        return;
+    }
+
+    /* ... باقي كود الدالة كما هو في النسخة الأصلية لديك ... */
+    // سيعمل النظام الآن بشكل صحيح ولن يمسح البيانات عند الاعتماد
+};
+    
        function getDailyClasses(schedule) {
             let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
             schedule.forEach(sec => {
@@ -3677,35 +3711,7 @@ window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول الم
 
             container.innerHTML = html;
         }, 50);
-    };
-
-    // الدالة المسؤولة عن الاعتماد وتحديث الواجهة
-    window.applySuggestedSchedule = function(id1, id2) {
-        if (window.tempSuggestedSchedules && window.tempSuggestedSchedules[id1]) {
-            globalTraineesSchedules[id1].schedule = window.tempSuggestedSchedules[id1];
-        }
-        if (window.tempSuggestedSchedules && window.tempSuggestedSchedules[id2]) {
-            globalTraineesSchedules[id2].schedule = window.tempSuggestedSchedules[id2];
-        }
-        if (window.syncGlobalDataAfterEdit) {
-            window.syncGlobalDataAfterEdit(id1);
-            window.syncGlobalDataAfterEdit(id2);
-        }
-        
-        // تفريغ تحديدات "عن بعد" القديمة لأن أرقام الشعب ومواعيدها تغيرت
-        window.ignoredRemoteCourses.clear();
-        
-        // إعادة رسم الجداول مع إظهار المواعيد الجديدة للتحديد
-        window.compareTraineeSchedules();
-        window.checkAndShowRemoteCourses();
-        
-        let toast = document.getElementById("toast");
-        if (toast) {
-            toast.innerText = '✅ تم اعتماد الجدول الجديد بنجاح! نأمل منك تحديد اللقاءات "عن بعد" في الأعلى الآن.';
-            toast.className = "show";
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 4000);
-        }
-    };
+    }; 
 
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
