@@ -2858,7 +2858,7 @@ window.updateCrnDropdown = function() {
         executeCopyAll(); // استدعاء النسخ الفعلي
     };
   
-    // دالة مقارنة أوقات الدخول والخروج لمتدربين (لغرض المواصلات) بناءً على المسجل مسبقاً
+   // دالة بناء الجدول الزمني المشترك للمواصلات (بناءً على المسجل مسبقاً)
     window.compareTraineeSchedules = function() {
         const id1 = document.getElementById('match-id-1').value.trim();
         const id2 = document.getElementById('match-id-2').value.trim();
@@ -2880,111 +2880,185 @@ window.updateCrnDropdown = function() {
         const t1 = globalTraineesSchedules[id1];
         const t2 = globalTraineesSchedules[id2];
 
-        // تصفية الجداول لأخذ (المسجل مسبقاً) فقط وتجاهل الإسناد الجديد
-        const preRegisteredSchedule1 = t1.schedule.filter(sec => sec.isPreRegistered);
-        const preRegisteredSchedule2 = t2.schedule.filter(sec => sec.isPreRegistered);
+        // أخذ المسجل مسبقاً فقط
+        const sched1 = t1.schedule.filter(sec => sec.isPreRegistered);
+        const sched2 = t2.schedule.filter(sec => sec.isPreRegistered);
 
-        // دالة مساعدة لاستخراج وقت البداية والنهاية لكل يوم
-        function getDailyExtremes(schedule) {
-            let extremes = { 0: null, 1: null, 2: null, 3: null, 4: null };
+        if (sched1.length === 0 && sched2.length === 0) {
+            resultsContainer.innerHTML = `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
+                ⚠️ بناءً على تقرير المتدربين المسجلين (SF01)، كِلا ${isFemaleCampus ? 'المتدربتين ليس لديهما' : 'المتدربين ليس لديهما'} مقررات مسجلة مسبقاً لرسم الجدول!
+            </div>`;
+            return;
+        }
+
+        // دالة مساعدة لتجهيز المحاضرات لكل يوم
+        function getDailyClasses(schedule) {
+            let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
             schedule.forEach(sec => {
                 sec.schedules.forEach(sched => {
-                    sched.days.forEach(day => {
-                        if (day <= 4) {
-                            if (!extremes[day]) {
-                                extremes[day] = { start: sched.timeData.start, end: sched.timeData.end };
-                            } else {
-                                if (sched.timeData.start < extremes[day].start) extremes[day].start = sched.timeData.start;
-                                if (sched.timeData.end > extremes[day].end) extremes[day].end = sched.timeData.end;
-                            }
+                    sched.days.forEach(dayIndex => {
+                        if (dayIndex <= 4) {
+                            daysObj[dayIndex].push({
+                                code: sec.code, crn: sec.crn,
+                                start: sched.timeData.start, end: sched.timeData.end,
+                                textTime: sched.timeData.originalText
+                            });
                         }
                     });
                 });
             });
-            return extremes;
+            // إزالة التكرار وترتيب الأوقات
+            for (let i = 0; i <= 4; i++) {
+                let unique = [];
+                let seen = new Set();
+                daysObj[i].forEach(cls => {
+                    let key = `${cls.crn}-${cls.start}`;
+                    if (!seen.has(key)) { seen.add(key); unique.push(cls); }
+                });
+                unique.sort((a, b) => a.start - b.start);
+                daysObj[i] = unique;
+            }
+            return daysObj;
         }
 
-        const ext1 = getDailyExtremes(preRegisteredSchedule1);
-        const ext2 = getDailyExtremes(preRegisteredSchedule2);
+        const daily1 = getDailyClasses(sched1);
+        const daily2 = getDailyClasses(sched2);
         const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-        
-        let html = `<h4 style="color:#008e7e; border-bottom: 2px dashed #b2d8d3; padding-bottom:10px;">
-                        نتيجة المطابقة (للمسجل مسبقاً فقط) بين: (${t1.name}) و (${t2.name})
-                    </h4>`;
-                    
-        html += `<table class="data-table" style="width:100%;">
-                    <thead>
-                        <tr>
-                            <th>اليوم</th>
-                            <th>دوام ${t1.name.split(' ')[0]}</th>
-                            <th>دوام ${t2.name.split(' ')[0]}</th>
-                            <th>حالة التوافق</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
 
-        let totalDays = 0;
-        let sharedDays = 0; // الأيام التي يداومان فيها معاً
-        let matchedDays = 0; // الأيام المشتركة المتطابقة تماماً
+        // البحث عن أبكر وقت بداية لتوحيد بداية الجدول بصرياً
+        let minTime = Infinity;
+        for (let i = 0; i <= 4; i++) {
+            if (daily1[i].length > 0 && daily1[i][0].start < minTime) minTime = daily1[i][0].start;
+            if (daily2[i].length > 0 && daily2[i][0].start < minTime) minTime = daily2[i][0].start;
+        }
+        if (minTime === Infinity) minTime = 480; // افتراضي 8:00 صباحاً
+        
+        const PX_PER_MIN = 2.2; // معامل التكبير لرسم الجدول
+
+        let html = `<div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: right; border: 1px solid #cbe6e3;">
+                        <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المشترك (للمسجل مسبقاً)</h4>
+                        <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
+                            <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]} (${t1.id})</span>
+                            <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]} (${t2.id})</span>
+                        </div>
+                    </div>
+                    <div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px; text-align:right;">`;
+
+        let sharedDaysCount = 0;
+
+        // دالة مساعدة لرسم صف يوم لمتدرب واحد
+        function renderPersonRow(classes, colorHex, bgColor) {
+            if (classes.length === 0) {
+                return `<div style="display:flex; align-items:center; height:50px; padding:0 15px; color:#999; font-weight:bold; background:#fafafa; border-radius:4px;">إجازة (Off)</div>`;
+            }
+            let rowHtml = `<div style="display:flex; align-items:center; flex-wrap:nowrap; min-height:50px;">`;
+            let currentCursor = minTime;
+            
+            classes.forEach(cls => {
+                let gapMins = Math.max(0, cls.start - currentCursor);
+                let durationMins = Math.max(50, cls.end - cls.start);
+                currentCursor = cls.end;
+                
+                if (gapMins > 0) {
+                    let h = Math.floor(gapMins / 60);
+                    let m = gapMins % 60;
+                    let text = (h>0?h+'س ':'') + (m>0?m+'د':'');
+                    rowHtml += `<div style="width:${gapMins * PX_PER_MIN}px; min-width:${gapMins * PX_PER_MIN}px; text-align:center; color:#bbb; font-size:11px; font-weight:bold;">${text}</div>`;
+                }
+                
+                rowHtml += `<div class="course-card" style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
+                                <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${cls.code}</strong>
+                                <span dir="ltr" style="font-size:11px; color:#555;">${cls.textTime}</span>
+                            </div>`;
+            });
+            rowHtml += `</div>`;
+            return rowHtml;
+        }
 
         for (let i = 0; i <= 4; i++) {
-            let d1 = ext1[i];
-            let d2 = ext2[i];
+            let cls1 = daily1[i];
+            let cls2 = daily2[i];
 
-            if (!d1 && !d2) continue; // كلاهما لا يوجد لديه دوام في هذا اليوم
+            if (cls1.length === 0 && cls2.length === 0) continue; // كلاهما أوف
 
-            let time1Text = d1 ? `من ${formatTime(d1.start)} إلى ${formatTime(d1.end)}` : '<span style="color:#6c757d; font-weight:bold;">إجازة (Off)</span>';
-            let time2Text = d2 ? `من ${formatTime(d2.start)} إلى ${formatTime(d2.end)}` : '<span style="color:#6c757d; font-weight:bold;">إجازة (Off)</span>';
-
-            let statusHTML = "";
+            // حساب وقت الحضور المشترك والانصراف والانتظار
+            let arrive1 = cls1.length ? cls1[0].start : null;
+            let leave1 = cls1.length ? cls1[cls1.length-1].end : null;
             
-            if (!d1 || !d2) {
-                // أحدهما يداوم والآخر إجازة (يذهب بمفرده - لا يعتبر تعارضاً)
-                statusHTML = '<span style="color:#17a2b8; font-weight:bold;">ℹ️ أحدهما إجازة (يذهب بمفرده)</span>';
-            } else {
-                // كلاهما يداوم في هذا اليوم (نحسبه ضمن الأيام المشتركة)
-                sharedDays++;
+            let arrive2 = cls2.length ? cls2[0].start : null;
+            let leave2 = cls2.length ? cls2[cls2.length-1].end : null;
+
+            let summaryHtml = "";
+            if (cls1.length > 0 && cls2.length > 0) {
+                sharedDaysCount++;
+                let jointArrive = Math.min(arrive1, arrive2);
+                let jointLeave = Math.max(leave1, leave2);
                 
-                if (d1.start === d2.start && d1.end === d2.end) {
-                    statusHTML = '<span style="color:#155724; font-weight:bold;">✅ تطابق تام</span>';
-                    matchedDays++;
-                } else {
-                    let diffStart = Math.abs(d1.start - d2.start);
-                    let diffEnd = Math.abs(d1.end - d2.end);
-                    
-                    if (diffStart <= 60 && diffEnd <= 60) {
-                        statusHTML = `<span style="color:#856404; font-weight:bold;">⚠️ تقارب زمني (فارق ${Math.max(diffStart, diffEnd)} دقيقة)</span>`;
-                    } else {
-                        statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ تعارض في الأوقات</span>';
-                    }
-                }
+                let wait1 = (arrive1 - jointArrive) + (jointLeave - leave1);
+                let wait2 = (arrive2 - jointArrive) + (jointLeave - leave2);
+                let totalWait = wait1 + wait2; // إجمالي الوقت المهدر لأحدهما أو كليهما
+
+                let waitText = totalDaysWait => {
+                    if (totalDaysWait === 0) return `<span style="color:#155724;">لا يوجد انتظار ✅</span>`;
+                    let h = Math.floor(totalDaysWait / 60);
+                    let m = totalDaysWait % 60;
+                    return `<span style="color:#dc3545;">فارق: ${(h>0?h+'س ':'') + (m>0?m+'د':'')} ⏳</span>`;
+                };
+
+                summaryHtml = `
+                    <div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 160px; display:flex; flex-direction:column; justify-content:center; gap:5px;">
+                        <div><strong>🟢 دخول:</strong> ${formatTime(jointArrive)}</div>
+                        <div><strong>🔴 خروج:</strong> ${formatTime(jointLeave)}</div>
+                        <div style="margin-top:5px; border-top:1px solid #eee; padding-top:5px;">${waitText(totalWait)}</div>
+                    </div>
+                `;
+            } else {
+                let personAlone = cls1.length > 0 ? t1.name.split(' ')[0] : t2.name.split(' ')[0];
+                summaryHtml = `
+                    <div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 160px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">
+                        (${personAlone})<br>يذهب بمفرده اليوم 🚗
+                    </div>
+                `;
             }
 
-            html += `<tr>
-                        <td style="font-weight:bold; background:#f9f9f9;">${daysArray[i]}</td>
-                        <td dir="ltr" style="text-align:right;">${time1Text}</td>
-                        <td dir="ltr" style="text-align:right;">${time2Text}</td>
-                        <td>${statusHTML}</td>
-                     </tr>`;
+            html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                        <div class="day-label" style="width: 80px; background: #006d60; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
+                            ${daysArray[i]}
+                        </div>
+                        
+                        <div style="flex-grow: 1; display:flex; flex-direction:column; overflow-x:auto;">
+                            <!-- صف المتدرب الأول -->
+                            <div style="display:flex; border-bottom:1px dashed #eee; min-height:55px;">
+                                <div style="width:80px; min-width:80px; background:#eef7f6; color:#008e7e; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">
+                                    ${t1.name.split(' ')[0]}
+                                </div>
+                                <div style="flex-grow:1; padding:5px;">
+                                    ${renderPersonRow(cls1, '#008e7e', '#eef7f6')}
+                                </div>
+                            </div>
+                            <!-- صف المتدرب الثاني -->
+                            <div style="display:flex; min-height:55px;">
+                                <div style="width:80px; min-width:80px; background:#fff3e0; color:#e65100; font-weight:bold; font-size:12px; display:flex; align-items:center; justify-content:center; border-left:1px solid #ddd;">
+                                    ${t2.name.split(' ')[0]}
+                                </div>
+                                <div style="flex-grow:1; padding:5px;">
+                                    ${renderPersonRow(cls2, '#e65100', '#fff3e0')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ملخص الحضور والانصراف للمواصلات -->
+                        <div style="padding: 10px; background:#fafafa; border-right:1px solid #ddd; display:flex; align-items:center;">
+                            ${summaryHtml}
+                        </div>
+                    </div>`;
         }
 
-        html += `</tbody></table>`;
+        html += `</div>`;
         
-        if (preRegisteredSchedule1.length === 0 && preRegisteredSchedule2.length === 0) {
-            html += `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
-                        ⚠️ بناءً على تقرير المتدربين المسجلين (SF01)، كِلا ${isFemaleCampus ? 'المتدربتين ليس لديهما' : 'المتدربين ليس لديهما'} مقررات مسجلة مسبقاً لمقارنتها!
-                     </div>`;
-        } else if (sharedDays === 0) {
-            // دوامهم لا يتقاطع أبداً (مثلاً أحدهما يداوم الأحد والثلاثاء، والآخر الإثنين والأربعاء)
+        if (sharedDaysCount === 0) {
             html += `<div style="margin-top:15px; padding:15px; background:#d1ecf1; color:#0c5460; border-radius:6px; text-align:center; font-weight:bold; border: 1px solid #bee5eb;">
                         لا توجد أي أيام دوام مشتركة بينهما! (كل ${isFemaleCampus ? 'متدربة تداوم' : 'متدرب يداوم'} في أيام مختلفة، ولن يتعارضا في المواصلات)
-                     </div>`;
-        } else {
-            let percentage = Math.round((matchedDays / sharedDays) * 100);
-            let summaryColor = percentage === 100 ? '#155724' : (percentage >= 50 ? '#856404' : '#721c24');
-            let summaryBg = percentage === 100 ? '#d4edda' : (percentage >= 50 ? '#fff3cd' : '#f8d7da');
-            html += `<div style="margin-top:15px; padding:15px; background:${summaryBg}; color:${summaryColor}; border-radius:6px; text-align:center; font-size:16px; font-weight:bold; border: 1px solid currentColor;">
-                        نسبة التطابق في الأيام المشتركة: ${percentage}% (${matchedDays} أيام متطابقة من أصل ${sharedDays} أيام دوام مشترك)
                      </div>`;
         }
 
