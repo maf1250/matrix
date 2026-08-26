@@ -1514,13 +1514,16 @@ for (let crn in allSectionsRef) {
                 <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
                     <div>
                         <label style="display:block; font-weight:bold; color:#006d60; margin-bottom:5px;">رقم ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'}:</label>
-                        <input type="text" id="match-id-1" placeholder="مثال: 441234567" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
+                        <input type="text" id="match-id-1" placeholder="مثال: 441234567" oninput="checkAndShowRemoteCourses()" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
                     </div>
                     <div>
                         <label style="display:block; font-weight:bold; color:#006d60; margin-bottom:5px;">رقم ${isFemaleCampus ? 'المتدربة الثانية' : 'المتدرب الثاني'}:</label>
-                        <input type="text" id="match-id-2" placeholder="مثال: 441234568" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
+                        <input type="text" id="match-id-2" placeholder="مثال: 441234568" oninput="checkAndShowRemoteCourses()" style="padding: 10px; border: 1px solid #008e7e; border-radius: 6px; outline: none; width: 220px; text-align:center;">
                     </div>
                 </div>
+                
+                <div id="remote-courses-container" style="display:none; margin-bottom:20px; background:#eef7f6; border:1px dashed #008e7e; padding:15px; border-radius:8px;"></div>
+                
                 <button class="btn-process" style="width: auto; padding: 10px 40px; margin: 0 auto;" onclick="compareTraineeSchedules()">فحص المطابقة الزمنية 🔄</button>
                 <div id="match-results-container" style="margin-top: 30px; text-align: right;"></div>
             </div>
@@ -1647,6 +1650,45 @@ for (let crn in allSectionsRef) {
             handleGlobalSearch();
         }
     }
+
+    window.ignoredRemoteCourses = new Set();
+    
+    window.checkAndShowRemoteCourses = function() {
+        const id1 = document.getElementById('match-id-1').value.trim();
+        const id2 = document.getElementById('match-id-2').value.trim();
+        const container = document.getElementById('remote-courses-container');
+
+        if (id1 && id2 && globalTraineesSchedules[id1] && globalTraineesSchedules[id2]) {
+            let courses = new Set();
+            globalTraineesSchedules[id1].schedule.forEach(s => courses.add(s.code));
+            globalTraineesSchedules[id2].schedule.forEach(s => courses.add(s.code));
+
+            if (courses.size === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">حدد المقررات التي تُدرس "عن بُعد" (سيتم إخفاؤها من حسابات أوقات الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
+            courses.forEach(code => {
+                let isChecked = window.ignoredRemoteCourses.has(code) ? 'checked' : '';
+                html += `<label style="background:#fff; padding:5px 10px; border-radius:4px; border:1px solid #cbe6e3; cursor:pointer; font-size:13px; font-weight:bold; color:#333; display:flex; align-items:center; gap:5px;">
+                            <input type="checkbox" value="${code}" class="remote-course-checkbox" onchange="updateRemoteCourses()" ${isChecked}> ${code}
+                         </label>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            container.style.display = 'block';
+        } else {
+            container.style.display = 'none';
+        }
+    };
+
+    window.updateRemoteCourses = function() {
+        window.ignoredRemoteCourses.clear();
+        document.querySelectorAll('.remote-course-checkbox:checked').forEach(cb => {
+            window.ignoredRemoteCourses.add(cb.value);
+        });
+    };
 
     function renderSingleTraineeSchedule() {
         const dropdown = document.getElementById('trainee-dropdown');
@@ -3072,8 +3114,7 @@ window.updateCrnDropdown = function() {
         resultsContainer.innerHTML = html;
     };
 
-   // دالة الذكاء الاصطناعي لاقتراح أفضل توافق زمني (مع السماح بتعديل المسجل مسبقاً)
-    window.suggestOptimizedSchedule = function(id1, id2) {
+   window.suggestOptimizedSchedule = function(id1, id2) {
         const container = document.getElementById('suggestion-results-container');
         container.innerHTML = '<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;">جارِ البحث عن أفضل توافق في جميع الاحتمالات المتاحة... ⏳</div>';
 
@@ -3081,14 +3122,15 @@ window.updateCrnDropdown = function() {
             const t1 = globalTraineesSchedules[id1];
             const t2 = globalTraineesSchedules[id2];
 
-            // أخذ نسخة من الجدول المسند بالكامل 
             let currentS1 = JSON.parse(JSON.stringify(t1.schedule));
             let currentS2 = JSON.parse(JSON.stringify(t2.schedule));
 
-            // دوال مساعدة لتقييم الجدول
+            // حساب الإحصائيات مع تجاهل مقررات (عن بُعد) المحددة
             function getDailyStats(schedule) {
                 let daysObj = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
+                    // استثناء مقررات عن بعد من تقييم وقت الدخول والخروج
+                    if (window.ignoredRemoteCourses.has(sec.code)) return; 
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(dayIndex => {
                             if (dayIndex <= 4) daysObj[dayIndex].push({ start: sched.timeData.start, end: sched.timeData.end });
@@ -3115,30 +3157,36 @@ window.updateCrnDropdown = function() {
                 return { stats, totalGaps };
             }
 
+            // دالة التقييم الجديدة (قيد 15 دقيقة صارم)
             function evaluateWaitTime(s1, s2) {
                 let info1 = getDailyStats(s1);
                 let info2 = getDailyStats(s2);
                 let waitCost = 0;
+                let penalty = 0; // عقوبات النظام للخيارات المرفوضة
                 
                 for (let i = 0; i <= 4; i++) {
                     let d1 = info1.stats[i], d2 = info2.stats[i];
                     if (d1 && d2) {
-                        waitCost += Math.abs(d1.start - d2.start); 
-                        waitCost += Math.abs(d1.end - d2.end);     
+                        let arriveDiff = Math.abs(d1.start - d2.start); 
+                        let leaveDiff = Math.abs(d1.end - d2.end);     
+                        
+                        // تطبيق عقوبة ضخمة جداً في حال كان الفارق يزيد عن 15 دقيقة
+                        if (arriveDiff > 15) penalty += (arriveDiff * 10000);
+                        if (leaveDiff > 15) penalty += (leaveDiff * 10000);
+
+                        waitCost += arriveDiff + leaveDiff;
                     } else if (d1 || d2) {
-                        waitCost += 300; // عقوبة لأيام الدوام الانفرادية
+                        penalty += 500000; // عقوبة ضخمة في حال وجود متدرب يداوم بمفرده
                     }
                 }
-                return waitCost + (info1.totalGaps * 0.5) + (info2.totalGaps * 0.5);
+                return waitCost + penalty + (info1.totalGaps * 0.5) + (info2.totalGaps * 0.5);
             }
 
-            // إيجاد الشعب البديلة الصالحة (وتعليم المسجل مسبقاً إذا تم اختياره)
             function getValidAlternatives(secToReplace, scheduleWithoutTarget, originalPreReg) {
                 let alts = [];
                 for (let crn in allSectionsRef) {
                     let candidate = allSectionsRef[crn];
                     if (candidate.code !== secToReplace.code || candidate.baseType !== secToReplace.baseType) continue;
-                    
                     if (candidate.remaining <= 0 && String(candidate.crn) !== String(secToReplace.crn)) continue;
 
                     let hasConflict = false;
@@ -3149,23 +3197,22 @@ window.updateCrnDropdown = function() {
                     if (!window.checkSF33LinkValidity(candidate, scheduleWithoutTarget)) continue;
 
                     let candCopy = JSON.parse(JSON.stringify(candidate));
-                    // نُعلم الشعبة كمسجلة مسبقاً فقط إذا كانت هي نفس الرقم المرجعي الأصلي للمتدرب
+                    // تصنيفها كمسجلة مسبقاً للواجهة فقط
                     candCopy.isPreRegistered = (originalPreReg && originalPreReg.includes(String(candidate.crn)));
                     alts.push(candCopy);
                 }
                 return alts;
             }
 
-            // خوارزمية التحسين (البحث في جميع المقررات بدون قيود)
             let bestScore = evaluateWaitTime(currentS1, currentS2);
             let improved = true;
             let iterations = 0;
 
-            while (improved && iterations < 100) { 
+            // خوارزمية الاستبدال الشاملة (تشمل تغيير المسجل مسبقاً بحرية)
+            while (improved && iterations < 150) { 
                 improved = false;
                 iterations++;
 
-                // تحسين المتدرب الأول
                 for (let i = 0; i < currentS1.length; i++) {
                     let secToSwap = currentS1[i];
                     let schedWithout = currentS1.filter((s, idx) => idx !== i);
@@ -3182,7 +3229,6 @@ window.updateCrnDropdown = function() {
                     }
                 }
 
-                // تحسين المتدرب الثاني
                 for (let i = 0; i < currentS2.length; i++) {
                     let secToSwap = currentS2[i];
                     let schedWithout = currentS2.filter((s, idx) => idx !== i);
@@ -3200,16 +3246,19 @@ window.updateCrnDropdown = function() {
                 }
             }
 
-            // --- بناء العرض المرئي للجدول المقترح ---
             const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             const PX_PER_MIN = 2.2;
 
             function extractVisualClasses(schedule) {
                 let daily = { 0: [], 1: [], 2: [], 3: [], 4: [] };
                 schedule.forEach(sec => {
+                    let isRemote = window.ignoredRemoteCourses.has(sec.code);
                     sec.schedules.forEach(sched => {
                         sched.days.forEach(day => {
-                            if (day <= 4) daily[day].push({ code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, textTime: sched.timeData.originalText, isPre: sec.isPreRegistered });
+                            if (day <= 4) daily[day].push({ 
+                                code: sec.code, crn: sec.crn, start: sched.timeData.start, end: sched.timeData.end, 
+                                textTime: sched.timeData.originalText, isPre: sec.isPreRegistered, isRemote: isRemote 
+                            });
                         });
                     });
                 });
@@ -3251,18 +3300,27 @@ window.updateCrnDropdown = function() {
                     }
                     
                     let preTag = cls.isPre ? '📌 ' : '';
-                    rowHtml += `<div class="course-card" style="background:${bgColor}; border-right:4px solid ${colorHex}; width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
-                                    <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${preTag}${cls.code}</strong>
+                    let remoteTag = cls.isRemote ? ' 💻' : '';
+                    let borderStyle = cls.isRemote ? `border: 2px dashed ${colorHex};` : `border-right:4px solid ${colorHex};`;
+
+                    rowHtml += `<div class="course-card" style="background:${bgColor}; ${borderStyle} width:${durationMins * PX_PER_MIN}px; min-width:${durationMins * PX_PER_MIN}px; flex-shrink:0; padding:5px 10px; margin:0; display:flex; flex-direction:column; justify-content:center; box-shadow:none; border-top:1px solid #eee; border-bottom:1px solid #eee; border-left:1px solid #eee;">
+                                    <strong style="color:${colorHex}; font-size:12px; margin-bottom:3px; border:none; padding:0; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${cls.code}">${preTag}${cls.code}${remoteTag}</strong>
                                     <span style="font-size:11px; color:#555;"><b style="color:${colorHex}">${cls.crn}</b> | <span dir="ltr">${cls.textTime}</span></span>
                                 </div>`;
                 });
                 return rowHtml + `</div>`;
             }
 
+            function getPhysicalBounds(clsArray) {
+                let phys = clsArray.filter(c => !c.isRemote);
+                if (phys.length === 0) return { arrive: null, leave: null };
+                return { arrive: phys[0].start, leave: phys[phys.length - 1].end };
+            }
+
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
-                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح (تم تعديل المقررات لتحقيق أفضل توافق)</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">بناءً على الشعب المتاحة، تم اقتراح هذا الترتيب الزمني لتوحيد مواعيد المواصلات عبر البحث في جميع المقررات. الشعب المسبوقة بـ (📌) هي شعب مسجلة مسبقاً فضل النظام إبقاءها لكونها الأنسب للجدول.</div>
+                <h4 style="color:#008e7e; margin:0 0 10px 0;">الجدول الزمني المثالي المقترح (فارق الانتظار لا يتجاوز 15 دقيقة)</h4>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">بناءً على الشعب المتاحة، تم اقتراح هذا الترتيب الزمني لتوحيد مواعيد المواصلات عبر البحث في جميع المقررات. قد يحذف النظام المسجل مسبقاً ويضيف شعبة جديدة لنفس المقرر لتحقيق التطابق التام، مقررات (💻) هي عن بعد وتم استثناؤها.</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
@@ -3274,26 +3332,33 @@ window.updateCrnDropdown = function() {
                 let cls1 = daily1[i]; let cls2 = daily2[i];
                 if (cls1.length === 0 && cls2.length === 0) continue;
 
-                let arrive1 = cls1.length ? cls1[0].start : null;
-                let leave1 = cls1.length ? cls1[cls1.length-1].end : null;
-                let arrive2 = cls2.length ? cls2[0].start : null;
-                let leave2 = cls2.length ? cls2[cls2.length-1].end : null;
+                let bounds1 = getPhysicalBounds(cls1);
+                let bounds2 = getPhysicalBounds(cls2);
+                let arrive1 = bounds1.arrive, leave1 = bounds1.leave;
+                let arrive2 = bounds2.arrive, leave2 = bounds2.leave;
+
+                let hasPhysical1 = arrive1 !== null;
+                let hasPhysical2 = arrive2 !== null;
 
                 let summaryHtml = "";
-                if (cls1.length > 0 && cls2.length > 0) {
+                if (hasPhysical1 && hasPhysical2) {
                     let jointArrive = Math.min(arrive1, arrive2);
                     let jointLeave = Math.max(leave1, leave2);
-                    let totalWait = ((arrive1 - jointArrive) + (jointLeave - leave1)) + ((arrive2 - jointArrive) + (jointLeave - leave2));
+                    let wait1 = (arrive1 - jointArrive) + (jointLeave - leave1);
+                    let wait2 = (arrive2 - jointArrive) + (jointLeave - leave2);
+                    let totalWait = wait1 + wait2;
                     
-                    let waitText = totalWait === 0 ? `<span style="color:#155724;">لا يوجد انتظار ✅</span>` : `<span style="color:#dc3545;">انتظار ضائع: ${Math.floor(totalWait/60)>0?Math.floor(totalWait/60)+'س ':''}${totalWait%60}د ⏳</span>`;
+                    let waitText = totalWait <= 30 ? `<span style="color:#155724;">متوافق تماماً ✅</span>` : `<span style="color:#dc3545;">فارق: ${Math.floor(totalWait/60)>0?Math.floor(totalWait/60)+'س ':''}${totalWait%60}د ⏳</span>`;
                     
                     summaryHtml = `<div style="background:#fff; border: 1px dashed #b2d8d3; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; gap:5px;">
                                     <div><strong>🟢 دخول:</strong> ${formatTime(jointArrive)}</div>
                                     <div><strong>🔴 خروج:</strong> ${formatTime(jointLeave)}</div>
                                     <div style="margin-top:5px; border-top:1px solid #eee; padding-top:5px;">${waitText}</div>
                                    </div>`;
-                } else {
+                } else if (hasPhysical1 || hasPhysical2) {
                     summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">يذهب بمفرده اليوم</div>`;
+                } else {
+                    summaryHtml = `<div style="background:#f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 6px; font-size:12px; min-width: 140px; display:flex; flex-direction:column; justify-content:center; color:#6c757d; font-weight:bold; text-align:center;">دراسة عن بُعد اليوم 💻</div>`;
                 }
 
                 html += `<div class="day-row" style="margin-bottom: 15px; display:flex; align-items:stretch; background:#fff; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
@@ -3315,14 +3380,13 @@ window.updateCrnDropdown = function() {
             html += `</div>`;
 
             function getFinalCrnsList(optimizedSchedule) {
-                // الحصول على جميع الأرقام المرجعية بدون تكرار الشقوق لنفس الشعبة
                 let allCrns = [...new Set(optimizedSchedule.map(s => s.crn))]; 
                 return `<div style="background:#fff; padding:12px; border:1px solid #ddd; border-radius:6px; margin-top:5px; font-weight:bold; word-spacing:12px; font-size:16px; color:#333;">${allCrns.join(' ')}</div>`;
             }
 
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
-                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المثالي:</h4>
-                        <div style="font-size:13px; color:#555; margin-bottom:15px;">احذف الشُعب التي لا تطابق هذه الأرقام من جدولك، وسجل هذه الأرقام المرجعية كاملةً.</div>
+                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المناسب:</h4>
+                        <div style="font-size:13px; color:#555; margin-bottom:15px;">لابد من حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على توافق مثالي.</div>
                         <div style="display:flex; gap:20px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
@@ -3337,8 +3401,7 @@ window.updateCrnDropdown = function() {
 
             container.innerHTML = html;
         }, 100); 
-    };
-</script>
+    };</script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="18 15 12 9 6 15"></polyline>
