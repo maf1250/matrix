@@ -1678,7 +1678,7 @@ for (let crn in allSectionsRef) {
                 return;
             }
 
-            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">حدد المقررات التي تُدرب "عن بُعد" (سيتم استثناؤها من حساب الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
+            let html = '<h4 style="color:#006d60; margin-top:0; margin-bottom:10px; font-size:14px;">نأمل تحديد المقررات التي تُدرب "عن بُعد" (سيتم استثناؤها من حساب الدخول والخروج):</h4><div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">';
             
             courses.forEach((types, code) => {
                 types.forEach(type => {
@@ -3132,55 +3132,121 @@ window.updateCrnDropdown = function() {
         resultsContainer.innerHTML = html;
     };
 
-    // دالة البحث عن مقررات متبقية تناسب يوم الفراغ
+   // دالة البحث عن مقررات متبقية (كاملة الشقوق) تناسب يوم الفراغ
     window.getGapFillersHtml = function(traineeId, dayIndex, currentSched, id1, id2) {
         let tData = globalTraineesSchedules[traineeId];
         if (!tData.unassigned || tData.unassigned.length === 0) return '';
 
         let unassignedCodes = tData.unassigned.map(u => u.code);
-        let validFillers = [];
+        let validCombos = []; 
+        let seenCombos = new Set();
 
-        for (let crn in allSectionsRef) {
-            let sec = allSectionsRef[crn];
-            if (!unassignedCodes.includes(sec.code)) continue;
-            
-            // السماح بالشعبة إذا كان بها مقاعد أو إذا كان مسجلاً بها مسبقاً
-            let isPre = tData.originalPreRegistered && tData.originalPreRegistered.includes(String(sec.crn));
-            if (sec.remaining <= 0 && !isPre) continue;
+        unassignedCodes.forEach(code => {
+            if (!courseMap[code]) return;
 
-            let runsToday = sec.schedules.some(sch => sch.days.includes(dayIndex));
-            if (!runsToday) continue;
-
-            // التأكد من عدم تعارضها مع الجدول المقترح الجديد
-            let hasConflict = false;
-            for (let exist of currentSched) {
-                if (getConflictDetail(sec, exist)) { hasConflict = true; break; }
+            // 1. تجهيز الشُعب المتاحة لكل شق من شقوق المقرر
+            let validOptions = {};
+            for (let type in courseMap[code]) {
+                validOptions[type] = courseMap[code][type].filter(sec => {
+                    let isPre = tData.originalPreRegistered && tData.originalPreRegistered.includes(String(sec.crn));
+                    return sec.remaining > 0 || isPre;
+                });
             }
-            if (hasConflict) continue;
-            if (!window.checkSF33LinkValidity(sec, currentSched)) continue;
 
-            validFillers.push(sec);
-        }
+            // 2. استخدام دالة النظام الأصلية لتكوين رزم (نظري+عملي) مرتبطة بشكل صحيح
+            let combos = getCombinations(validOptions, window.globalLinkedCRNs, window.globalCrnToType);
 
-        if (validFillers.length === 0) return '';
+            // 3. فلترة الرزم
+            for (let combo of combos) {
+                // أ. التأكد أن الرزمة كاملة لا تتعارض مع الجدول المقترح
+                let hasConflict = false;
+                for (let sec of combo) {
+                    for (let exist of currentSched) {
+                        if (getConflictDetail(sec, exist)) { hasConflict = true; break; }
+                    }
+                    if (hasConflict) break;
+                }
+                if (hasConflict) continue;
+
+                // ب. التأكد أن أحد شقوق الرزمة على الأقل يقع في يوم الفراغ المستهدف
+                let runsOnTargetDay = combo.some(sec => sec.schedules.some(sch => sch.days.includes(dayIndex)));
+                if (!runsOnTargetDay) continue;
+
+                // تسجيل الرزمة كخيار صالح
+                let crnList = combo.map(s => s.crn).sort().join(',');
+                if (!seenCombos.has(crnList)) {
+                    seenCombos.add(crnList);
+                    validCombos.push({ code: code, combo: combo, crnList: crnList });
+                }
+            }
+        });
+
+        if (validCombos.length === 0) return '';
 
         let html = `<div style="padding:10px 15px; background:#f4f9f8; border-top:1px dashed #cbe6e3; font-size:12px;">
-            <strong style="color:#008e7e;">💡 مقررات متبقية لـ (${tData.name.split(' ')[0]}) لسد الفراغ:</strong>
+            <strong style="color:#008e7e;">💡 مقررات متبقية (رُزم كاملة) لـ (${tData.name.split(' ')[0]}) لسد الفراغ:</strong>
             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">`;
 
-        let seen = new Set();
-        validFillers.forEach(sec => {
-            if(!seen.has(sec.crn)) {
-                seen.add(sec.crn);
-                let timeText = sec.schedules.find(sch => sch.days.includes(dayIndex)).timeData.originalText;
+        validCombos.forEach(item => {
+            // تنسيق نص الزر ليظهر أوقات وأنواع الشقوق المضافة
+            let displayParts = item.combo.map(sec => {
+                let timeText = sec.schedules[0].timeData.originalText;
                 let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
-                // زر إضافة سريع يعيد تحديث التوافق
-                html += `<button onclick="addCrnToTraineeAndRefresh('${traineeId}', '${sec.crn}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11.5px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة للجدول الفعلي">➕ ${sec.code} (${typeEmoji} ${timeText})</button>`;
-            }
+                return `${typeEmoji} ${timeText}`;
+            });
+            let displayText = displayParts.join(' + ');
+
+            html += `<button onclick="addCompleteComboAndRefresh('${traineeId}', '${item.crnList}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة المقرر بجميع شقوقه للجدول">➕ ${item.code} (${displayText})</button>`;
         });
 
         html += `</div></div>`;
         return html;
+    };
+
+    // دالة إضافة الرزمة الكاملة دفعة واحدة وبشكل صامت، ثم تحديث الجدول
+    window.addCompleteComboAndRefresh = function(traineeId, crnList, id1, id2) {
+        let crns = crnList.split(',');
+        let tData = globalTraineesSchedules[traineeId];
+        let addedCode = '';
+
+        // إضافة جميع الشقوق
+        crns.forEach(crn => {
+            let sec = allSectionsRef[crn];
+            addedCode = sec.code;
+            
+            // فحص هل هو مسجل مسبقاً
+            let isOriginallyPre = (tData.originalPreRegistered && tData.originalPreRegistered.includes(String(crn)));
+            let secCopy = JSON.parse(JSON.stringify(sec));
+            secCopy.isPreRegistered = isOriginallyPre; 
+            
+            tData.schedule.push(secCopy);
+            
+            // سحب المقعد من الكلية إذا لم يكن مسجلاً مسبقاً
+            if (!isOriginallyPre) {
+                sec.remaining -= 1;
+            }
+        });
+
+        // إزالة المقرر المضاف من قائمة "المتبقيات"
+        tData.unassigned = tData.unassigned.filter(u => u.code !== addedCode);
+        
+        // مزامنة البيانات الأصلية في الواجهة
+        if (window.syncGlobalDataAfterEdit) {
+            window.syncGlobalDataAfterEdit(traineeId);
+        }
+
+        // إظهار إشعار الإضافة
+        let toast = document.getElementById("toast");
+        if (toast) {
+            toast.innerText = '✅ تمت إضافة المقرر بشقوقه كاملة بنجاح!';
+            toast.className = "show";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        // إعادة تشغيل خوارزمية البحث العميق فوراً لإعادة بناء الجدول بناءً على المعطيات الجديدة
+        setTimeout(() => {
+            window.suggestOptimizedSchedule(id1, id2);
+        }, 600);
     };
 
     // دالة إضافة الشعبة وتحديث المقارنة تلقائياً
@@ -3480,8 +3546,8 @@ window.suggestOptimizedSchedule = function(id1, id2) {
             }
 
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
-                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول المثالي:</h4>
-                        <div style="font-size:13px; color:#555; margin-bottom:15px;">احذف الشُعب التي لا تطابق هذه الأرقام من جدولك، وسجل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
+                        <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول:</h4>
+                        <div style="font-size:13px; color:#555; margin-bottom:15px;">يتم حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
                         <div style="display:flex; gap:20px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
