@@ -1545,7 +1545,7 @@ for (let crn in allSectionsRef) {
         matchTabContent.innerHTML = `
             <div style="background: #fafdfa; padding: 25px; border-radius: 8px; border: 1px solid #cbe6e3; text-align: center; max-width: 98%; margin: 0 auto;">
                 <h3 style="color: #008e7e; margin-top:0;">مقارنة أوقات الحضور والانصراف للمواصلات المشتركة</h3>
-                <p style="font-size: 14px; color: #555; margin-bottom: 20px;">أدخل الأرقام لفحص تطابق أوقات أول محاضرة وآخر محاضرة لديهما خلال أيام الأسبوع.</p>
+                <p style="font-size: 14px; color: #555; margin-bottom: 20px;">نأمل إدخال الأرقام التدريبية لفحص تطابق أوقات أول محاضرة وآخر محاضرة لديهما خلال أيام الأسبوع.</p>
                 <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
                     <div>
                         <label style="display:block; font-weight:bold; color:#006d60; margin-bottom:5px;">رقم ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'}:</label>
@@ -2529,7 +2529,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
 
     // 4. نافذة الإضافة عبر الفراغات
     window.promptAddCrn = function(traineeId) {
-        let crn = prompt("أدخل الرقم المرجعي (CRN) المراد إضافته في هذا الوقت:");
+        let crn = prompt("نأمل إدخال الرقم المرجعي المراد إضافته في هذا الوقت:");
         if (!crn) return;
         
         crn = crn.trim();
