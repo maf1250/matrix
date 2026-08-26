@@ -1032,7 +1032,7 @@ crnToType[crn] = type;
                 return scoreB - scoreA; 
             });
 
-            let mainSheetData = [], graduatingTraineesData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [];
+            let mainSheetData = [], graduatingTraineesData = [], preRegisteredData = [], assignedCodesData = [], unassignedCodesData = [], unregisteredData = [], notAssignedData = [], intersectionsData = [], incompletePreRegData = [];
             let stats = { total: 0, fullSuccess: 0, partialSuccess: 0, failed: 0 };
 
             for (let i = 0; i < structuredTrainees.length; i++) {
@@ -1065,6 +1065,33 @@ crnToType[crn] = type;
                     }
                 });
 
+                let coursePreRegTypes = {}; 
+                preRegSections.forEach(sec => {
+                    if (!coursePreRegTypes[sec.code]) coursePreRegTypes[sec.code] = new Set();
+                    coursePreRegTypes[sec.code].add(sec.baseType);
+                });
+
+                for (let code in coursePreRegTypes) {
+                    if (courseMap[code]) {
+                        // الشقوق المطلوبة للمقرر بناءً على ملف الشعب
+                        let requiredTypes = Object.keys(courseMap[code]); 
+                        let registeredTypes = Array.from(coursePreRegTypes[code]);
+
+                        // إذا كان المقرر يتطلب أكثر من شق والمتدرب مسجل في شق واحد فقط
+                        if (requiredTypes.length > 1 && registeredTypes.length < requiredTypes.length) {
+                            let missingTypes = requiredTypes.filter(t => !registeredTypes.includes(t));
+                            incompletePreRegData.push({
+                                [C_TRAINEE_NAME]: traineeName,
+                                [C_TRAINEE_ID]: traineeId,
+                                'المقرر': code,
+                                'الشق المسجل': registeredTypes.join(' و '),
+                                'الشق الناقص': missingTypes.join(' و '),
+                                'ملاحظة': 'نأمل استكمال الشق الناقص يدوياً'
+                            });
+                        }
+                    }
+                }
+                
                 // إزالة المقررات المسجلة مسبقاً من قائمة المقررات المطلوبة لتفادي تكرار إسنادها
                 requiredCourses = requiredCourses.filter(code => !preRegCodes.includes(code));
 
@@ -1379,6 +1406,7 @@ for (let crn in allSectionsRef) {
                 { name: "المقررات المعينة", data: assignedCodesData },
                 { name: "التقاطعات", data: intersectionsData },
                 { name: "مسجل مسبقا", data: preRegisteredData },
+                { name: "مسجل بشق غير مكتمل", data: incompletePreRegData },
                 { name: "المقررات المتبقية", data: unassignedCodesData },
                 { name: "غير المسند لهم", data: notAssignedData },
                 { name: "أسباب الرفض والتعارض", data: unregisteredData },
