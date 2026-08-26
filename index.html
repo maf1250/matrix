@@ -3271,11 +3271,20 @@ window.updateCrnDropdown = function() {
         }, 600);
     };
     
-window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
+window.tempSuggestedSchedules = {}; // تخزين مؤقت للجداول المقترحة
+
+    window.suggestOptimizedSchedule = function(id1, id2, mode = 1) {
+        // mode 1: صارم (15 دقيقة)
+        // mode 2: معتدل (60 دقيقة)
+        // mode 3: مرن (أي فارق)
+        
         const container = document.getElementById('suggestion-results-container');
         
-        // تغيير رسالة التحميل بناءً على نوع البحث
-        let loadingMsg = isStrict ? 'جارِ إجراء بحث عميق (Deep Search) لتطبيق شرط الـ 15 دقيقة... ⏳' : 'جارِ البحث الشامل بمرونة لتحديد أفضل توافق ممكن بالكلية... ⏳';
+        let loadingMsg = '';
+        if (mode === 1) loadingMsg = 'جارِ إجراء بحث عميق (Deep Search) لتطبيق شرط الـ 15 دقيقة الصارم... ⏳';
+        else if (mode === 2) loadingMsg = 'جارِ البحث المعتدل للسماح بفارق زمني حتى 60 دقيقة... ⏳';
+        else loadingMsg = 'جارِ البحث الشامل بمرونة لتحديد أفضل توافق متاح بالكلية... ⏳';
+        
         container.innerHTML = `<div style="text-align:center; padding:20px; font-weight:bold; color:#008e7e;"><div class="loader" style="display:inline-block; border-color:#008e7e; border-bottom-color:transparent; margin-bottom:10px;"></div><br>${loadingMsg}</div>`;
 
         setTimeout(() => {
@@ -3371,23 +3380,13 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
                         let leaveDiff = Math.abs(d1.end - d2.end);     
                         let totalWait = arriveDiff + leaveDiff;
                         
-                        if (isStrict) {
-                            // البحث الصارم: رفض أي جدول فوق 15 دقيقة
-                            if (totalWait > 15) return Infinity; 
-                            score += totalWait;
-                        } else {
-                            // البحث المرن: قبول أي توافق مع معاقبة الفروقات الشاسعة
-                            score += totalWait;
-                            if (totalWait > 90) score += 10000;
-                        }
+                        // الفلاتر بناءً على نمط البحث
+                        if (mode === 1 && totalWait > 15) return Infinity; // صارم 15 دقيقة
+                        if (mode === 2 && totalWait > 60) return Infinity; // معتدل 60 دقيقة
+                        
+                        score += totalWait;
                     } else if (d1 || d2) {
-                        if (isStrict) {
-                            // البحث الصارم: الحفاظ على أيام الإجازة كلياً
-                            score += 0; 
-                        } else {
-                            // البحث المرن: يفضل إحضارهم معاً إذا أمكن، لكن يسمح بالإجازة
-                            score += 120;
-                        }
+                        score += 0; // يحافظ على أيام الإجازة ويعتبرها مثالية
                     }
                 }
                 return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
@@ -3410,25 +3409,36 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
                 if (bestScore === 0) break;
             }
 
-            // إذا كنا في الوضع الصارم ولم يجد حلاً: نعرض الاعتذار + زر البحث المرن
-            if (isStrict && (bestScore === Infinity || !bestPair)) {
-                container.innerHTML = `
-                    <div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
-                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، التوافق المثالي غير متاح</h3>
-                        <p style="font-size:15px; margin-bottom:20px; font-weight:600;">
-                            لم يجد النظام أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون المساس بأيام إجازتهم (Off).<br>
-                            (تم الاحتفاظ بالجداول الحالية كما هي).
-                        </p>
-                        <button class="btn-process" style="width: auto; padding: 10px 25px; margin: 0 auto; background-color: #ff9800; border-radius: 6px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="suggestOptimizedSchedule('${id1}', '${id2}', false)">
-                            🔄 البحث بمرونة (تجاهل الشروط وإظهار أفضل جدول متاح بالكلية)
-                        </button>
-                    </div>`;
-                return;
-            }
-
-            // إذا كنا في الوضع المرن ولم يجد حلاً نهائياً (نادر جداً):
-            if (!isStrict && (bestScore === Infinity || !bestPair)) {
-                container.innerHTML = `<div class="error" style="text-align:center;">تعذر إيجاد أي توافق بين جداول المتدربين حتى بالبحث المرن.</div>`;
+            // عرض رسالة الخطأ والخيارات عند الفشل
+            if (bestScore === Infinity || !bestPair) {
+                let errorHtml = `<div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
+                                    <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، التوافق المثالي غير متاح</h3>`;
+                
+                if (mode === 1) {
+                    errorHtml += `<p style="font-size:15px; margin-bottom:20px; font-weight:600;">
+                                    لم يجد النظام أي جدول يجعل الفارق الزمني <strong>15 دقيقة أو أقل</strong>. (تم الاحتفاظ بجدولهم كما هو).
+                                  </p>
+                                  <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;">
+                                      <button class="btn-process" style="width: auto; padding: 10px 20px; background-color: #ff9800;" onclick="suggestOptimizedSchedule('${id1}', '${id2}', 2)">
+                                          🔍 تجربة البحث المعتدل (حتى 60 دقيقة)
+                                      </button>
+                                      <button class="btn-process" style="width: auto; padding: 10px 20px; background-color: #6c757d;" onclick="suggestOptimizedSchedule('${id1}', '${id2}', 3)">
+                                          🚀 البحث المرن (إظهار أفضل متاح)
+                                      </button>
+                                  </div>`;
+                } else if (mode === 2) {
+                    errorHtml += `<p style="font-size:15px; margin-bottom:20px; font-weight:600;">
+                                    لم يجد النظام أي جدول يجعل الفارق الزمني حتى <strong>60 دقيقة</strong>.
+                                  </p>
+                                  <button class="btn-process" style="width: auto; padding: 10px 20px; margin: 0 auto; background-color: #6c757d;" onclick="suggestOptimizedSchedule('${id1}', '${id2}', 3)">
+                                      🚀 تجربة البحث المرن (إظهار أفضل جدول بالكلية)
+                                  </button>`;
+                } else {
+                    errorHtml += `<p style="font-size:15px; margin-bottom:0; font-weight:600;">تعذر إيجاد أي توافق بين المتدربين حتى بالبحث المرن الشامل.</p>`;
+                }
+                
+                errorHtml += `</div>`;
+                container.innerHTML = errorHtml;
                 return;
             }
 
@@ -3442,6 +3452,10 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
                 copy.isPreRegistered = (t2.originalPreRegistered && t2.originalPreRegistered.includes(String(sec.crn)));
                 return copy;
             });
+
+            // تخزين الجداول لاعتمادها لاحقاً
+            window.tempSuggestedSchedules[id1] = currentS1;
+            window.tempSuggestedSchedules[id2] = currentS2;
 
             const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
             const PX_PER_MIN = 2.2;
@@ -3520,14 +3534,12 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
                 return { arrive: phys[0].start, leave: phys[phys.length - 1].end };
             }
 
-            // تغيير العنوان بناءً على طريقة البحث (صارم أم مرن)
-            let modeTitle = isStrict ? 'الجدول الزمني المثالي المقترح (وفق شرط 15 دقيقة)' : 'أفضل جدول متاح بالكلية (بعد البحث المرن)';
-            let modeDesc = isStrict ? 'تم بناء هذا الجدول ليقلل أوقات الانتظار إلى 15 دقيقة كحد أقصى، مع الاحتفاظ بأيام الإجازة (Off).' : 'هذا أفضل توافق استطاع النظام توليده. إذا ظهرت فجوة زمنية، يمكنك استخدام ميزة (سد الفراغ) بالأسفل لإضافة مقررات وتقريب الأوقات.';
-
+            let modeTitle = mode === 1 ? 'الجدول المثالي (وفق شرط 15 دقيقة)' : (mode === 2 ? 'الجدول المعتدل المقترح (وفق شرط 60 دقيقة)' : 'أفضل جدول متاح بالكلية (بعد البحث المرن)');
+            
             let html = `
             <div style="background: #eef7f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cbe6e3; text-align: right;">
                 <h4 style="color:#008e7e; margin:0 0 10px 0;">${modeTitle}</h4>
-                <div style="font-size:13px; color:#555; margin-bottom:10px;">${modeDesc}</div>
+                <div style="font-size:13px; color:#555; margin-bottom:10px;">إذا ظهر فارق زمني بسبب مقررات "عن بعد"، يمكنك <b>(اعتماد الجدول)</b> من الزر بالأسفل ثم تحديد أوقات اللقاءات عن بعد الجديدة ليتلاشى الفارق.</div>
                 <div style="display:flex; gap:20px; font-weight:bold; font-size:14px;">
                     <span style="color:#008e7e;">🟦 ${t1.name.split(' ')[0]}</span>
                     <span style="color:#e65100;">🟧 ${t2.name.split(' ')[0]}</span>
@@ -3610,7 +3622,7 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
             html += `<div style="margin-top:20px; background:#fafdfa; padding:15px; border-radius:8px; border:1px solid #8dc63f; text-align:right;">
                         <h4 style="color:#5c8a24; margin-top:0;">📝 الأرقام المرجعية النهائية (لكل المقررات) لهذا الجدول:</h4>
                         <div style="font-size:13px; color:#555; margin-bottom:15px;">يتم حذف الشُعب التي لا تطابق هذه الأرقام من الجدول، وتسجيل هذه الأرقام المرجعية كاملةً للحصول على هذا التوافق التام.</div>
-                        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
                             <div style="flex:1; min-width:250px;">
                                 <strong style="color:#008e7e;">أرقام ${t1.name.split(' ')[0]} (${t1.id})</strong>
                                 ${getFinalCrnsList(currentS1)}
@@ -3620,10 +3632,44 @@ window.suggestOptimizedSchedule = function(id1, id2, isStrict = true) {
                                 ${getFinalCrnsList(currentS2)}
                             </div>
                         </div>
+                        <div style="text-align: center; border-top: 1px dashed #ccc; padding-top: 15px;">
+                            <button class="btn-process" style="width: auto; padding: 10px 30px; margin: 0 auto; background-color: #008e7e;" onclick="applySuggestedSchedule('${id1}', '${id2}')">
+                                ✅ اعتماد هذا الجدول وإعادة فحص (عن بُعد)
+                            </button>
+                            <p style="font-size: 13px; color: #666; margin-top: 8px;">(سيسمح لك هذا الزر بحفظ الشعب الجديدة، لتتمكن من تحديد أوقاتها كـ "عن بعد" ليختفي الفارق الزمني تماماً)</p>
+                        </div>
                      </div>`;
 
             container.innerHTML = html;
         }, 50);
+    };
+
+    // الدالة المسؤولة عن الاعتماد وتحديث الواجهة
+    window.applySuggestedSchedule = function(id1, id2) {
+        if (window.tempSuggestedSchedules && window.tempSuggestedSchedules[id1]) {
+            globalTraineesSchedules[id1].schedule = window.tempSuggestedSchedules[id1];
+        }
+        if (window.tempSuggestedSchedules && window.tempSuggestedSchedules[id2]) {
+            globalTraineesSchedules[id2].schedule = window.tempSuggestedSchedules[id2];
+        }
+        if (window.syncGlobalDataAfterEdit) {
+            window.syncGlobalDataAfterEdit(id1);
+            window.syncGlobalDataAfterEdit(id2);
+        }
+        
+        // تفريغ تحديدات "عن بعد" القديمة لأن أرقام الشعب ومواعيدها تغيرت
+        window.ignoredRemoteCourses.clear();
+        
+        // إعادة رسم الجداول مع إظهار المواعيد الجديدة للتحديد
+        window.compareTraineeSchedules();
+        window.checkAndShowRemoteCourses();
+        
+        let toast = document.getElementById("toast");
+        if (toast) {
+            toast.innerText = '✅ تم اعتماد الجدول الجديد بنجاح! نأمل منك تحديد اللقاءات "عن بعد" في الأعلى الآن.';
+            toast.className = "show";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 4000);
+        }
     };
 
 </script>
