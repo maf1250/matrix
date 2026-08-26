@@ -3359,7 +3359,7 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                 return { stats, totalGaps };
             }
 
-            function evaluateWaitTime(info1, info2) {
+           function evaluateWaitTime(info1, info2) {
                 let score = 0;
                 for (let i = 0; i <= 4; i++) {
                     let d1 = info1.stats[i], d2 = info2.stats[i];
@@ -3367,35 +3367,64 @@ window.suggestOptimizedSchedule = function(id1, id2) {
                         let arriveDiff = Math.abs(d1.start - d2.start); 
                         let leaveDiff = Math.abs(d1.end - d2.end);     
                         let totalWait = arriveDiff + leaveDiff;
-                        score += totalWait;
                         
-                        // غرامة قاسية فقط إذا كان الانتظار بينهما يتجاوز 90 دقيقة (ليستبعد الجداول السيئة جداً)
-                        if (totalWait > 90) score += 10000;
+                        // التعديل الصارم: إذا كان مجموع الانتظار (حضور + انصراف) في اليوم أكبر من 15 دقيقة.. ارفض الجدول فوراً!
+                        if (totalWait > 15) {
+                            return Infinity; 
+                        }
+                        
+                        score += totalWait;
                     } else if (d1 || d2) {
-                        // تعديل جوهري: إذا كان أحدهما في إجازة، نعطيه نقاطاً قليلة (تعادل ساعتين انتظار) 
-                        // لكي يفضّل النظام إبقاءه في إجازة بدلاً من جدول سيء (غرامته 10000)
-                        score += 120; 
+                        // إذا كان أحدهما يداوم والآخر في إجازة (Off)
+                        // لا توجد أي غرامة نهائياً! (0) لكي يفضل النظام إبقاء المتدرب في بيته بدلاً من إحضاره للانتظار
+                        score += 0; 
                     }
                 }
                 return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
             }
 
-            function evaluateWaitTime(info1, info2) {
-                let score = 0;
-                for (let i = 0; i <= 4; i++) {
-                    let d1 = info1.stats[i], d2 = info2.stats[i];
-                    if (d1 && d2) {
-                        let arriveDiff = Math.abs(d1.start - d2.start); 
-                        let leaveDiff = Math.abs(d1.end - d2.end);     
-                        score += arriveDiff + leaveDiff;
-                        if (arriveDiff > 15) score += 100000;
-                        if (leaveDiff > 15) score += 100000;
-                    } else if (d1 || d2) {
-                        score += 500000; 
+            let bestScore = Infinity;
+            // لا نضع الجداول الحالية كافتراضي، بل نتركها فارغة حتى نجد جدولاً يحقق شرط الـ 15 دقيقة
+            let bestPair = null; 
+
+            for (let s1 of pool1) {
+                let info1 = getDailyStats(s1);
+                for (let s2 of pool2) {
+                    let info2 = getDailyStats(s2);
+                    let score = evaluateWaitTime(info1, info2);
+                    
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestPair = { s1: s1, s2: s2 };
                     }
+                    if (bestScore === 0) break; // تطابق مثالي بنسبة 100%
                 }
-                return score + (info1.totalGaps * 0.1) + (info2.totalGaps * 0.1);
+                if (bestScore === 0) break;
             }
+
+            // ---  إذا لم يجد النظام أي جدول يحقق فارق 15 دقيقة فأقل ---
+            if (bestScore === Infinity || !bestPair) {
+                container.innerHTML = `
+                    <div style="background:#f8d7da; color:#721c24; padding:25px; border-radius:8px; border:1px solid #f5c6cb; text-align:center; margin-bottom:20px;">
+                        <h3 style="margin-top:0; color:#721c24;">⚠️ عذراً، لا يوجد توافق يحقق شرطك</h3>
+                        <p style="font-size:15px; margin-bottom:0; font-weight:600;">
+                            بحث النظام في جميع الشعب المتاحة، ولم يجد أي جدول يجعل الفارق الزمني بين المتدربين <strong>15 دقيقة أو أقل</strong> دون أن يخرب أيام إجازتهم (Off).<br><br>
+                            لذلك.. تم إيقاف العملية، والاحتفاظ بالجداول الحالية كما هي!
+                        </p>
+                    </div>`;
+                return; // إيقاف إكمال بناء الجدول الوهمي
+            }
+
+            let currentS1 = bestPair.s1.map(sec => {
+                let copy = JSON.parse(JSON.stringify(sec));
+                copy.isPreRegistered = (t1.originalPreRegistered && t1.originalPreRegistered.includes(String(sec.crn)));
+                return copy;
+            });
+            let currentS2 = bestPair.s2.map(sec => {
+                let copy = JSON.parse(JSON.stringify(sec));
+                copy.isPreRegistered = (t2.originalPreRegistered && t2.originalPreRegistered.includes(String(sec.crn)));
+                return copy;
+            });
 
             let bestScore = Infinity;
             let bestPair = { s1: t1.schedule, s2: t2.schedule };
