@@ -2857,17 +2857,18 @@ window.updateCrnDropdown = function() {
         closeDuplicateModal();
         executeCopyAll(); // استدعاء النسخ الفعلي
     };
-    // دالة مقارنة أوقات الدخول والخروج لمتدربين (لغرض المواصلات)
+  
+    // دالة مقارنة أوقات الدخول والخروج لمتدربين (لغرض المواصلات) بناءً على المسجل مسبقاً
     window.compareTraineeSchedules = function() {
         const id1 = document.getElementById('match-id-1').value.trim();
         const id2 = document.getElementById('match-id-2').value.trim();
         const resultsContainer = document.getElementById('match-results-container');
 
         if (!id1 || !id2) {
-            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال الأرقام التدريبية للمقارنة.</div>';
+            resultsContainer.innerHTML = '<div class="error" style="text-align:center;">نأمل إدخال رقمي المتدربين للمقارنة.</div>';
             return;
         }
-      if (!globalTraineesSchedules[id1]) {
+        if (!globalTraineesSchedules[id1]) {
             resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على ${isFemaleCampus ? 'المتدربة الأولى' : 'المتدرب الأول'} (${id1}) في السجلات.</div>`;
             return;
         }
@@ -2878,6 +2879,10 @@ window.updateCrnDropdown = function() {
 
         const t1 = globalTraineesSchedules[id1];
         const t2 = globalTraineesSchedules[id2];
+
+        // تصفية الجداول لأخذ (المسجل مسبقاً) فقط وتجاهل الإسناد الجديد
+        const preRegisteredSchedule1 = t1.schedule.filter(sec => sec.isPreRegistered);
+        const preRegisteredSchedule2 = t2.schedule.filter(sec => sec.isPreRegistered);
 
         // دالة مساعدة لاستخراج وقت البداية والنهاية لكل يوم
         function getDailyExtremes(schedule) {
@@ -2899,11 +2904,14 @@ window.updateCrnDropdown = function() {
             return extremes;
         }
 
-        const ext1 = getDailyExtremes(t1.schedule);
-        const ext2 = getDailyExtremes(t2.schedule);
+        const ext1 = getDailyExtremes(preRegisteredSchedule1);
+        const ext2 = getDailyExtremes(preRegisteredSchedule2);
         const daysArray = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         
-        let html = `<h4 style="color:#008e7e; border-bottom: 2px dashed #b2d8d3; padding-bottom:10px;">نتيجة المطابقة بين: (${t1.name}) و (${t2.name})</h4>`;
+        let html = `<h4 style="color:#008e7e; border-bottom: 2px dashed #b2d8d3; padding-bottom:10px;">
+                        نتيجة المطابقة (للمسجل مسبقاً فقط) بين: (${t1.name}) و (${t2.name})
+                    </h4>`;
+                    
         html += `<table class="data-table" style="width:100%;">
                     <thead>
                         <tr>
@@ -2916,36 +2924,39 @@ window.updateCrnDropdown = function() {
                     <tbody>`;
 
         let totalDays = 0;
-        let matchedDays = 0;
+        let sharedDays = 0; // الأيام التي يداومان فيها معاً
+        let matchedDays = 0; // الأيام المشتركة المتطابقة تماماً
 
         for (let i = 0; i <= 4; i++) {
             let d1 = ext1[i];
             let d2 = ext2[i];
 
-            if (!d1 && !d2) continue; // كلاهما لا يوجد لديه دوام (أوف)
+            if (!d1 && !d2) continue; // كلاهما لا يوجد لديه دوام في هذا اليوم
 
-            totalDays++;
-            let time1Text = d1 ? `من ${formatTime(d1.start)} إلى ${formatTime(d1.end)}` : '<span style="color:#6c757d; font-weight:bold;">لا يوجد دوام (Off)</span>';
-            let time2Text = d2 ? `من ${formatTime(d2.start)} إلى ${formatTime(d2.end)}` : '<span style="color:#6c757d; font-weight:bold;">لا يوجد دوام (Off)</span>';
+            let time1Text = d1 ? `من ${formatTime(d1.start)} إلى ${formatTime(d1.end)}` : '<span style="color:#6c757d; font-weight:bold;">إجازة (Off)</span>';
+            let time2Text = d2 ? `من ${formatTime(d2.start)} إلى ${formatTime(d2.end)}` : '<span style="color:#6c757d; font-weight:bold;">إجازة (Off)</span>';
 
             let statusHTML = "";
             
             if (!d1 || !d2) {
-                // أحدهما يداوم والآخر لا
-                statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ غير متوافق (أحدهما إجازة)</span>';
-            } else if (d1.start === d2.start && d1.end === d2.end) {
-                // تطابق تام
-                statusHTML = '<span style="color:#155724; font-weight:bold;">✅ تطابق تام</span>';
-                matchedDays++;
+                // أحدهما يداوم والآخر إجازة (يذهب بمفرده - لا يعتبر تعارضاً)
+                statusHTML = '<span style="color:#17a2b8; font-weight:bold;">ℹ️ أحدهما إجازة (يذهب بمفرده)</span>';
             } else {
-                // دوام مختلف
-                let diffStart = Math.abs(d1.start - d2.start);
-                let diffEnd = Math.abs(d1.end - d2.end);
+                // كلاهما يداوم في هذا اليوم (نحسبه ضمن الأيام المشتركة)
+                sharedDays++;
                 
-                if (diffStart <= 60 && diffEnd <= 60) {
-                    statusHTML = `<span style="color:#856404; font-weight:bold;">⚠️ تقارب زمني (فارق ${Math.max(diffStart, diffEnd)} دقيقة كحد أقصى)</span>`;
+                if (d1.start === d2.start && d1.end === d2.end) {
+                    statusHTML = '<span style="color:#155724; font-weight:bold;">✅ تطابق تام</span>';
+                    matchedDays++;
                 } else {
-                    statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ تعارض في الأوقات</span>';
+                    let diffStart = Math.abs(d1.start - d2.start);
+                    let diffEnd = Math.abs(d1.end - d2.end);
+                    
+                    if (diffStart <= 60 && diffEnd <= 60) {
+                        statusHTML = `<span style="color:#856404; font-weight:bold;">⚠️ تقارب زمني (فارق ${Math.max(diffStart, diffEnd)} دقيقة)</span>`;
+                    } else {
+                        statusHTML = '<span style="color:#dc3545; font-weight:bold;">❌ تعارض في الأوقات</span>';
+                    }
                 }
             }
 
@@ -2959,14 +2970,21 @@ window.updateCrnDropdown = function() {
 
         html += `</tbody></table>`;
         
-        if (totalDays === 0) {
-            html += `<div style="margin-top:15px; padding:15px; background:#fff3cd; color:#856404; border-radius:6px; text-align:center; font-weight:bold;">كلا المتدربين ليس لديهما أي جداول مسندة حالياً!</div>`;
+        if (preRegisteredSchedule1.length === 0 && preRegisteredSchedule2.length === 0) {
+            html += `<div style="margin-top:15px; padding:15px; background:#f8d7da; color:#721c24; border-radius:6px; text-align:center; font-weight:bold;">
+                        ⚠️ بناءً على تقرير المتدربين المسجلين (SF01)، كِلا ${isFemaleCampus ? 'المتدربتين ليس لديهما' : 'المتدربين ليس لديهما'} مقررات مسجلة مسبقاً لمقارنتها!
+                     </div>`;
+        } else if (sharedDays === 0) {
+            // دوامهم لا يتقاطع أبداً (مثلاً أحدهما يداوم الأحد والثلاثاء، والآخر الإثنين والأربعاء)
+            html += `<div style="margin-top:15px; padding:15px; background:#d1ecf1; color:#0c5460; border-radius:6px; text-align:center; font-weight:bold; border: 1px solid #bee5eb;">
+                        لا توجد أي أيام دوام مشتركة بينهما! (كل ${isFemaleCampus ? 'متدربة تداوم' : 'متدرب يداوم'} في أيام مختلفة، ولن يتعارضا في المواصلات)
+                     </div>`;
         } else {
-            let percentage = Math.round((matchedDays / totalDays) * 100);
+            let percentage = Math.round((matchedDays / sharedDays) * 100);
             let summaryColor = percentage === 100 ? '#155724' : (percentage >= 50 ? '#856404' : '#721c24');
             let summaryBg = percentage === 100 ? '#d4edda' : (percentage >= 50 ? '#fff3cd' : '#f8d7da');
             html += `<div style="margin-top:15px; padding:15px; background:${summaryBg}; color:${summaryColor}; border-radius:6px; text-align:center; font-size:16px; font-weight:bold; border: 1px solid currentColor;">
-                        نسبة التطابق التام: ${percentage}% (${matchedDays} أيام من أصل ${totalDays} أيام دوام)
+                        نسبة التطابق في الأيام المشتركة: ${percentage}% (${matchedDays} أيام متطابقة من أصل ${sharedDays} أيام دوام مشترك)
                      </div>`;
         }
 
