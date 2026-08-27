@@ -1581,8 +1581,8 @@ for (let crn in allSectionsRef) {
         singleTabContent.id = 'tab-single';
         singleTabContent.className = 'tab-content active';
         
-        let selectHTML = `<div class="single-trainee-selector"><label>${isFemaleCampus ? 'اختر المتدربة:' : 'اختر المتدرب:'}</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">`;
-        selectHTML += `<option value="">-- ${isFemaleCampus ? 'اختر متدربة' : 'اختر متدرباً'} --</option>`;
+        let selectHTML = `<div class="single-trainee-selector"><label>${isFemaleCampus ? 'نأمل اختيار المتدربة:' : 'نأمل اختيار المتدرب:'}</label><select id="trainee-dropdown" onchange="renderSingleTraineeSchedule()">`;
+        selectHTML += `<option value="">-- ${isFemaleCampus ? 'نأمل اختيار متدربة' : 'نأمل اختيار متدرباً'} --</option>`;
         for (let id in globalTraineesSchedules) {
             let gradIcon = globalTraineesSchedules[id].isGrad ? ' 🎓 (على وشك التخرج)' : '';
             selectHTML += `<option value="${id}">${globalTraineesSchedules[id].name} (${id})${gradIcon}</option>`;
@@ -2736,14 +2736,14 @@ async function submitContactForm(e) {
                     <input type="hidden" id="add-crn-trainee-id">
                     
                     <div class="contact-form-group">
-                        <label>1. اختر المقرر المراد إضافته (تم إخفاء المقررات المجتازة تلقائياً)</label>
+                        <label>1. نأمل اختيار المقرر المراد إضافته (تم إخفاء المقررات المجتازة والمتطلبة)</label>
                         <select id="add-crn-course-select" onchange="updateCrnDropdown()">
-                            <option value="">-- اختر المقرر --</option>
+                            <option value="">-- نأمل اختيار المقرر --</option>
                         </select>
                     </div>
                     
                     <div class="contact-form-group">
-                        <label>2. اختر الشعبة المتاحة (يتم إخفاء المتعارض تلقائياً)</label>
+                        <label>2. نأمل اختيار الشعبة المتاحة (يتم إخفاء المتعارض تلقائياً)</label>
                         <select id="add-crn-select">
                             <option value="">-- نأمل اختيار المقرر أولاً --</option>
                         </select>
@@ -2757,7 +2757,7 @@ async function submitContactForm(e) {
 
         document.getElementById('add-crn-trainee-id').value = traineeId;
         let courseSelect = document.getElementById('add-crn-course-select');
-        courseSelect.innerHTML = '<option value="">-- اختر المقرر --</option>';
+        courseSelect.innerHTML = '<option value="">-- نأمل اختيار المقرر --</option>';
 
         // جلب المقررات المجتازة لهذا المتدرب
         let traineeData = globalTraineesSchedules[traineeId];
@@ -2824,7 +2824,7 @@ window.updateCrnDropdown = function() {
         let traineeId = document.getElementById('add-crn-trainee-id').value;
         let courseCode = document.getElementById('add-crn-course-select').value;
         let crnSelect = document.getElementById('add-crn-select');
-        crnSelect.innerHTML = '<option value="">-- اختر الشعبة --</option>';
+        crnSelect.innerHTML = '<option value="">-- نأمل اختيار الشعبة --</option>';
 
         if (!courseCode) return;
 
