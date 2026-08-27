@@ -2763,31 +2763,44 @@ async function submitContactForm(e) {
         let traineeData = globalTraineesSchedules[traineeId];
         let passedCourses = traineeData.passedCourses || [];
         
-        // تطبيع المقررات المجتازة لضمان دقة المقارنة مع المتطلبات
+        // 1. تطبيع المقررات المجتازة والمطلوبة لمعرفة (خطة المتدرب الفعلية)
         let normalizedPassed = passedCourses.map(c => normalizeCourseCode(c));
+        let normalizedRequired = (traineeData.requiredCourses || []).map(c => normalizeCourseCode(c));
+        let normalizedPreReg = (traineeData.originalPreRegistered || []).map(c => normalizeCourseCode(c));
+        
+        // دمج الجميع لتكوين "خطة المتدرب" (المجتاز + المتبقي + المسجل)
+        let traineePlanCourses = [...normalizedPassed, ...normalizedRequired, ...normalizedPreReg];
 
         let uniqueCourses = Object.keys(courseMap).filter(code => validMatrixCourses.has(code)).sort();
         uniqueCourses.forEach(code => {
             let normCode = normalizeCourseCode(code);
             
-            // 1. تخطي المقرر إذا كان مجتازاً
+            // 2. تخطي المقرر إذا كان مجتازاً
             if (passedCourses.includes(code) || normalizedPassed.includes(normCode)) return; 
 
-            // 2. فحص المتطلبات (إذا تم جلب ملف المتطلبات بنجاح)
+            // 3. فحص المتطلبات بذكاء (AND vs OR)
             if (Object.keys(globalPrerequisites).length > 0) {
                 let requiredPrereqs = globalPrerequisites[normCode];
                 if (requiredPrereqs) {
                     if (requiredPrereqs.includes("ALL_COURSES")) {
-                        // شرط "جميع مقررات الخطة": نظهره فقط إذا كان المتدرب خريجاً
+                        // شرط "جميع مقررات الخطة": للخريج فقط
                         if (!traineeData.isGrad) return; 
                     } else {
-                        // يجب أن يكون المتدرب قد اجتاز جميع المتطلبات المذكورة (سواء متطلب واحد أو أكثر)
-                        let hasAllPrereqs = requiredPrereqs.every(req => normalizedPassed.includes(req));
-                        if (!hasAllPrereqs) return; 
+                        // التحقق: هل جميع المتطلبات المكتوبة موجودة فعلاً في خطة هذا المتدرب؟
+                        let allPrereqsInPlan = requiredPrereqs.every(req => traineePlanCourses.includes(req));
+                        
+                        if (allPrereqsInPlan) {
+                            // إذا كانت كلها في خطته -> يجب أن يجتازها كلها (AND)
+                            let hasAllPrereqs = requiredPrereqs.every(req => normalizedPassed.includes(req));
+                            if (!hasAllPrereqs) return; // إخفاء
+                        } else {
+                            // إذا كان بعضها من خطط أخرى -> يكفي أن يجتاز واحداً منها فقط (OR)
+                            let hasAtLeastOnePrereq = requiredPrereqs.some(req => normalizedPassed.includes(req));
+                            if (!hasAtLeastOnePrereq) return; // إخفاء
+                        }
                     }
                 }
             }
-            // ---------------------------------------------
 
             let cName = "";
             for(let type in courseMap[code]) {
