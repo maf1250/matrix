@@ -3018,7 +3018,7 @@ window.compareTraineeSchedules = function() {
     const t2 = globalTraineesSchedules[id2];
 
     if (!t1 || !t2) {
-        resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على أرقام ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} المدخلة في المصفوفة.</div>`;
+        resultsContainer.innerHTML = `<div class="error" style="text-align:center;">لم يتم العثور على أرقام ${isFemaleCampus ? 'المتدربات' : 'المتدربين'} المدخلة في المصفوفة حيث لابد من عمل المطابقة لتظهر بيانات ${isFemaleCampus ? 'المستجدات والمنقولات' : 'المستجدين والمنقولين'} </div>`;
         return;
     }
 
