@@ -533,19 +533,20 @@
         let sec1 = allSectionsRef[crn1];
         globalConflictTable[crn1] = {}; // تجهيز سجل لهذه الشعبة
 
-        for (let j = i + 1; j < crns.length; j++) { // نبدأ من i+1 عشان ما نكرر المقارنة
+        for (let j = i + 1; j < crns.length; j++) { 
             let crn2 = crns[j];
             let sec2 = allSectionsRef[crn2];
 
-            // الحسبة القديمة للتعارض نطبقها هنا مرة واحدة
             let conflictMsg = null;
+            let conflictDayName = ""; // تعريف المتغير هنا ليصبح متاحاً للكل
+
             for (let sched1 of sec1.schedules) {
                 for (let sched2 of sec2.schedules) {
                     let overlapDays = sched1.days.filter(d => sched2.days.includes(d));
                     if (overlapDays.length > 0) {
                         if (sched1.timeData.start < sched2.timeData.end && sched2.timeData.start < sched1.timeData.end) {
-                            let dayName = reverseDaysMap[overlapDays[0]];
-                            conflictMsg = `تعارض مع مقرر (${sec2.code}) يوم ${dayName} من ${formatTime(sched2.timeData.start)} إلى ${formatTime(sched2.timeData.end)}`;
+                            conflictDayName = reverseDaysMap[overlapDays[0]]; // إسناد القيمة هنا
+                            conflictMsg = `تعارض مع مقرر (${sec2.code}) يوم ${conflictDayName} من ${formatTime(sched2.timeData.start)} إلى ${formatTime(sched2.timeData.end)}`;
                             break;
                         }
                     }
@@ -553,11 +554,11 @@
                 if (conflictMsg) break;
             }
 
-            // إذا فيه تعارض، نسجله في القاموس للطرفين
             if (conflictMsg) {
                 globalConflictTable[crn1][crn2] = conflictMsg;
-                // نسجله للعكس أيضاً عشان يسهل البحث
-                let reverseMsg = `تعارض مع مقرر (${sec1.code}) يوم ${dayName || ''} من ${formatTime(sec1.schedules[0].timeData.start)} إلى ${formatTime(sec1.schedules[0].timeData.end)}`;
+                
+                let reverseMsg = `تعارض مع مقرر (${sec1.code}) يوم ${conflictDayName} من ${formatTime(sec1.schedules[0].timeData.start)} إلى ${formatTime(sec1.schedules[0].timeData.end)}`;
+                
                 if(!globalConflictTable[crn2]) globalConflictTable[crn2] = {};
                 globalConflictTable[crn2][crn1] = reverseMsg;
             }
@@ -565,6 +566,7 @@
     }
     console.log("تم بناء جدول التعارضات المسبق بنجاح!");
 }
+	
     function getConflictDetail(sec1, sec2) {
     if (!sec1 || !sec2 || !sec1.crn || !sec2.crn) return null;
     
