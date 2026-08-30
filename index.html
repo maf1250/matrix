@@ -2865,55 +2865,63 @@ async function submitContactForm(e) {
     };
 
 window.updateCrnDropdown = function() {
-        let traineeId = document.getElementById('add-crn-trainee-id').value;
-        let courseCode = document.getElementById('add-crn-course-select').value;
-        let crnSelect = document.getElementById('add-crn-select');
-        crnSelect.innerHTML = '<option value="">-- نأمل اختيار الشعبة --</option>';
+    let traineeId = document.getElementById('add-crn-trainee-id').value;
+    let courseCode = document.getElementById('add-crn-course-select').value;
+    let crnSelect = document.getElementById('add-crn-select');
+    crnSelect.innerHTML = '<option value="">-- نأمل اختيار الشعبة --</option>';
 
-        if (!courseCode) return;
+    if (!courseCode) return;
 
-        let traineeData = globalTraineesSchedules[traineeId];
-        let availableCrns = [];
+    let traineeData = globalTraineesSchedules[traineeId];
+    let availableCrns = [];
 
-        for (let crn in allSectionsRef) {
-            let sec = allSectionsRef[crn];
-            if (sec.code === courseCode) {
-                // التأكد من عدم وجود تعارض زمني
-                let conflict = false;
-                for (let existSec of traineeData.schedule) {
-                    if (getConflictDetail(sec, existSec) !== null) { conflict = true; break; }
-                }
+    for (let crn in allSectionsRef) {
+        let sec = allSectionsRef[crn];
+        if (sec.code === courseCode) {
+            
+            // 1. فحص هل الشعبة مضافة مسبقاً بجدول المتدرب؟
+            let isAlreadyAdded = traineeData.schedule.some(s => String(s.crn) === String(sec.crn));
+
+            // 2. التأكد من عدم وجود تعارض زمني
+            let conflict = false;
+            for (let existSec of traineeData.schedule) {
+                if (String(existSec.crn) === String(sec.crn)) continue; 
                 
-                // --- التأكد من الارتباط SF33 ---
-                let linkConflict = false;
-                if (!conflict) {
-                    linkConflict = !window.checkSF33LinkValidity(sec, traineeData.schedule);
-                }
+                if (getConflictDetail(sec, existSec) !== null) { conflict = true; break; }
+            }
+            
+            // 3. التأكد من الارتباط SF33 
+            let linkConflict = false;
+            if (!conflict && !isAlreadyAdded) { 
+                linkConflict = !window.checkSF33LinkValidity(sec, traineeData.schedule);
+            }
+            
+            // 4. إضافة الشعبة للقائمة إذا كانت سليمة أو مضافة مسبقاً
+            if (isAlreadyAdded || (!conflict && !linkConflict)) {
+                let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
+                let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
                 
-                if (!conflict && !linkConflict) {
-                    let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
-                    let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
-                    let capText = sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`;
-                    
-                    availableCrns.push({
-                        crn: sec.crn,
-                        text: `${typeEmoji} ${sec.crn} | ${schedulesText} ${capText}`
-                    });
-                }
+                let capText = isAlreadyAdded ? '[✅ مدرجة بجدوله]' : (sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`);
+                
+                availableCrns.push({
+                    crn: sec.crn,
+                    text: `${typeEmoji} ${sec.crn} | ${schedulesText} ${capText}`
+                });
             }
         }
+    }
 
-        if (availableCrns.length === 0) {
-            crnSelect.innerHTML = '<option value="">❌ لا توجد شعب، أو جميعها تتعارض (زمنياً أو ارتباط SF33)</option>';
-        } else {
-            availableCrns.forEach(item => {
-                let opt = document.createElement('option');
-                opt.value = item.crn;
-                opt.innerText = item.text;
-                crnSelect.appendChild(opt);
-            });
-        }
-    };
+    if (availableCrns.length === 0) {
+        crnSelect.innerHTML = '<option value="">❌ لا توجد شعب، أو جميعها تتعارض (زمنياً أو ارتباط SF33)</option>';
+    } else {
+        availableCrns.forEach(item => {
+            let opt = document.createElement('option');
+            opt.value = item.crn;
+            opt.innerText = item.text;
+            crnSelect.appendChild(opt);
+        });
+    }
+};
     
     window.confirmAddCrn = function() {
         let traineeId = document.getElementById('add-crn-trainee-id').value;
