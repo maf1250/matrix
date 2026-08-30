@@ -458,7 +458,8 @@
     let allSectionsRef = {};
     let courseMap = {};
     let validMatrixCourses = new Set();
-	let globalPrerequisites = {}; 
+	let globalPrerequisites = {};
+	let globalConflictTable = {};
 
     function normalizeCourseCode(code) {
         if (!code) return "";
@@ -523,21 +524,61 @@
         return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
     }
 
-    function getConflictDetail(sec1, sec2) {
-        if (!sec1.schedules || !sec2.schedules) return null;
-        for (let sched1 of sec1.schedules) {
-            for (let sched2 of sec2.schedules) {
-                let overlapDays = sched1.days.filter(d => sched2.days.includes(d));
-                if (overlapDays.length > 0) {
-                    if (sched1.timeData.start < sched2.timeData.end && sched2.timeData.start < sched1.timeData.end) {
-                        let dayName = reverseDaysMap[overlapDays[0]];
-                        return `تعارض مع مقرر (${sec2.code}) يوم ${dayName} من ${formatTime(sched2.timeData.start)} إلى ${formatTime(sched2.timeData.end)}`;
+	function buildConflictTable() {
+    globalConflictTable = {}; // تصفير الجدول
+    let crns = Object.keys(allSectionsRef); // جلب جميع الأرقام المرجعية
+
+    for (let i = 0; i < crns.length; i++) {
+        let crn1 = crns[i];
+        let sec1 = allSectionsRef[crn1];
+        globalConflictTable[crn1] = {}; // تجهيز سجل لهذه الشعبة
+
+        for (let j = i + 1; j < crns.length; j++) { // نبدأ من i+1 عشان ما نكرر المقارنة
+            let crn2 = crns[j];
+            let sec2 = allSectionsRef[crn2];
+
+            // الحسبة القديمة للتعارض نطبقها هنا مرة واحدة
+            let conflictMsg = null;
+            for (let sched1 of sec1.schedules) {
+                for (let sched2 of sec2.schedules) {
+                    let overlapDays = sched1.days.filter(d => sched2.days.includes(d));
+                    if (overlapDays.length > 0) {
+                        if (sched1.timeData.start < sched2.timeData.end && sched2.timeData.start < sched1.timeData.end) {
+                            let dayName = reverseDaysMap[overlapDays[0]];
+                            conflictMsg = `تعارض مع مقرر (${sec2.code}) يوم ${dayName} من ${formatTime(sched2.timeData.start)} إلى ${formatTime(sched2.timeData.end)}`;
+                            break;
+                        }
                     }
                 }
+                if (conflictMsg) break;
+            }
+
+            // إذا فيه تعارض، نسجله في القاموس للطرفين
+            if (conflictMsg) {
+                globalConflictTable[crn1][crn2] = conflictMsg;
+                // نسجله للعكس أيضاً عشان يسهل البحث
+                let reverseMsg = `تعارض مع مقرر (${sec1.code}) يوم ${dayName || ''} من ${formatTime(sec1.schedules[0].timeData.start)} إلى ${formatTime(sec1.schedules[0].timeData.end)}`;
+                if(!globalConflictTable[crn2]) globalConflictTable[crn2] = {};
+                globalConflictTable[crn2][crn1] = reverseMsg;
             }
         }
-        return null;
     }
+    console.log("تم بناء جدول التعارضات المسبق بنجاح!");
+}
+    function getConflictDetail(sec1, sec2) {
+    if (!sec1 || !sec2 || !sec1.crn || !sec2.crn) return null;
+    
+    let crn1 = String(sec1.crn);
+    let crn2 = String(sec2.crn);
+
+    if (crn1 === crn2) return "نفس الشعبة";
+
+    if (globalConflictTable[crn1] && globalConflictTable[crn1][crn2]) {
+        return globalConflictTable[crn1][crn2];
+    }
+    
+    return null; 
+		}
 
     function getCombinations(optionsPerType, linkedCRNs = {}, crnToType = {}) {
         let keys = Object.keys(optionsPerType);
@@ -1083,6 +1124,7 @@ traineesRaw.forEach(row => {
 
              window.globalLinkedCRNs = linkedCRNs;
              window.globalCrnToType = crnToType;
+			buildConflictTable();
             
             for (let code in courseMap) {
                 let minCap = -1;
@@ -1152,7 +1194,7 @@ traineesRaw.forEach(row => {
                 preRegisteredCRNs.forEach(crn => {
                     if (allSectionsRef[crn]) {
                         // أخذ نسخة من بيانات الشعبة لتمييزها كمسجلة مسبقاً
-                        let secCopy = JSON.parse(JSON.stringify(allSectionsRef[crn]));
+                        let secCopy = structuredClone(allSectionsRef[crn]);
                         secCopy.isPreRegistered = true;
                         preRegSections.push(secCopy);
                         preRegCodes.push(secCopy.code);
@@ -2620,7 +2662,7 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
         }
         
         let isOriginallyPre = (traineeData.originalPreRegistered && traineeData.originalPreRegistered.includes(String(crn)));
-        let secCopy = JSON.parse(JSON.stringify(sec));
+        let secCopy = structuredClone(sec);
         secCopy.isPreRegistered = isOriginallyPre; 
         traineeData.schedule.push(secCopy);
         
@@ -3066,8 +3108,8 @@ window.applySuggestedSchedule = function(id1, id2) {
     }
 
     // تحديث البيانات في الذاكرة
-    globalTraineesSchedules[id1].schedule = JSON.parse(JSON.stringify(window.tempSuggestedSchedules[id1]));
-    globalTraineesSchedules[id2].schedule = JSON.parse(JSON.stringify(window.tempSuggestedSchedules[id2]));
+    globalTraineesSchedules[id1].schedule = structuredClone(window.tempSuggestedSchedules[id1]);
+    globalTraineesSchedules[id2].schedule = structuredClone(window.tempSuggestedSchedules[id2]);
 
     // مزامنة مع الجداول والتقارير
     if (window.syncGlobalDataAfterEdit) {
@@ -3372,7 +3414,7 @@ window.addCompleteComboAndRefresh = function(traineeId, crnList, id1, id2) {
         addedCode = sec.code;
 
         const isOriginallyPre = tData.originalPreRegistered && tData.originalPreRegistered.includes(String(crn));
-        const secCopy = JSON.parse(JSON.stringify(sec));
+        const secCopy = structuredClone(sec);
         secCopy.isPreRegistered = isOriginallyPre;
         
         tData.schedule.push(secCopy);
@@ -3587,12 +3629,12 @@ let errorHtml = `<div style="background:#f8d7da; color:#721c24; padding:30px; bo
             }
 
             let currentS1 = bestPair.s1.map(sec => {
-                let copy = JSON.parse(JSON.stringify(sec));
+                let copy = structuredClone(sec);
                 copy.isPreRegistered = (t1.originalPreRegistered && t1.originalPreRegistered.includes(String(sec.crn)));
                 return copy;
             });
             let currentS2 = bestPair.s2.map(sec => {
-                let copy = JSON.parse(JSON.stringify(sec));
+                let copy = structuredClone(sec);
                 copy.isPreRegistered = (t2.originalPreRegistered && t2.originalPreRegistered.includes(String(sec.crn)));
                 return copy;
             });
