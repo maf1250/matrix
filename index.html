@@ -2115,8 +2115,23 @@ for (let crn in allSectionsRef) {
             });
             
             uniqueDetails.forEach(sec => {
-                let baseEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻 (مدمج/ذاتي)' : (sec.baseType === 'عملي' ? '🛠️ (عملي)' : '📘 (نظري)');
+                // --- تحديد الرمز والنص بناءً على نوع الجدولة ---
+                let baseEmoji = '📘 (نظري)'; // الافتراضي
+                
+                if (sec.type.includes('عن بعد')) {
+                    baseEmoji = '💻 (عن بعد)';
+                } else if (sec.type.includes('ذاتي')) {
+                    baseEmoji = '🧑‍💻 (ذاتي)';
+                } else if (sec.type.includes('مدمج')) {
+                    baseEmoji = '🧩 (مدمج)';
+                } else if (sec.baseType === 'عملي') {
+                    baseEmoji = '🛠️ (عملي)';
+                }
+
+                // إضافة رمز الدبوس إذا كان مسجلاً مسبقاً
                 let secTypeEmoji = sec.isPreRegistered ? `📌 ${baseEmoji}` : baseEmoji;
+                
+                // تحديد ستايل الرقم المرجعي
                 let badgeStyle = sec.isPreRegistered ? 'background:#6c757d; color:#fff; padding:2px 6px; border-radius:4px; font-size:12px;' : 'font-weight:bold; color:#008e7e;';
                 
                 detailsHTML += `<tr>
@@ -2129,6 +2144,7 @@ for (let crn in allSectionsRef) {
                     <td>${sec.instructor || 'غير محدد'}</td>
                 </tr>`;
             });
+                
             detailsHTML += '</tbody></table>';
     
         } else {
