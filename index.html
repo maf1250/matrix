@@ -1380,7 +1380,11 @@ traineesRaw.forEach(row => {
                                         cssClass = 'crn-conflict'; 
                                     }
                                     
-                                    let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
+let typeEmoji = sec.type.includes('عن بعد') ? '💻' : 
+                sec.type.includes('ذاتي') ? '🧑‍💻' : 
+                sec.type.includes('مدمج') ? '🧩' : 
+                (sec.baseType === 'عملي' ? '🛠️' : '📘');
+
 let clickAction = "";
 if (!hasConflict) {
     clickAction = `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"`;
@@ -1959,8 +1963,10 @@ for (let crn in allSectionsRef) {
         <strong style="color: #006d60;">💡 دليل الجدولة:</strong>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #008e7e; padding:3px 8px; border-radius:3px; color:#008e7e; font-weight:bold;">📘 نظري</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef7f6; border-right:3px solid #8dc63f; padding:3px 8px; border-radius:3px; color:#5c8a24; font-weight:bold;">🛠️ عملي</span></span>
-        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef4f7; border-right:3px solid #4f8fab; padding:3px 8px; border-radius:3px; color:#3b6a7e; font-weight:bold;">💻 مدمج/ذاتي</span></span>
-        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
+		<span style="display:flex; align-items:center; gap:5px;"><span style="background:#e3f2fd; border-right:3px solid #1a73e8; padding:3px 8px; border-radius:3px; color:#1a73e8; font-weight:bold;">💻 عن بعد</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#f3e5f5; border-right:3px solid #9c27b0; padding:3px 8px; border-radius:3px; color:#7b1fa2; font-weight:bold;">🧑‍💻 ذاتي</span></span>
+        <span style="display:flex; align-items:center; gap:5px;"><span style="background:#eef4f7; border-right:3px solid #4f8fab; padding:3px 8px; border-radius:3px; color:#3b6a7e; font-weight:bold;">🧩 مدمج</span></span>
+		<span style="display:flex; align-items:center; gap:5px;"><span style="background:#f8f9fa; border-right:3px solid #6c757d; padding:3px 8px; border-radius:3px; color:#495057; font-weight:bold;">📌 مسجل مسبقاً</span></span>
         <span style="display:flex; align-items:center; gap:5px;"><span style="background:#fff3cd; border-right:3px solid #ff9800; padding:3px 8px; border-radius:3px; color:#856404; font-weight:bold;">⚠️ تقاطع زمني</span></span>
     </div>
     <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; background: #eef7f6; padding: 5px 12px; border-radius: 4px; border: 1px dashed #008e7e;">
@@ -1978,92 +1984,101 @@ for (let crn in allSectionsRef) {
     </div>
 </div>`;
             
-            gridHTML += '<div class="schedule-grid" style="overflow-x:auto; padding-bottom:10px;">';
-            for (let i = 0; i <= 4; i++) {
-                let classesToday = daySchedules[i];
-                if (classesToday.length > 0) {
-                    classesToday.sort((a, b) => a.start - b.start);
+           gridHTML += `<div class="day-row" style="min-width: max-content; margin-bottom: 5px;">
+                <div class="day-label" style="position: sticky; right: 0; z-index: 2; border-left: 2px solid #fff;">${daysArray[i]}</div>
+                <div class="day-courses" style="flex-wrap: nowrap; gap: 0; padding: 10px; flex-grow: 0;">`;
 
-                    // تحديد التقاطعات الزمنية للمقررات
-                    for (let j = 0; j < classesToday.length - 1; j++) {
-                        if (classesToday[j].end === classesToday[j+1].start) {
-                            classesToday[j].hasIntersection = true;
-                            classesToday[j+1].hasIntersection = true;
-                        }
-                    }
-                    
-                    gridHTML += `<div class="day-row" style="min-width: max-content; margin-bottom: 5px;">
-                                    <div class="day-label" style="position: sticky; right: 0; z-index: 2; border-left: 2px solid #fff;">${daysArray[i]}</div>
-                                    <div class="day-courses" style="flex-wrap: nowrap; gap: 0; padding: 10px; flex-grow: 0;">`;
-                    
-                    let currentCursor = baseStartTime;
-                    for (let j = 0; j < classesToday.length; j++) {
-                        let cls = classesToday[j];
-                        
-                        let gapMinutes = cls.start - currentCursor;
-                        if (gapMinutes < 0) gapMinutes = 0; 
-                        
-                        let durationMinutes = cls.end - cls.start;
-                        if (durationMinutes <= 0) durationMinutes = 50; 
-                        
-                        let gapPixels = gapMinutes * PX_PER_MIN;
-                        let cardPixels = durationMinutes * PX_PER_MIN;
+let currentCursor = baseStartTime;
+for (let j = 0; j < classesToday.length; j++) {
+    let cls = classesToday[j];
+    
+    let gapMinutes = cls.start - currentCursor;
+    if (gapMinutes < 0) gapMinutes = 0; 
+    
+    let durationMinutes = cls.end - cls.start;
+    if (durationMinutes <= 0) durationMinutes = 50; 
+    
+    let gapPixels = gapMinutes * PX_PER_MIN;
+    let cardPixels = durationMinutes * PX_PER_MIN;
 
-                        let isShort = durationMinutes <= 50;
-                        let titleSize = isShort ? '12px' : '14px';
-                        let timeSize = isShort ? '10px' : '12px';
-                        let paddingStyle = isShort ? '10px 5px' : '10px 15px';
+    let isShort = durationMinutes <= 50;
+    let titleSize = isShort ? '12px' : '14px';
+    let timeSize = isShort ? '10px' : '12px';
+    let paddingStyle = isShort ? '10px 5px' : '10px 15px';
 
-                        currentCursor = cls.end; 
-                        
-                        let isPre = cls.isPreRegistered;
-                        let isIntersecting = cls.hasIntersection;
-                        
-                        let isBlended = cls.type.includes('مدمج') || cls.type.includes('ذاتي');
-                        let isPractical = cls.baseType === 'عملي';
-                        
-                        let typeEmoji = isBlended ? '💻' : (isPractical ? '🛠️' : '📘');
-                        let borderColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#4f8fab' : (isPractical ? '#8dc63f' : '#008e7e'))); 
-                        let titleColor = isIntersecting ? '#856404' : (isPre ? '#495057' : (isBlended ? '#3b6a7e' : (isPractical ? '#5c8a24' : '#008e7e'))); 
-                        let badgeColor = isIntersecting ? '#ff9800' : (isPre ? '#6c757d' : (isBlended ? '#4f8fab' : (isPractical ? '#74a629' : '#006d60')));
-                        let bgCard = isIntersecting ? '#fff3cd' : (isPre ? '#f8f9fa' : (isBlended ? '#eef4f7' : '#eef7f6'));
-                        let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
-                        let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
+    currentCursor = cls.end; 
+    
+    // --- تحديد الحالات ---
+    let isPre = cls.isPreRegistered;
+    let isIntersecting = cls.hasIntersection;
+    let isRemote = cls.type.includes('عن بعد');
+    let isSelf = cls.type.includes('ذاتي');
+    let isBlended = cls.type.includes('مدمج');
+    let isPractical = cls.baseType === 'عملي';
+    
+    // --- 1. تحديد الرمز التعبيري ---
+    let typeEmoji = '📘'; 
+    if (isPractical) typeEmoji = '🛠️';
+    if (isRemote) typeEmoji = '💻';
+    if (isSelf) typeEmoji = '🧑‍💻';
+    if (isBlended) typeEmoji = '🧩';
 
-                        if (gapMinutes > 0) {
-    let gapText = '';
-    if (gapMinutes >= 15) {
-        let h = Math.floor(gapMinutes / 60);
-        let m = gapMinutes % 60;
-        let textArr = [];
-        if (h > 0) textArr.push(h + 'س');
-        if (m > 0) textArr.push(m + 'د');
-        gapText = textArr.join('');
+    // --- 2. تحديد الألوان (حسب الأولوية) ---
+    let borderColor = '#008e7e'; // الافتراضي نظري
+    let bgCard = '#eef7f6';
+
+    if (isIntersecting) {
+        borderColor = '#ff9800'; bgCard = '#fff3cd'; // برتقالي للتعارض
+    } else if (isPre) {
+        borderColor = '#6c757d'; bgCard = '#f8f9fa'; // رمادي للمسجل مسبقاً
+    } else if (isRemote) {
+        borderColor = '#1a73e8'; bgCard = '#e3f2fd'; // أزرق لعن بعد
+    } else if (isSelf) {
+        borderColor = '#9c27b0'; bgCard = '#f3e5f5'; // بنفسجي للذاتي
+    } else if (isBlended) {
+        borderColor = '#4f8fab'; bgCard = '#eef4f7'; // سماوي للمدمج
+    } else if (isPractical) {
+        borderColor = '#8dc63f'; bgCard = '#f1f8e9'; // أخضر للعملي
     }
-    gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">${gapText}</div>`;
-}
-                        
-                        gridHTML += `
-                            <div class="course-card" style="align-self: stretch; background:${bgCard}; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                
-                               <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
-    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cls.code}">${intersectTag}${cls.code}${preTag}</span>
-    <div style="display:flex; align-items:center; gap:5px; flex-shrink: 0;">
-        <span style="font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
-        <button class="delete-crn-btn" onclick="removeCrnFromTrainee('${traineeId}', '${cls.crn}', '${cls.code}')" title="حذف الشعبة من الجدول">✖</button>
-    </div>
-</strong>
-                                <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
-                                    <span class="time" dir="ltr" style="font-size:${timeSize}; white-space:nowrap;">${cls.textTime}</span>
-                                    <span class="crn-badge" style="background-color: ${badgeColor}; font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
-                                </div>
-                            </div>
-                        `;     
-                    }
-                    gridHTML += `</div></div>`;
-                }
-            }
-            gridHTML += '</div>';
 
+    let titleColor = borderColor;
+    let badgeColor = borderColor;
+
+    // --- 3. تحديد الأوسمة (Tags) ---
+    let preTag = isPre ? '<span style="font-size:12px; margin-right:4px;" title="مسجل مسبقاً">📌</span>' : '';
+    let intersectTag = isIntersecting ? '<span style="font-size:12px; margin-right:4px;" title="تقاطع زمني">⚠️</span>' : '';
+
+    if (gapMinutes > 0) {
+        let gapText = '';
+        if (gapMinutes >= 15) {
+            let h = Math.floor(gapMinutes / 60);
+            let m = gapMinutes % 60;
+            let textArr = [];
+            if (h > 0) textArr.push(h + 'س');
+            if (m > 0) textArr.push(m + 'د');
+            gapText = textArr.join('');
+        }
+        gridHTML += `<div style="width:${gapPixels}px; min-width:${gapPixels}px; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:11px; font-weight:bold; border-left: 1px dashed #eee; flex-shrink: 0;">${gapText}</div>`;
+    }
+    
+    gridHTML += `
+        <div class="course-card" style="align-self: stretch; background:${bgCard}; border-right: 4px solid ${borderColor}; width:${cardPixels}px; min-width:${cardPixels}px; max-width:${cardPixels}px; flex-shrink:0; padding:${paddingStyle}; box-sizing: border-box; overflow:hidden; margin:0; display:flex; flex-direction:column; justify-content:space-between;">                                
+            <strong style="display: flex; justify-content: space-between; align-items: center; color: ${titleColor}; font-size:${titleSize}; margin-bottom:5px; white-space:nowrap; overflow:hidden;">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${cls.code}">${intersectTag}${cls.code}${preTag}</span>
+                <div style="display:flex; align-items:center; gap:5px; flex-shrink: 0;">
+                    <span style="font-size: ${titleSize}; line-height: 1;">${typeEmoji}</span>
+                    <button class="delete-crn-btn" onclick="removeCrnFromTrainee('${traineeId}', '${cls.crn}', '${cls.code}')" title="حذف الشعبة من الجدول">✖</button>
+                </div>
+            </strong>
+            <div class="course-card-details" style="flex-wrap: nowrap; gap: 5px;">
+                <span class="time" dir="ltr" style="font-size:${timeSize}; white-space:nowrap;">${cls.textTime}</span>
+                <span class="crn-badge" style="background-color: ${badgeColor}; font-size:${timeSize}; padding: 2px 4px;">${cls.crn}</span>
+            </div>
+        </div>
+    `;     
+}
+gridHTML += `</div></div>`;
+			
             detailsHTML += `<h3 style="color:#006d60; border-bottom:2px solid #8dc63f; padding-bottom:5px;">تفاصيل الأرقام المرجعية الموجودة في جدول ${isFemaleCampus ? 'المتدربة' : 'المتدرب'}</h3>`;
             detailsHTML += `<table class="data-table"><thead><tr><th>رمز المقرر</th><th>اسم المقرر</th><th>الرقم المرجعي</th><th>النوع</th><th>الساعات المعتمدة</th><th>ساعات الاتصال</th><th>اسم ${isFemaleCampus ? 'المدربة' : 'المدرب'}</th></tr></thead><tbody>`;
             
@@ -2501,9 +2516,16 @@ window.generateSuggestedCrnsHTML = function(traineeId, courseCode) {
                 }
                 
                 let fitStatusText = hasConflict ? 'يتعارض زمنياً' : (linkConflict ? 'غير مرتبط (SF33)' : 'متوافق');
-                let cssClass = (!hasConflict && !linkConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && !linkConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
-                let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
-                let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
+
+				let cssClass = (!hasConflict && !linkConflict && sec.remaining > 0) ? 'crn-perfect' : (!hasConflict && !linkConflict && sec.remaining <= 0) ? 'crn-potential' : 'crn-conflict';
+
+				let typeEmoji = sec.type.includes('عن بعد') ? '💻' : 
+                (sec.type.includes('ذاتي') ? '🧑‍💻' : 
+                (sec.type.includes('مدمج') ? '🧩' : 
+                (sec.baseType === 'عملي' ? '🛠️' : '📘')));
+// --------------------------------
+
+let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('${traineeId}', '${sec.crn}')" style="cursor:pointer;" title="اضغط لإضافة هذه الشعبة للجدول مباشرة"` : '';
                 
                 crnsListHTML.push(`<span class="crn-item ${cssClass} ${(!hasConflict && !linkConflict) ? 'add-btn-hover' : ''}" ${clickAction}>${typeEmoji} ${sec.crn} (${statusText} - ${fitStatusText})</span>`);
             }
@@ -2898,16 +2920,20 @@ window.updateCrnDropdown = function() {
             
             // 4. إضافة الشعبة للقائمة إذا كانت سليمة أو مضافة مسبقاً
             if (isAlreadyAdded || (!conflict && !linkConflict)) {
-                let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
-                let typeEmoji = (sec.type.includes('مدمج') || sec.type.includes('ذاتي')) ? '💻' : (sec.baseType === 'عملي' ? '🛠️' : '📘');
-                
-                let capText = isAlreadyAdded ? '[✅ مدرجة بجدوله]' : (sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`);
-                
-                availableCrns.push({
-                    crn: sec.crn,
-                    text: `${typeEmoji} ${sec.crn} | ${schedulesText} ${capText}`
-                });
-            }
+    let schedulesText = sec.schedules.map(sch => sch.days.map(d => reverseDaysMap[d]).join(' و ') + ' (' + sch.timeData.originalText + ')').join(' | ');
+    
+    let typeEmoji = sec.type.includes('عن بعد') ? '💻' : 
+                    (sec.type.includes('ذاتي') ? '🧑‍💻' : 
+                    (sec.type.includes('مدمج') ? '🧩' : 
+                    (sec.baseType === 'عملي' ? '🛠️' : '📘')));
+    
+    let capText = isAlreadyAdded ? '[✅ مدرجة بجدوله]' : (sec.remaining <= 0 ? '[ممتلئة]' : `[متبقي: ${sec.remaining}]`);
+    
+    availableCrns.push({
+        crn: sec.crn,
+        text: `${typeEmoji} ${sec.crn} | ${schedulesText} ${capText}`
+    });
+}
         }
     }
 
@@ -3397,10 +3423,15 @@ window.compareTraineeSchedules = function() {
         validCombos.forEach(item => {
             // تنسيق نص الزر ليظهر أوقات وأنواع الشقوق المضافة
             let displayParts = item.combo.map(sec => {
-                let timeText = sec.schedules[0].timeData.originalText;
-                let typeEmoji = sec.baseType === 'عملي' ? '🛠️' : '📘';
-                return `${typeEmoji} ${timeText}`;
-            });
+    let timeText = sec.schedules[0].timeData.originalText;
+    
+    let typeEmoji = sec.type.includes('عن بعد') ? '💻' : 
+                    (sec.type.includes('ذاتي') ? '🧑‍💻' : 
+                    (sec.type.includes('مدمج') ? '🧩' : 
+                    (sec.baseType === 'عملي' ? '🛠️' : '📘')));
+   
+    return `${typeEmoji} ${timeText}`;
+});
             let displayText = displayParts.join(' + ');
 
             html += `<button type="button" onclick="addCompleteComboAndRefresh('${traineeId}', '${item.crnList}', '${id1}', '${id2}')" class="add-btn-hover" style="background:#fff; border:1px solid #008e7e; color:#006d60; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1);" title="إضافة المقرر بكلا الشقين للجدول">➕ ${item.code} (${displayText})</button>`;
