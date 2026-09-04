@@ -4036,7 +4036,7 @@ window.copyOptimizedPairToRayat = function(id1, id2) {
         // 2. تقرير جدول الوحدة SS01
         document.getElementById('ss01File').addEventListener('change', function() {
             if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv', 'xlsx', 'xls'])) { this.value = ''; return; }
-            validateFileHeaders(this, [['الرقم المرجعي', 'نوع الجدولة'], ['كل من الاستجابة الصوتية والخدمة الذاتية متاح', 'جزء الفصل'], ['المقرر', 'اليوم']], 'جدول الوحدة (SS01)'); 
+            validateFileHeaders(this, [['الرقم المرجعي', 'جزء الفصل' ,'نوع الجدولة'], ['المقرر', 'كل من الاستجابة الصوتية والخدمة الذاتية متاح' ,'اليوم']], 'جدول الوحدة (SS01)'); 
         });
 
         // 3. تقرير الشعب والشعب المرتبطة SF33
