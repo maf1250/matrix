@@ -3958,6 +3958,132 @@ window.copyOptimizedPairToRayat = function(id1, id2) {
         showToast('❌ فشل النسخ');
     });
 };
+	// --- 1. دالة حارس الملفات (File Guard) ---
+    function isValidFileGuard(file, allowedExtensions = ['csv', 'xlsx', 'xls'], maxSizeMB = 15) {
+        if (!file) return false;
+        
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        if (file.size > maxSizeBytes) {
+            showToast(`❌ حجم الملف (${file.name}) يتجاوز الحد المسموح.`);
+            return false;
+        }
+
+        const fileName = file.name.toLowerCase();
+        const isValidExt = allowedExtensions.some(ext => fileName.endsWith(`.${ext}`));
+        if (!isValidExt) {
+            showToast(`❌ امتداد التقرير غير مدعوم. المسموح: ${allowedExtensions.join(', ')}`);
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- 2. دالة التحقق من صحة الأعمدة (Headers Validator) ---
+    function validateFileHeaders(fileInput, requiredKeywordGroups, fileAlias) {
+        const file = fileInput.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                // استخراج البيانات كمصفوفة من الصفوف للبحث في أولها
+                const jsonArray = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                
+                if (jsonArray.length === 0) throw new Error("الملف فارغ");
+                
+                // دمج أول 15 صف كنص للبحث عن العناوين (لتجاوز الترويسات الفارغة)
+                let headersText = "";
+                for(let i = 0; i < Math.min(jsonArray.length, 15); i++) {
+                    headersText += jsonArray[i].join(" ") + " ";
+                }
+                
+                // فحص كل مجموعة كلمات (يجب أن يتطابق شرط واحد من كل مجموعة)
+                let isValid = requiredKeywordGroups.every(group => 
+                    group.some(keyword => headersText.includes(keyword))
+                );
+                
+                if (!isValid) {
+                    showToast(`❌ أعمدة تقرير ${fileAlias} خاطئة! يرجى التأكد من التقرير.`);
+                    fileInput.value = ''; // تفريغ الحقل لمنع استخدامه
+                } else {
+                    showToast(`✅ تم التحقق من تقرير ${fileAlias} بنجاح.`);
+                }
+            } catch(err) {
+                showToast(`❌ حدث خطأ في قراءة تقرير ${fileAlias}.`);
+                fileInput.value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // --- 3. مستمع الأحداث لتشغيل الحراس فور إرفاق الملفات ---
+    window.addEventListener('DOMContentLoaded', () => {
+        
+        // 1. ملف مصفوفة التسجيل
+        document.getElementById('traineesFile').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['xlsx', 'xls'])) { this.value = ''; return; }
+            validateFileHeaders(this, [['الرقم'], ['الاسم'], ['رمز'], ['متبقية']], 'المصفوفة'); 
+        });
+
+        // 2. تقرير جدول الوحدة SS01
+        document.getElementById('ss01File').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv', 'xlsx', 'xls'])) { this.value = ''; return; }
+            validateFileHeaders(this, [['الرقم المرجعي', 'نوع الجدولة'], ['المقرر', 'اليوم']], 'جدول الوحدة (SS01)'); 
+        });
+
+        // 3. تقرير الشعب والشعب المرتبطة SF33
+        let sf33Input = document.getElementById('sf33File');
+        if (sf33Input) {
+            sf33Input.addEventListener('change', function() {
+                if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv', 'xlsx', 'xls'])) { this.value = ''; return; }
+                validateFileHeaders(this, [['الرابط', 'الرقم'], ['الشعبة المرتبطة']], 'الشعب المرتبطة (SF33)'); 
+            });
+        }
+
+        // 4. تقرير المسجلين في شعبة SF01
+        let sf01Input = document.getElementById('sf01File');
+        if (sf01Input) {
+            sf01Input.addEventListener('change', function() {
+                if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv', 'xlsx', 'xls'])) { this.value = ''; return; }
+                validateFileHeaders(this, [['حالة المتدرب'], ['الرقم المرجعي'], ['الوحدة']], 'المسجلين (SF01)'); 
+            });
+        }
+        
+    });
+
+    // --- 2. مستمع الأحداث لتطبيق الحارس فور اختيار الملف ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // حارس مصفوفة المتدربين (يسمح بـ Excel فقط)
+        document.getElementById('traineesFile').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['xlsx', 'xls'])) {
+                this.value = ''; // تفريغ الحقل
+            }
+        });
+
+        // حارس تقرير SS01 (يسمح بـ CSV فقط)
+        document.getElementById('ss01File').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv'])) {
+                this.value = ''; 
+            }
+        });
+
+        // حارس تقرير SF33 (يسمح بـ CSV فقط)
+        document.getElementById('sf33File').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv'])) {
+                this.value = ''; 
+            }
+        });
+
+        // حارس تقرير SF01 (يسمح بـ CSV فقط)
+        document.getElementById('sf01File').addEventListener('change', function() {
+            if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['csv'])) {
+                this.value = ''; 
+            }
+        });
+    });
 </script>
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="العودة للأعلى">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
