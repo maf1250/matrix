@@ -2769,12 +2769,13 @@ let clickAction = (!hasConflict && !linkConflict) ? `onclick="addCrnToTrainee('$
     };
     
      // دالة إخفاء الإعلان
-        function hideAd() {
-            const ad = document.getElementById('matrixAd');
-            if (ad) {
-                ad.style.display = 'none';
-            }
+         function hideAd() {
+        const ad = document.getElementById('matrixAd');
+        if (ad) {
+            ad.style.display = 'none';
+            localStorage.setItem('isMatrixAdHidden', 'true');
         }
+    }
     // فتح نافذة المراسلة
 function openContactModal() {
     document.getElementById('contact-modal').style.display = 'flex';
@@ -4021,7 +4022,11 @@ window.copyOptimizedPairToRayat = function(id1, id2) {
 
     // --- 3. مستمع الأحداث لتشغيل الحراس فور إرفاق الملفات ---
     window.addEventListener('DOMContentLoaded', () => {
-        
+
+		if (localStorage.getItem('isMatrixAdHidden') === 'true') {
+            const ad = document.getElementById('matrixAd');
+            if (ad) ad.style.display = 'none';
+        }
         // 1. ملف مصفوفة التسجيل
         document.getElementById('traineesFile').addEventListener('change', function() {
             if (this.files.length > 0 && !isValidFileGuard(this.files[0], ['xlsx', 'xls'])) { this.value = ''; return; }
